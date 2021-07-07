@@ -774,11 +774,11 @@ class NeMoModelCheckpoint(ModelCheckpoint):
             return output
 
     def on_train_end(self, trainer, pl_module):
+        logging.info("a - on train end start")
         if trainer.fast_dev_run:
             return None
 
-        # Call parent on_train_end() to save the -last checkpoint
-        super().on_train_end(trainer, pl_module)
+        logging.info("b - on train end past conditions")
 
         # Load the best model and then re-save it
         if self.save_best_model:
@@ -791,6 +791,7 @@ class NeMoModelCheckpoint(ModelCheckpoint):
                 trainer.checkpoint_connector.restore(self.best_model_path)
 
         pl_module.save_to(save_path=os.path.join(self.dirpath, self.prefix + self.postfix))
+        logging.info("h - finished saving model.")
 
     def _del_model_without_trainer(self, filepath: str) -> None:
         app_state = AppState()
