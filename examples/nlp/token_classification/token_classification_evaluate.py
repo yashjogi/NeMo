@@ -81,6 +81,8 @@ def main(cfg: DictConfig) -> None:
 
     if os.path.exists(cfg.pretrained_model):
         model = TokenClassificationModel.restore_from(cfg.pretrained_model)
+        model.export('model.onnx')
+        import ipdb; ipdb.set_trace()
     elif cfg.pretrained_model in TokenClassificationModel.get_available_model_names():
         model = TokenClassificationModel.from_pretrained(cfg.pretrained_model)
     else:

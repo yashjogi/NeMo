@@ -27,6 +27,7 @@ from nemo.collections.nlp.metrics.classification_report import ClassificationRep
 from nemo.collections.nlp.models.duplex_text_normalization.utils import has_numbers
 from nemo.collections.nlp.models.nlp_model import NLPModel
 from nemo.core.classes.common import PretrainedModelInfo
+from nemo.core.classes.exportable import Exportable
 from nemo.utils import logging
 from nemo.utils.decorators.experimental import experimental
 
@@ -34,7 +35,7 @@ __all__ = ['DuplexTaggerModel']
 
 
 @experimental
-class DuplexTaggerModel(NLPModel):
+class DuplexTaggerModel(NLPModel, Exportable):
     """
     Transformer-based (duplex) tagger model for TN/ITN.
     """
