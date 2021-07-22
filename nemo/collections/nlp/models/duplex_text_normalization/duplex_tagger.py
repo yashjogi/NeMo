@@ -36,8 +36,14 @@ from nemo.core.classes.exportable import Exportable
 from nemo.core.neural_types import ChannelType, MaskType, NeuralType, LogitsType
 from nemo.utils import logging
 from nemo.utils.decorators.experimental import experimental
+from onnxruntime import (
+    InferenceSession,
+)
 
-__all__ = ['DuplexTaggerModel']
+
+
+__all__ = ['DuplexTaggerModel', 'ONNXDuplexTaggerModel']
+
 
 
 class DuplexTaggerModel(NLPModel):
@@ -391,3 +397,134 @@ class DuplexTaggerModel(NLPModel):
         """
         result = []
         return result
+
+
+
+class ONNXDuplexTaggerModel():
+    def __init__(self, onnx_tagger, lang='en'):
+        self._tokenizer = AutoTokenizer.from_pretrained('distilroberta-base', add_prefix_space=True)
+        self.num_labels = len(constants.ALL_TAG_LABELS)
+        self.model  = InferenceSession(str(onnx_tagger))
+
+        # Language
+        self.lang = lang
+    
+    def _infer(self, sents: List[List[str]], inst_directions: List[str]):
+        """ Main function for Inference
+        Args:
+            sents: A list of inputs tokenized by a basic tokenizer.
+            inst_directions: A list of str where each str indicates the direction of the corresponding instance (i.e., INST_BACKWARD for ITN or INST_FORWARD for TN).
+
+        Returns:
+            all_tag_preds: A list of list where each list contains the raw tag predictions for the corresponding input.
+            nb_spans: A list of ints where each int indicates the number of semiotic spans in each input.
+            span_starts: A list of lists where each list contains the starting locations of semiotic spans in an input.
+            span_ends: A list of lists where each list contains the ending locations of semiotic spans in an input.
+        """
+        # Append prefix
+        texts = []
+        for ix, sent in enumerate(sents):
+            if inst_directions[ix] == constants.INST_BACKWARD:
+                prefix = constants.ITN_PREFIX
+            if inst_directions[ix] == constants.INST_FORWARD:
+                prefix = constants.TN_PREFIX
+            texts.append([prefix] + sent)
+
+        # Apply the model
+        prefix = constants.TN_PREFIX
+        texts = [[prefix] + sent for sent in sents]
+        encodings = self._tokenizer(
+            texts, is_split_into_words=True, padding=True, truncation=True, return_tensors='pt'
+        )
+        ip = {self.model.get_inputs()[0].name: encodings[self.model.get_inputs()[0].name].cpu().numpy(), self.model.get_inputs()[1].name: encodings[self.model.get_inputs()[1].name].cpu().numpy()}
+        logit_name = self.model.get_outputs()[0].name
+        
+        logits = self.model.run([logit_name], ip)[0]
+        logits = torch.from_numpy(logits)
+        pred_indexes = torch.argmax(logits, dim=-1).tolist()
+
+        # Extract all_tag_preds
+        all_tag_preds = []
+        batch_size, max_len = encodings['input_ids'].size()
+        for ix in range(batch_size):
+            raw_tag_preds = [constants.ALL_TAG_LABELS[p] for p in pred_indexes[ix][1:]]
+            tag_preds, previous_word_idx = [], None
+            word_ids = encodings.word_ids(batch_index=ix)
+            for jx, word_idx in enumerate(word_ids):
+                if word_idx is None:
+                    continue
+                elif word_idx != previous_word_idx:
+                    tag_preds.append(raw_tag_preds[jx - 1])
+                previous_word_idx = word_idx
+            tag_preds = tag_preds[1:]
+            all_tag_preds.append(tag_preds)
+
+        # Postprocessing
+        all_tag_preds = [
+            self.postprocess_tag_preds(words, inst_dir, ps)
+            for words, inst_dir, ps in zip(sents, inst_directions, all_tag_preds)
+        ]
+
+        # Decoding
+        nb_spans, span_starts, span_ends = self.decode_tag_preds(all_tag_preds)
+
+        return all_tag_preds, nb_spans, span_starts, span_ends
+
+    def postprocess_tag_preds(self, words, inst_dir, preds):
+        """ Function for postprocessing the raw tag predictions of the model. It
+        corrects obvious mistakes in the tag predictions such as a TRANSFORM span
+        starts with I_TRANSFORM_TAG (instead of B_TRANSFORM_TAG).
+
+        Args:
+            words: The words in the input text
+            inst_dir: The direction of the instance (i.e., INST_BACKWARD or INST_FORWARD).
+            preds: The raw tag predictions
+
+        Returns: The processed raw tag predictions
+        """
+        final_preds = []
+        for ix, p in enumerate(preds):
+            # a TRANSFORM span starts with I_TRANSFORM_TAG
+            if p == constants.I_PREFIX + constants.TRANSFORM_TAG:
+                if ix == 0 or (not constants.TRANSFORM_TAG in final_preds[ix - 1]):
+                    final_preds.append(constants.B_PREFIX + constants.TRANSFORM_TAG)
+                    continue
+            # a span has numbers but does not have TRANSFORM tags (for TN)
+            if inst_dir == constants.INST_FORWARD:
+                if has_numbers(words[ix]) and (not constants.TRANSFORM_TAG in p):
+                    final_preds.append(constants.B_PREFIX + constants.TRANSFORM_TAG)
+                    continue
+            # Default
+            final_preds.append(p)
+        return final_preds
+
+    def decode_tag_preds(self, tag_preds):
+        """ Decoding the raw tag predictions to locate the semiotic spans in the
+        input texts.
+
+        Args:
+            tag_preds: A list of list where each list contains the raw tag predictions for the corresponding input.
+
+        Returns:
+            nb_spans: A list of ints where each int indicates the number of semiotic spans in each input.
+            span_starts: A list of lists where each list contains the starting locations of semiotic spans in an input.
+            span_ends: A list of lists where each list contains the ending locations of semiotic spans in an input.
+        """
+        nb_spans, span_starts, span_ends = [], [], []
+        for i, preds in enumerate(tag_preds):
+            cur_nb_spans, cur_span_start = 0, None
+            cur_span_starts, cur_span_ends = [], []
+            for ix, pred in enumerate(preds + ['EOS']):
+                if pred != constants.I_PREFIX + constants.TRANSFORM_TAG:
+                    if not cur_span_start is None:
+                        cur_nb_spans += 1
+                        cur_span_starts.append(cur_span_start)
+                        cur_span_ends.append(ix - 1)
+                    cur_span_start = None
+                if pred == constants.B_PREFIX + constants.TRANSFORM_TAG:
+                    cur_span_start = ix
+            nb_spans.append(cur_nb_spans)
+            span_starts.append(cur_span_starts)
+            span_ends.append(cur_span_ends)
+
+        return nb_spans, span_starts, span_ends

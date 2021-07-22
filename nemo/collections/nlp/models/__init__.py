@@ -16,7 +16,7 @@ from nemo.collections.nlp.models.dialogue_state_tracking.sgdqa_model import SGDQ
 from nemo.collections.nlp.models.duplex_text_normalization import (
     DuplexDecoderModel,
     DuplexTaggerModel,
-    DuplexTextNormalizationModel,
+    DuplexTextNormalizationModel, ONNXDuplexTextNormalizationModel
 )
 from nemo.collections.nlp.models.entity_linking.entity_linking_model import EntityLinkingModel
 from nemo.collections.nlp.models.glue_benchmark.glue_benchmark_model import GLUEModel

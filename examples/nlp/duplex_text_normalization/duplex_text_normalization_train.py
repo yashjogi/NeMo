@@ -146,6 +146,20 @@ def main(cfg: DictConfig) -> None:
         results = tn_model.evaluate(test_dataset, cfg.data.test_ds.batch_size, cfg.inference.errors_log_fp)
         print(f'\nTest results: {results}')
 
+    # # Train the decoder
+    if cfg.decoder_model.do_training:
+        logging.info(
+            "================================================================================================"
+        )
+        logging.info('Starting training decoder...')
+        decoder_trainer, decoder_model = instantiate_model_and_trainer(cfg, DECODER_MODEL, True)
+        exp_manager(decoder_trainer, cfg.get('decoder_exp_manager', None))
+        decoder_trainer.fit(decoder_model)
+        if cfg.decoder_model.nemo_path:
+            decoder_model.to(decoder_trainer.accelerator.root_device)
+            decoder_model.save_to(cfg.decoder_model.nemo_path)
+        logging.info('Training finished!')
+
 
 if __name__ == '__main__':
     main()

@@ -16,6 +16,8 @@ import json
 import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
+from time import perf_counter
+from nemo.collections.nlp.models.duplex_text_normalization.duplex_model_structure import OnnxT5, get_onnx_runtime_sessions
 
 import torch
 from omegaconf import DictConfig
@@ -43,7 +45,7 @@ except (ModuleNotFoundError, ImportError):
     PYNINI_AVAILABLE = False
 
 
-__all__ = ['DuplexDecoderModel']
+__all__ = ['DuplexDecoderModel', 'ONNXDuplexDecoderModel']
 
 
 @experimental
@@ -100,6 +102,13 @@ class DuplexDecoderModel(NLPModel):
                 "prior to usage of this toolkit."
             )
         self.cg_normalizer = NormalizerWithAudio(input_case=input_case, lang=self.lang)
+    @property
+    def input_module(self):
+        return self
+
+    @property
+    def output_module(self):
+        return self
 
     # Training
     def training_step(self, batch, batch_idx):
@@ -510,3 +519,115 @@ class DuplexDecoderModel(NLPModel):
         """
         result = []
         return result
+
+
+
+class ONNXDuplexDecoderModel():
+    """
+    Transformer-based (duplex) decoder model for TN/ITN.
+    """
+
+    def __init__(self, encoder, decoder, decoder_init, lang):
+        self._tokenizer = AutoTokenizer.from_pretrained('t5-base')
+
+        self.onnx_encoder = encoder
+        self.onnx_decoder = decoder
+        self.onnx_decoder_init = decoder_init
+        decoder_session = get_onnx_runtime_sessions((encoder, decoder, decoder_init))
+        self.model = OnnxT5('t5-base', decoder_session)
+        # Language
+        self.lang = lang
+
+   
+    def _infer(
+        self,
+        sents: List[List[str]],
+        nb_spans: List[int],
+        span_starts: List[List[int]],
+        span_ends: List[List[int]],
+        inst_directions: List[str],
+    ):
+        """ Main function for Inference
+        Args:
+            sents: A list of inputs tokenized by a basic tokenizer.
+            nb_spans: A list of ints where each int indicates the number of semiotic spans in each input.
+            span_starts: A list of lists where each list contains the starting locations of semiotic spans in an input.
+            span_ends: A list of lists where each list contains the ending locations of semiotic spans in an input.
+            inst_directions: A list of str where each str indicates the direction of the corresponding instance (i.e., INST_BACKWARD for ITN or INST_FORWARD for TN).
+
+        Returns: A list of lists where each list contains the decoded spans for the corresponding input.
+        """
+
+        if sum(nb_spans) == 0:
+            return [[]] * len(sents)
+        model, tokenizer = self.model, self._tokenizer
+        try:
+            model_max_len = model.config.n_positions
+        except AttributeError:
+            model_max_len = 512
+        ctx_size = constants.DECODE_CTX_SIZE
+        extra_id_0 = constants.EXTRA_ID_0
+        extra_id_1 = constants.EXTRA_ID_1
+
+        # Build all_inputs
+        input_centers, input_dirs, all_inputs = [], [], []
+        for ix, sent in enumerate(sents):
+            cur_inputs = []
+            for jx in range(nb_spans[ix]):
+                cur_start = span_starts[ix][jx]
+                cur_end = span_ends[ix][jx]
+                ctx_left = sent[max(0, cur_start - ctx_size) : cur_start]
+                ctx_right = sent[cur_end + 1 : cur_end + 1 + ctx_size]
+                span_words = sent[cur_start : cur_end + 1]
+                span_words_str = ' '.join(span_words)
+                if is_url(span_words_str):
+                    span_words_str = span_words_str.lower()
+                input_centers.append(span_words_str)
+                input_dirs.append(inst_directions[ix])
+                # Build cur_inputs
+                if inst_directions[ix] == constants.INST_BACKWARD:
+                    cur_inputs = [constants.ITN_PREFIX]
+                if inst_directions[ix] == constants.INST_FORWARD:
+                    cur_inputs = [constants.TN_PREFIX]
+                cur_inputs += ctx_left
+                cur_inputs += [extra_id_0] + span_words_str.split(' ') + [extra_id_1]
+                cur_inputs += ctx_right
+                all_inputs.append(' '.join(cur_inputs))
+
+        # Apply the decoding model
+        batch = tokenizer(all_inputs, padding=True, return_tensors='pt')
+        input_ids = batch['input_ids']
+        generated_ids = model.generate(input_ids, max_length=model_max_len)
+        generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+
+        # Post processing
+        generated_texts = self.postprocess_output_spans(input_centers, generated_texts, input_dirs)
+
+        # Prepare final_texts
+        final_texts, span_ctx = [], 0
+        for nb_span in nb_spans:
+            cur_texts = []
+            for i in range(nb_span):
+                cur_texts.append(generated_texts[span_ctx])
+                span_ctx += 1
+            final_texts.append(cur_texts)
+
+        return final_texts
+
+    def postprocess_output_spans(self, input_centers, output_spans, input_dirs):
+        en_greek_spokens = list(constants.EN_GREEK_TO_SPOKEN.values())
+        for ix, (_input, _output) in enumerate(zip(input_centers, output_spans)):
+            if self.lang == constants.ENGLISH:
+                # Handle URL
+                if is_url(_input):
+                    output_spans[ix] = ' '.join(wordninja.split(_output))
+                    continue
+                # Greek letters
+                if _input in en_greek_spokens:
+                    if input_dirs[ix] == constants.INST_FORWARD:
+                        output_spans[ix] = _input
+                    if input_dirs[ix] == constants.INST_BACKWARD:
+                        output_spans[ix] = constants.EN_SPOKEN_TO_GREEK[_input]
+        return output_spans
+
+  
