@@ -192,6 +192,15 @@ def _masked_conv_init_lens(lens: torch.Tensor, current_maxlen: int, original_max
         new_max_lens = original_maxlen
     return new_lens, new_max_lens
 
+#From https://github.com/FrederikWarburg/Burst-Image-Deblurring/blob/23ea503c9c2c27567308da13a2d28d28629e8c25/model.py#L14
+class GlobalMaxPool(torch.nn.Module):
+    def __init__(self):
+        super(GlobalMaxPool, self).__init__()
+
+    def forward(self, input):
+        output = torch.max(input, dim=1)[0]
+
+        return torch.unsqueeze(output, 1)
 
 class MaskedConv1d(nn.Module):
     __constants__ = ["use_conv_mask", "real_out_channels", "heads"]
@@ -622,6 +631,8 @@ class JasperBlock(nn.Module):
         stride_last=False,
         future_context: int = -1,
         quantize=False,
+        concat_pool=True,
+        concat_type='max'
     ):
         super(JasperBlock, self).__init__()
 
@@ -748,6 +759,25 @@ class JasperBlock(nn.Module):
             self.res = None
 
         self.mout = nn.Sequential(*self._get_act_dropout_layer(drop_prob=dropout, activation=activation))
+        self.concat_pool = concat_pool
+        self.concat_type = concat_type
+        self.pooling = GlobalMaxPool()
+        # # Encode
+        # encode_block1 = self.conv_encode1(x.view((b*im, c, h, w))) # id = 1
+        # _, _, h, w = encode_block1.size()
+        # features1 = encode_block1.view((b, im, -1, h, w))
+        # max_global_features1 = self.pooling(features1)  # id = 2
+        # encode_pool1 = self.concat(features1, max_global_features1)  # id = 3
+
+    def concat(self, x, max_):
+
+        b, im, c, h, w = x.size()
+
+        x = x.view(b*im, c, h, w)
+        max_ = max_.repeat(1, im, 1, 1, 1).view(b*im, c, h, w)
+        output = torch.cat([x, max_], dim=1)
+
+        return output
 
     def _get_conv(
         self,
@@ -896,7 +926,7 @@ class JasperBlock(nn.Module):
 
         Args:
             input_: The input is a tuple of two values - the preprocessed audio signal as well as the lengths
-                of the audio signal. The audio signal is padded to the shape [B, D, T] and the lengths are
+                of the audio signal. The audio signal is padded to the shape [B, C, D, T] and the lengths are
                 a torch vector of length B.
 
         Returns:
@@ -908,6 +938,11 @@ class JasperBlock(nn.Module):
         xs = input_[0]
         if len(input_) == 2:
             xs, lens_orig = input_
+
+        # b, n, c, h, w = x.size()
+        # x1 = self.conv(x.view(n * b, c, h, w))
+        # h, w = x1.shape[-2:]
+        # x = x.view(b, n, self.out_channels, h, w)
 
         # compute forward convolutions
         out = xs[-1]

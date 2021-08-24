@@ -73,7 +73,7 @@ class MultiChannelConvASREncoder(NeuralModule):
         """
         return OrderedDict(
             {
-                "audio_signal": NeuralType(('B', 'C', 'C', 'D', 'T'), SpectrogramType()),
+                "audio_signal": NeuralType(('B', 'C', 'D', 'T'), SpectrogramType()),
                 "length": NeuralType(tuple('B'), LengthsType()),
             }
         )
@@ -107,10 +107,6 @@ class MultiChannelConvASREncoder(NeuralModule):
         super().__init__()
         if isinstance(jasper, ListConfig):
             jasper = OmegaConf.to_container(jasper)
-
-        kernel_size = {'square': 4, 'rect_vert': (8, 4), 'rect_horiz': (4, 8)}
-
-        unet = UNet(unet_basefilters, 1, kernel_size[unet_kernel_type])
 
         activation = jasper_activations[activation]()
 
@@ -170,6 +166,8 @@ class MultiChannelConvASREncoder(NeuralModule):
                     stride_last=stride_last,
                     future_context=future_context,
                     quantize=quantize,
+                    concat_pool=True,
+                    concat_type = 'max'
                 )
             )
             feat_in = lcfg['filters']

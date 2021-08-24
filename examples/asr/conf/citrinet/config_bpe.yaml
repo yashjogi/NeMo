@@ -23,6 +23,7 @@ model:
     manifest_filepath: ???
     sample_rate: 16000
     batch_size: 32
+    max_duration: 16.7
     shuffle: False
 
   tokenizer:
