@@ -227,6 +227,7 @@ class FilterbankFeatures(nn.Module):
         pad_value=0,
         mag_power=2.0,
         use_grads=False,
+        append_energy=True,
     ):
         super().__init__()
         if stft_conv or stft_exact_pad:
@@ -326,7 +327,7 @@ class FilterbankFeatures(nn.Module):
         self.use_grads = use_grads
         if not use_grads:
             self.forward = torch.no_grad()(self.forward)
-
+        self.append_energy = append_energy
         # log_zero_guard_value is the the small we want to use, we support
         # an actual number, or "tiny", or "eps"
         self.log_zero_guard_type = log_zero_guard_type
@@ -398,6 +399,8 @@ class FilterbankFeatures(nn.Module):
         # get power spectrum
         if self.mag_power != 1.0:
             x = x.pow(self.mag_power)
+        if self.append_energy:
+            x_energy = x.sum(dim=1)
 
         # dot with filterbank energies
         x = torch.matmul(self.fb.to(x.dtype), x)
@@ -406,8 +409,14 @@ class FilterbankFeatures(nn.Module):
         if self.log:
             if self.log_zero_guard_type == "add":
                 x = torch.log(x + self.log_zero_guard_value_fn(x))
+                if self.append_energy:
+                    x_energy = torch.log(x_energy + self.log_zero_guard_value_fn(x_energy))
+
             elif self.log_zero_guard_type == "clamp":
                 x = torch.log(torch.clamp(x, min=self.log_zero_guard_value_fn(x)))
+                if self.append_energy:
+                    x_energy = torch.log(torch.clamp(x_energy, min=self.log_zero_guard_value_fn(x_energy)))
+
             else:
                 raise ValueError("log_zero_guard_type was not understood")
 
@@ -415,10 +424,13 @@ class FilterbankFeatures(nn.Module):
         if self.frame_splicing > 1:
             x = splice_frames(x, self.frame_splicing)
 
+        sh = x.shape
+        x[:,sh[1]-2,:] = x[:,sh[1]-2,:] + x[:,sh[1]-1,:]
+
         # normalize if required
         if self.normalize:
             x = normalize_batch(x, seq_len, normalize_type=self.normalize)
-
+        x[:, sh[1] - 1, :] = x_energy
         # mask to zero any values beyond seq_len in batch, pad to multiple of `pad_to` (for efficiency)
         max_len = x.size(-1)
         mask = torch.arange(max_len).to(x.device)
