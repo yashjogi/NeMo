@@ -58,14 +58,14 @@ from argparse import ArgumentParser
 
 def parse_arguments():
     parser = ArgumentParser()
-    parser.add_argument('--onnx_tagger', type=str, default='/home/yzhang/code/NeMo/examples/nlp/duplex_text_normalization/tagger.onnx', required=False, help="Path to onnx encoder model")
+    parser.add_argument('--onnx_tagger', type=str, default='onnx/tagger.onnx', required=False, help="Path to onnx encoder model")
     parser.add_argument('--lang', type=str, default='en', required=False, help="Path to onnx encoder model")
     parser.add_argument('--mode', type=str, default='tn', required=False, choices=['itn', 'tn', 'joint'], help="Path to onnx encoder model")
     parser.add_argument('--batch_size', type=int, default=24, required=False, help="Path to onnx encoder model")
     parser.add_argument('--data_path', type=str, default='/mnt/data/text_norm/en_with_types_preprocessed/test.tsv', required=False, help="Path to onnx encoder model")
-    parser.add_argument('--onnx_encoder', type=str, default='/home/yzhang/code/fastT5/examples/models/t5-base-encoder.onnx', required=False, help="Path to onnx encoder model")
-    parser.add_argument('--onnx_decoder', type=str, default='/home/yzhang/code/fastT5/examples/models/t5-base-decoder.onnx', required=False, help="Path to onnx encoder model")
-    parser.add_argument('--onnx_decoder_init', type=str, default='/home/yzhang/code/fastT5/examples/models/t5-base-init-decoder.onnx', required=False, help="Path to onnx encoder model")
+    parser.add_argument('--onnx_encoder', type=str, default='onnx/t5-base-encoder.onnx', required=False, help="Path to onnx encoder model")
+    parser.add_argument('--onnx_decoder', type=str, default='onnx/t5-base-decoder.onnx', required=False, help="Path to onnx decoder model")
+    parser.add_argument('--onnx_decoder_init', type=str, default='onnx/t5-base-init-decoder.onnx', required=False, help="Path to onnx decoder model")
 
     args = parser.parse_args()
     return args
