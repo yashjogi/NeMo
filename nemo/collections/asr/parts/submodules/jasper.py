@@ -488,7 +488,7 @@ class SqueezeExcite(nn.Module):
                     self.pool.kernel_size = _single(self.context_window)
 
 
-class JasperBlock(nn.Module):
+class MultiChJasperBlock(nn.Module):
     """
     Constructs a single "Jasper" block. With modified parameters, also constructs other blocks for models
     such as `QuartzNet` and `Citrinet`.
@@ -703,6 +703,7 @@ class JasperBlock(nn.Module):
                 quantize=quantize,
             )
         )
+        #Concatenate here
 
         if se:
             conv.append(
@@ -939,7 +940,8 @@ class JasperBlock(nn.Module):
         if len(input_) == 2:
             xs, lens_orig = input_
 
-        # b, n, c, h, w = x.size()
+        b, n, h, w = xs.size()
+        x1 = xs.view(b*n, h, w)
         # x1 = self.conv(x.view(n * b, c, h, w))
         # h, w = x1.shape[-2:]
         # x = x.view(b, n, self.out_channels, h, w)
@@ -948,7 +950,9 @@ class JasperBlock(nn.Module):
         out = xs[-1]
 
         lens = lens_orig
-        for i, l in enumerate(self.mconv):
+        conv_len = len(self.mconv) - 1 if self.se else len(self.mconv)
+        for i in range(conv_len):
+            l = self.mconv[i]
             # if we're doing masked convolutions, we need to pass in and
             # possibly update the sequence lengths
             # if (i % 4) == 0 and self.conv_mask:
@@ -956,6 +960,15 @@ class JasperBlock(nn.Module):
                 out, lens = l(out, lens)
             else:
                 out = l(out)
+        features1 = out.view((b, n, -1, h, w))
+        # calculate max and append
+        if self.se:
+            l = self.mconv[-1]
+            if isinstance(l, MaskedConv1d):
+                out, lens = l(out, lens)
+            else:
+                out = l(out)
+
 
         # compute the residuals
         if self.res is not None:
