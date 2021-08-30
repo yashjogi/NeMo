@@ -362,7 +362,7 @@ class MultiChannelAudioToMelSpectrogramPreprocessor(AudioPreprocessor):
             0: AxisType(BatchTag)
         """
         return {
-            "processed_signal": NeuralType(('B', 'C', 'C', 'D', 'T'), MelSpectrogramType()),
+            "processed_signal": NeuralType(('B', 'C', 'D', 'T'), MelSpectrogramType()),
             "processed_length": NeuralType(tuple('B'), LengthsType()),
         }
 
@@ -436,7 +436,8 @@ class MultiChannelAudioToMelSpectrogramPreprocessor(AudioPreprocessor):
                                                     sig_shape[2]), length.repeat_interleave(sig_shape[1]))
         len_indexes = torch.from_numpy(np.arange(0,out_len.shape[-1],sig_shape[1])).type(torch.LongTensor)
         fin_len = out_len[len_indexes]
-        return (torch.unsqueeze(out_sig.view(sig_shape[0], sig_shape[1], out_sig.shape[1], out_sig.shape[2]), 2),fin_len)
+        return (out_sig.view(sig_shape[0], sig_shape[1], out_sig.shape[1], out_sig.shape[2]),fin_len)
+        # return (torch.unsqueeze(out_sig.view(sig_shape[0], sig_shape[1], out_sig.shape[1], out_sig.shape[2]), 2),fin_len)
 
     @property
     def filter_banks(self):

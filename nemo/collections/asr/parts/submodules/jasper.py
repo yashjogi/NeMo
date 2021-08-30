@@ -24,6 +24,7 @@ from torch.nn.modules.utils import _single
 
 from nemo.collections.asr.parts.utils.activations import Swish
 from nemo.utils import logging
+import numpy as np
 
 try:
     from pytorch_quantization import calib
@@ -488,7 +489,7 @@ class SqueezeExcite(nn.Module):
                     self.pool.kernel_size = _single(self.context_window)
 
 
-class MultiChJasperBlock(nn.Module):
+class JasperBlock(nn.Module):
     """
     Constructs a single "Jasper" block. With modified parameters, also constructs other blocks for models
     such as `QuartzNet` and `Citrinet`.
@@ -632,7 +633,9 @@ class MultiChJasperBlock(nn.Module):
         future_context: int = -1,
         quantize=False,
         concat_pool=True,
-        concat_type='max'
+        concat_type='max',
+        end_pool=False,
+        single_channel=False,
     ):
         super(JasperBlock, self).__init__()
 
@@ -704,6 +707,13 @@ class MultiChJasperBlock(nn.Module):
             )
         )
         #Concatenate here
+        self.end_pool=end_pool
+        if not end_pool and not single_channel:
+            self.concat_conv_kernel1 = nn.ModuleList(self._get_conv_bn_layer(
+                    planes*2,
+                    planes,
+                    kernel_size=1,
+            ))
 
         if se:
             conv.append(
@@ -763,6 +773,7 @@ class MultiChJasperBlock(nn.Module):
         self.concat_pool = concat_pool
         self.concat_type = concat_type
         self.pooling = GlobalMaxPool()
+        self.single_channel = single_channel
         # # Encode
         # encode_block1 = self.conv_encode1(x.view((b*im, c, h, w))) # id = 1
         # _, _, h, w = encode_block1.size()
@@ -772,10 +783,10 @@ class MultiChJasperBlock(nn.Module):
 
     def concat(self, x, max_):
 
-        b, im, c, h, w = x.size()
+        b, im, h, w = x.size()
 
-        x = x.view(b*im, c, h, w)
-        max_ = max_.repeat(1, im, 1, 1, 1).view(b*im, c, h, w)
+        x = x.view(b*im, h, w)
+        max_ = max_.repeat(1, im, 1, 1).view(b*im, h, w)
         output = torch.cat([x, max_], dim=1)
 
         return output
@@ -940,16 +951,24 @@ class MultiChJasperBlock(nn.Module):
         if len(input_) == 2:
             xs, lens_orig = input_
 
-        b, n, h, w = xs.size()
-        x1 = xs.view(b*n, h, w)
-        # x1 = self.conv(x.view(n * b, c, h, w))
+
+
+        # x1 = self.conv(x.view(n * b, t, w))
         # h, w = x1.shape[-2:]
         # x = x.view(b, n, self.out_channels, h, w)
 
         # compute forward convolutions
         out = xs[-1]
+        if not self.single_channel:
+            b_in, n_in, d_in, t_in = out.shape
+        else:
+            n_in = 1
+            b_in, d_in, t_in = out.shape
 
-        lens = lens_orig
+        out = out.view(b_in * n_in, d_in, t_in)
+
+        lens_orig_exp = lens_orig.repeat_interleave(n_in)
+        lens = lens_orig_exp
         conv_len = len(self.mconv) - 1 if self.se else len(self.mconv)
         for i in range(conv_len):
             l = self.mconv[i]
@@ -960,8 +979,23 @@ class MultiChJasperBlock(nn.Module):
                 out, lens = l(out, lens)
             else:
                 out = l(out)
-        features1 = out.view((b, n, -1, h, w))
+        b,d,t = out.size()
+        features = out.view((b_in, n_in, d, t))
+        max_global_features = self.pooling(features)  # id = 2
+        if not self.end_pool and not self.single_channel:
+            out = self.concat(features, max_global_features)  # id = 3
+            # kernel 1 convolution to brink back d to original # filters
+
+            for l in self.concat_conv_kernel1:
+                if isinstance(l, MaskedConv1d):
+                    out, lens = l(out, lens)
+                else:
+                    out = l(out)
+        else:
+            out = max_global_features.squeeze(1)
+
         # calculate max and append
+
         if self.se:
             l = self.mconv[-1]
             if isinstance(l, MaskedConv1d):
@@ -973,10 +1007,11 @@ class MultiChJasperBlock(nn.Module):
         # compute the residuals
         if self.res is not None:
             for i, layer in enumerate(self.res):
-                res_out = xs[i]
+                res_out = xs[i].view(b_in * n_in, d_in, t_in)
                 for j, res_layer in enumerate(layer):
                     if isinstance(res_layer, MaskedConv1d):
-                        res_out, _ = res_layer(res_out, lens_orig)
+                        res_out, _ = res_layer(res_out, lens_orig_exp)
+
                     else:
                         res_out = res_layer(res_out)
 
@@ -995,10 +1030,16 @@ class MultiChJasperBlock(nn.Module):
 
         # compute the output
         out = self.mout(out)
+        len_indexes = torch.from_numpy(np.arange(0, lens.shape[-1], n_in)).type(torch.LongTensor)
+        fin_lens = lens[len_indexes]
         if self.res is not None and self.dense_residual:
-            return xs + [out], lens
+            return xs.view(b_in * n_in, d_in, t_in) + [out], fin_lens
+        bn_out, d_out, t_out = out.size()
+        if not self.end_pool and not self.single_channel:
+            return [out.view(b_in, n_in, d_out, t_out)], fin_lens
+        else:
+            return [out], fin_lens
 
-        return [out], lens
 
 
 class ParallelBlock(nn.Module):

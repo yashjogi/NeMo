@@ -116,7 +116,6 @@ model:
         separable: *separable
         se: true
         se_context_size: -1
-        end_pool: true
 
       - filters: &enc_feat_out 1024
         repeat: 1
@@ -128,7 +127,6 @@ model:
         separable: *separable
         se: true
         se_context_size: -1
-        single_channel: true
 
   decoder:
     _target_: nemo.collections.asr.modules.ConvASRDecoder

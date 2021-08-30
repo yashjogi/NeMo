@@ -120,7 +120,6 @@ class MultiChannelConvASREncoder(NeuralModule):
 
         residual_panes = []
         encoder_layers = []
-        encoder_layers.append(unet)
         self.dense_residual = False
         for lcfg in jasper:
             dense_res = []
@@ -167,7 +166,9 @@ class MultiChannelConvASREncoder(NeuralModule):
                     future_context=future_context,
                     quantize=quantize,
                     concat_pool=True,
-                    concat_type = 'max'
+                    concat_type = 'max',
+                    end_pool=lcfg.get('end_pool', False),
+                    single_channel=lcfg.get('single_channel', False)
                 )
             )
             feat_in = lcfg['filters']
