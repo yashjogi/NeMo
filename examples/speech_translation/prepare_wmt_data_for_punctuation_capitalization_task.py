@@ -1,7 +1,9 @@
 import argparse
 import logging
+import os
 import random
 import re
+import subprocess
 from copy import deepcopy
 from io import StringIO
 from math import ceil
@@ -19,15 +21,27 @@ random.seed(42)
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 WORD = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
+NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
+WORD_CHARACTER = re.compile(r"\w")
+SPACE_DUP = re.compile(r" {2,}")
 STRIP_START = re.compile(r"^\W+")
 STRIP_END = re.compile(r"\W+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!"
+SUPPORTED_BERT_PUNCTUATION = "!,.:;?"
 
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument("input_files", help="List of files with input data", nargs="+", type=Path)
+    parser.add_argument(
+        "--input_language",
+        "-L",
+        help="Used for punctuation normalization. en - English, de - German, cz - Czech, fr - French."
+        "Other options are also possible but there is not special instructions for punctuation normalization."
+        "See https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/normalize-punctuation.perl",
+        default="en",
+    )
     parser.add_argument(
         "--output_dir",
         "-o",
@@ -78,6 +92,24 @@ def get_args():
         help="Path to directory where cleaned input files are saved. If not provided cleaned input files are "
         "not saved.",
         type=Path,
+    )
+    parser.add_argument(
+        "--create_model_input",
+        "-i",
+        help="Whether to write text without punctuation to output directory",
+        action="store_true",
+    )
+    parser.add_argument("--bert_labels", "-b", help="Whether create BERT labels.", action="store_true")
+    parser.add_argument(
+        "--autoregressive_labels", "-a", help="Whether create autoregressive labels", action="store_true"
+    )
+    parser.add_argument(
+        "--allowed_punctuation",
+        "-p",
+        help=f"A string containing punctuation marks on which training is performed."
+        f"Do not include single quote and space into it. If single quotes are included they will be ignored. "
+        f"BERT labels can include only {SUPPORTED_BERT_PUNCTUATION} punctuation characters.",
+        default='"!(),-.:;?',
     )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
@@ -323,6 +355,73 @@ def create_dataset_string(file_docs):
     return result
 
 
+def normalize_punctuation(all_docs, lang):
+    cwd = os.getcwd()
+    os.chdir(Path(__file__).parent)
+    normalize_process = subprocess.Popen(
+        ["./normalize-punctuation.perl", "-l", lang], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    for k, v in all_docs.items():
+        outs, errs = normalize_process.communicate('\n'.join(v).encode('utf-8'))
+        all_docs[k] = outs.decode('utf-8').split('\n')
+    normalize_process.kill()
+    os.chdir(cwd)
+
+
+def create_bert_labels(line, allowed_punctuation):
+    labels = ""
+    if set(allowed_punctuation) - set(SUPPORTED_BERT_PUNCTUATION):
+        logging.warning(
+            f"Punctuation marks {set(allowed_punctuation) - set(SUPPORTED_BERT_PUNCTUATION)} are not allowed for BERT "
+            f"labels."
+        )
+    allowed_punctuation = ''.join(set(allowed_punctuation) & set(SUPPORTED_BERT_PUNCTUATION))
+    for w_i, word in enumerate(line.split()):
+        label = "U" if word[0].isupper() else "L"
+        if word[-1] in allowed_punctuation:
+            label += word[-1]
+        if labels:
+            labels += ' '
+        labels += label
+    return labels
+
+
+def create_autoregressive_labels(line, allowed_punctuation):
+    labels = ""
+    inside_word = False
+    for c_i, c in enumerate(line):
+        if c in allowed_punctuation + ' ':
+            inside_word = False
+            labels += c
+        elif WORD_CHARACTER.match(c) is not None:
+            if not inside_word:
+                inside_word = True
+                labels += "U" if c.isupper() else "L"
+        else:
+            if not inside_word:
+                inside_word = True
+                labels += "L"
+    return labels
+
+
+def write_dataset(data, dir_, prefix, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
+    with (dir_ / Path(prefix + ".txt")).open('w') as f:
+        for line in data:
+            f.write(line + '\n')
+    if create_model_input:
+        with (dir_ / Path(prefix + "_input.txt")).open('w') as f:
+            for line in data:
+                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)) + '\n')
+    if bert_labels:
+        with (dir_ / Path(prefix + "_bert_labels.txt")).open('w') as f:
+            for line in data:
+                f.write(create_bert_labels(line, allowed_punctuation) + '\n')
+    if autoregressive_labels:
+        with (dir_ / Path(prefix + "_autoregressive_labels.txt")).open('w') as f:
+            for line in data:
+                f.write(create_autoregressive_labels(line, allowed_punctuation) + '\n')
+
+
 def main():
     args = get_args()
     all_docs = {}
@@ -348,6 +447,7 @@ def main():
                     f.write(create_dataset_string(file_docs))
             add_docs(all_docs, file_docs, file_path)
             number_of_sentences_in_input += sum([len(doc) for doc in file_docs.values()])
+    normalize_punctuation(all_docs, args.input_language)
     if args.size is None:
         args.size = number_of_sentences_in_input
     sentences_by_number_of_words = arrange_sentences_by_number_of_words(all_docs, args.sequence_length_range)
@@ -374,16 +474,34 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     test_size = int(args.size * args.test_ratio / 100)
     if test_size > 0:
-        with (args.output_dir / Path("test.txt")).open('w') as f:
-            for i in range(args.dev_size):
-                f.write(result[i] + '\n')
+        write_dataset(
+            result[:test_size],
+            args.output_dir,
+            "test",
+            args.create_model_input,
+            args.test_bert_labels,
+            args.test_autoregressive_labels,
+            args.allowed_punctuation,
+        )
     if args.dev_size > 0:
-        with (args.output_dir / Path("dev.txt")).open('w') as f:
-            for i in range(test_size, test_size + args.dev_size):
-                f.write(result[i] + '\n')
-    with (args.output_dir / Path("train.txt")).open('w') as f:
-        for i in range(args.dev_size + test_size, args.size):
-            f.write(result[i] + '\n')
+        write_dataset(
+            result[test_size : test_size + args.dev_size],
+            args.output_dir,
+            "dev",
+            args.create_model_input,
+            args.test_bert_labels,
+            args.test_autoregressive_labels,
+            args.allowed_punctuation,
+        )
+    write_dataset(
+        result[test_size + args.dev_size :],
+        args.output_dir,
+        "train",
+        args.create_model_input,
+        args.test_bert_labels,
+        args.test_autoregressive_labels,
+        args.allowed_punctuation,
+    )
 
 
 if __name__ == "__main__":
