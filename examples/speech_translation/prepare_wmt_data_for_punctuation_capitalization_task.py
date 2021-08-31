@@ -28,7 +28,7 @@ STRIP_START = re.compile(r"^\W+")
 STRIP_END = re.compile(r"\W+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!"
-SUPPORTED_BERT_PUNCTUATION = "!,.:;?"
+SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 
 
 def get_args():
@@ -109,7 +109,8 @@ def get_args():
         help=f"A string containing punctuation marks on which training is performed."
         f"Do not include single quote and space into it. If single quotes are included they will be ignored. "
         f"BERT labels can include only {SUPPORTED_BERT_PUNCTUATION} punctuation characters.",
-        default='"!(),-.:;?',
+        type=set,
+        default=set('"!(),-.:;?'),
     )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
@@ -120,6 +121,11 @@ def get_args():
         )
     args.output_dir = args.output_dir.expanduser()
     args.clean_data_dir = args.clean_data_dir.expanduser()
+    if args.allowed_punctuation - SUPPORTED_BERT_PUNCTUATION:
+        logging.warning(
+            f"Punctuation marks {args.allowed_punctuation - SUPPORTED_BERT_PUNCTUATION} are not allowed for BERT "
+            f"labels."
+        )
     return args
 
 
@@ -131,11 +137,12 @@ def preprocess_europarl(text):
         if m is None:
             raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
         text = m.group(1).strip()
-        doc = "europarl_" + m.group(2).strip()
-        if doc not in docs:
-            docs[doc] = [text]
-        else:
-            docs[doc].append(text)
+        if text:
+            doc = "europarl_" + m.group(2).strip()
+            if doc not in docs:
+                docs[doc] = [text]
+            else:
+                docs[doc].append(text)
     return docs
 
 
@@ -147,11 +154,15 @@ def preprocess_ted(text):
         title = doc.find("title").text
         key = "TED_" + doc_id + "._" + title
         text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
-        result[key] = [line.strip() for line in text.split('\n') if line.strip()]
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if lines:
+            result[key] = lines
+        else:
+            logging.warning(f"Found empty document {doc_id} in TED dataset")
     return result
 
 
-def preprocess_rapid(text):
+def preprocess_rapid(text, verbose=False):
     soup = BeautifulSoup(text)
     result = {}
     for file in soup.findAll("file"):
@@ -175,6 +186,8 @@ def preprocess_rapid(text):
                 file_utterances.append(text)
         if file_utterances:
             result["rapid_file_" + file_id] = file_utterances
+        elif verbose:
+            logging.warning(f"Found empty RAPID document {file_id}")
     return result
 
 
@@ -183,19 +196,24 @@ def preprocess_news_commentary(text):
     discussion_text = []
     discussion_count = 0
     line_idx = 0
-    for line in StringIO(text):
+    for line_i, line in enumerate(StringIO(text)):
         line = line.strip()
         if line:
             if line_idx == 1:
                 location_string = NEWS_COMMENTARY_LOCATION_LINE.match(line)
                 if location_string is not None:
                     line = line[location_string.span()[1] :]
-                discussion_text.append(line)
+                line = line.strip()
+                if line:
+                    discussion_text.append(line)
             elif line_idx > 1:
                 discussion_text.append(line)
             line_idx += 1
         else:
-            result[f"news-commentary_discussion{discussion_count}"] = discussion_text
+            if discussion_text:
+                result[f"news-commentary_discussion{discussion_count}"] = discussion_text
+            else:
+                logging.warning(f"Found empty news-commentary discussion starting at line {line_i}")
             discussion_text = []
             discussion_count += 1
             line_idx = 0
@@ -361,25 +379,26 @@ def normalize_punctuation(all_docs, lang):
     normalize_process = subprocess.Popen(
         ["./normalize-punctuation.perl", "-l", lang], stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
-    for k, v in all_docs.items():
-        outs, errs = normalize_process.communicate('\n'.join(v).encode('utf-8'))
-        all_docs[k] = outs.decode('utf-8').split('\n')
+    outs, errs = normalize_process.communicate(
+        '\n\n\n'.join(['\n'.join(v) for v in all_docs.values()]).encode('utf-8')
+    )
+    counter = 0
+    for k, text in zip(all_docs, outs.decode('utf-8').split('\n\n\n')):
+        counter += 1
+        lines = text.split('\n')
+        assert len(lines) == len(all_docs[k]), f"len(lines)={len(lines)}, len(all_docs[k])={len(all_docs[k])}"
+        all_docs[k] = lines
+    assert counter == len(all_docs), f"counter={counter}, len(all_docs)={len(all_docs)}"
     normalize_process.kill()
     os.chdir(cwd)
 
 
 def create_bert_labels(line, allowed_punctuation):
     labels = ""
-    if set(allowed_punctuation) - set(SUPPORTED_BERT_PUNCTUATION):
-        logging.warning(
-            f"Punctuation marks {set(allowed_punctuation) - set(SUPPORTED_BERT_PUNCTUATION)} are not allowed for BERT "
-            f"labels."
-        )
-    allowed_punctuation = ''.join(set(allowed_punctuation) & set(SUPPORTED_BERT_PUNCTUATION))
+    allowed_punctuation = ''.join(allowed_punctuation & SUPPORTED_BERT_PUNCTUATION)
     for w_i, word in enumerate(line.split()):
-        label = "U" if word[0].isupper() else "L"
-        if word[-1] in allowed_punctuation:
-            label += word[-1]
+        label = "U" if word[0].isupper() else "O"
+        label += word[-1] if word[-1] in allowed_punctuation else "O"
         if labels:
             labels += ' '
         labels += label
@@ -390,34 +409,48 @@ def create_autoregressive_labels(line, allowed_punctuation):
     labels = ""
     inside_word = False
     for c_i, c in enumerate(line):
-        if c in allowed_punctuation + ' ':
+        if c in allowed_punctuation | {' '}:
             inside_word = False
             labels += c
         elif WORD_CHARACTER.match(c) is not None:
             if not inside_word:
                 inside_word = True
-                labels += "U" if c.isupper() else "L"
+                all_upper = c.isupper()
+                j = c_i + 1
+                while j < len(line) and all_upper and WORD_CHARACTER.match(line[j]):
+                    if line[j].islower():
+                        all_upper = False
+                        break
+                    j += 1
+                all_upper = all_upper and j > c_i + 1
+                if all_upper:
+                    labels += "U"
+                elif c.isupper():
+                    labels += "u"
+                else:
+                    labels += "O"
         else:
             if not inside_word:
                 inside_word = True
-                labels += "L"
+                labels += "O"
     return labels
 
 
-def write_dataset(data, dir_, prefix, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
-    with (dir_ / Path(prefix + ".txt")).open('w') as f:
+def write_dataset(data, dir_, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
+    dir_.mkdir(exist_ok=True, parents=True)
+    with (dir_ / Path("text.txt")).open('w') as f:
         for line in data:
             f.write(line + '\n')
     if create_model_input:
-        with (dir_ / Path(prefix + "_input.txt")).open('w') as f:
+        with (dir_ / Path("input.txt")).open('w') as f:
             for line in data:
-                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)) + '\n')
+                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)).lower() + '\n')
     if bert_labels:
-        with (dir_ / Path(prefix + "_bert_labels.txt")).open('w') as f:
+        with (dir_ / Path("bert_labels.txt")).open('w') as f:
             for line in data:
                 f.write(create_bert_labels(line, allowed_punctuation) + '\n')
     if autoregressive_labels:
-        with (dir_ / Path(prefix + "_autoregressive_labels.txt")).open('w') as f:
+        with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
             for line in data:
                 f.write(create_autoregressive_labels(line, allowed_punctuation) + '\n')
 
@@ -476,30 +509,27 @@ def main():
     if test_size > 0:
         write_dataset(
             result[:test_size],
-            args.output_dir,
-            "test",
+            args.output_dir / Path("test"),
             args.create_model_input,
-            args.test_bert_labels,
-            args.test_autoregressive_labels,
+            args.bert_labels,
+            args.autoregressive_labels,
             args.allowed_punctuation,
         )
     if args.dev_size > 0:
         write_dataset(
             result[test_size : test_size + args.dev_size],
-            args.output_dir,
-            "dev",
+            args.output_dir / Path("dev"),
             args.create_model_input,
-            args.test_bert_labels,
-            args.test_autoregressive_labels,
+            args.bert_labels,
+            args.autoregressive_labels,
             args.allowed_punctuation,
         )
     write_dataset(
         result[test_size + args.dev_size :],
-        args.output_dir,
-        "train",
+        args.output_dir / Path("train"),
         args.create_model_input,
-        args.test_bert_labels,
-        args.test_autoregressive_labels,
+        args.bert_labels,
+        args.autoregressive_labels,
         args.allowed_punctuation,
     )
 
