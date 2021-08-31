@@ -708,7 +708,7 @@ class JasperBlock(nn.Module):
         )
         #Concatenate here
         self.end_pool=end_pool
-        if not end_pool and not single_channel:
+        if not single_channel:
             self.concat_conv_kernel1 = nn.ModuleList(self._get_conv_bn_layer(
                     planes*2,
                     planes,
@@ -981,8 +981,9 @@ class JasperBlock(nn.Module):
                 out = l(out)
         b,d,t = out.size()
         features = out.view((b_in, n_in, d, t))
+        # Poolong , concatenation and 1x1 convolution
         max_global_features = self.pooling(features)  # id = 2
-        if not self.end_pool and not self.single_channel:
+        if not self.single_channel:
             out = self.concat(features, max_global_features)  # id = 3
             # kernel 1 convolution to brink back d to original # filters
 
@@ -991,8 +992,8 @@ class JasperBlock(nn.Module):
                     out, lens = l(out, lens)
                 else:
                     out = l(out)
-        else:
-            out = max_global_features.squeeze(1)
+        # else:
+        #     out = max_global_features.squeeze(1)
 
         # calculate max and append
 
@@ -1007,7 +1008,8 @@ class JasperBlock(nn.Module):
         # compute the residuals
         if self.res is not None:
             for i, layer in enumerate(self.res):
-                res_out = xs[i].view(b_in * n_in, d_in, t_in)
+                b_x,n_x,d_x,t_x = xs[i].shape
+                res_out = xs[i].view(b_x * n_x, d_x, t_x)
                 for j, res_layer in enumerate(layer):
                     if isinstance(res_layer, MaskedConv1d):
                         res_out, _ = res_layer(res_out, lens_orig_exp)
@@ -1035,6 +1037,12 @@ class JasperBlock(nn.Module):
         if self.res is not None and self.dense_residual:
             return xs.view(b_in * n_in, d_in, t_in) + [out], fin_lens
         bn_out, d_out, t_out = out.size()
+
+        if self.end_pool:
+            features = out.view((b_in, n_in, d_out, t_out))
+            max_global_features = self.pooling(features)
+            out = max_global_features.squeeze(1)
+
         if not self.end_pool and not self.single_channel:
             return [out.view(b_in, n_in, d_out, t_out)], fin_lens
         else:
