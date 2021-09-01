@@ -7,7 +7,7 @@ model:
   len_pen: 0.6
   multilingual: False
   max_generation_delta: 5
-  label_smoothing: 0.1
+  label_smoothing: 0.0
   shared_tokenizer: False # train tokenizer model across src and tgt train data
   preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
   src_language: 'en'
@@ -65,13 +65,13 @@ model:
   encoder_tokenizer:
     library: yttm
     tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
-    bpe_dropout: 0.1
+    bpe_dropout: 0.0
     r2l: false
 
   decoder_tokenizer:
     library: yttm
     tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
-    bpe_dropout: 0.1
+    bpe_dropout: 0.0
     r2l: false
 
   encoder:
