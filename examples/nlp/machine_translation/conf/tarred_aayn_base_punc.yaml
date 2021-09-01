@@ -20,6 +20,10 @@ model:
     # config for preprocessing training data and creating a tarred datset automatically
     metadata_file: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/tarred_dev_b16000_dp0.1/metadata.tokens.16000.json
     tar_file_prefix: parallel # prefix for tar file names
+    shuffle: true
+    drop_last: false
+    pin_memory: false
+    num_workers: 8
 
   validation_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
