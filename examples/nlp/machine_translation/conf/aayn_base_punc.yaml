@@ -9,13 +9,13 @@ model:
   max_generation_delta: 5
   label_smoothing: 0.1
   shared_tokenizer: False # train tokenizer model across src and tgt train data
-  preproc_out_dir: ~/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data # path to store data preprocessing outputs
+  preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data # path to store data preprocessing outputs
   src_language: 'en'
-  tgt_language: null
+  tgt_language: 'en'
 
   train_ds:
-    src_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/input.txt
-    tgt_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
     use_tarred_dataset: False # if true tar_file_name and meta_file_name will be used (or created automatically) 
     # config for preprocessing training data and creating a tarred datset automatically
     lines_per_dataset_fragment: 1000000 # Number of lines to consider for bucketing and padding
@@ -36,8 +36,8 @@ model:
     concat_sampling_probabilities: null # only used with ConcatTranslationDataset 
 
   validation_ds:
-    src_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/input.txt
-    tgt_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
     tokens_in_batch: 512
     clean: false
     max_seq_length: 512
@@ -48,8 +48,8 @@ model:
     num_workers: 8
 
   test_ds:
-    src_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/input.txt
-    tgt_file_name: ~/NeMo/examples/speech_translation/prepared_punctuation_data/test/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
     tokens_in_batch: 512
     clean: false
     max_seq_length: 512
@@ -61,7 +61,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.001
+    lr: 0.0003
     betas:
       - 0.9
       - 0.98
@@ -74,13 +74,13 @@ model:
 
   encoder_tokenizer:
     library: yttm
-    tokenizer_model: ~/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
+    tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
     bpe_dropout: 0.1
     r2l: false
 
   decoder_tokenizer:
     library: yttm
-    tokenizer_model: ~/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
+    tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
     bpe_dropout: 0.1
     r2l: false
 
