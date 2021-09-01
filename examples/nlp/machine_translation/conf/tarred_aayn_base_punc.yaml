@@ -130,7 +130,7 @@ trainer:
   checkpoint_callback: False
   logger: False
   log_every_n_steps: 50  # Interval of logging.
-  check_val_every_n_epoch: 5
+  check_val_every_n_epoch: 50
 
 exp_manager:
   name: AAYNBase
