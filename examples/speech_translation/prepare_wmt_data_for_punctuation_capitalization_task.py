@@ -415,7 +415,7 @@ def create_autoregressive_labels(line, allowed_punctuation):
         elif WORD_CHARACTER.match(c) is not None:
             if not inside_word:
                 inside_word = True
-                all_upper = c.isupper()
+                all_upper = not c.islower()
                 j = c_i + 1
                 while j < len(line) and all_upper and WORD_CHARACTER.match(line[j]):
                     if line[j].islower():
@@ -532,6 +532,11 @@ def main():
         args.autoregressive_labels,
         args.allowed_punctuation,
     )
+    if args.autoregressive_labels:
+        with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
+            for c in set(''.join(result)):
+                f.write(c + '\n')
+
 
 
 if __name__ == "__main__":
