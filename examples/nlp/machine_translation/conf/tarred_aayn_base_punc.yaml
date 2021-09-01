@@ -9,13 +9,14 @@ model:
   max_generation_delta: 5
   label_smoothing: 0.1
   shared_tokenizer: False # train tokenizer model across src and tgt train data
-  preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/tarred_dev_b16000_dp0.1 # path to store data preprocessing outputs
+  preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
 
   train_ds:
     use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
     # config for preprocessing training data and creating a tarred datset automatically
+    metadata_file: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/tarred_dev_b16000_dp0.1
     tar_file_prefix: parallel # prefix for tar file names
 
   validation_ds:
