@@ -14,6 +14,8 @@ model:
   tgt_language: 'en'
 
   train_ds:
+    src_file_name: null
+    tgt_file_name: null
     use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
     # config for preprocessing training data and creating a tarred datset automatically
     metadata_file: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/tarred_dev_b16000_dp0.1/metadata.tokens.16000.json
