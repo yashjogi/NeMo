@@ -7,9 +7,9 @@ model:
   len_pen: 0.6
   multilingual: False
   max_generation_delta: 5
-  label_smoothing: 0.1
+  label_smoothing: 0.0
   shared_tokenizer: False # train tokenizer model across src and tgt train data
-  preproc_out_dir: null # path to store data preprocessing outputs
+  preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
 
@@ -38,7 +38,7 @@ model:
   validation_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
     tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
-    tokens_in_batch: 512
+    tokens_in_batch: 50000
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -50,7 +50,7 @@ model:
   test_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
     tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
-    tokens_in_batch: 512
+    tokens_in_batch: 50000
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -61,7 +61,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.0003
+    lr: 0.001
     betas:
       - 0.9
       - 0.98
@@ -75,13 +75,13 @@ model:
   encoder_tokenizer:
     library: yttm
     tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
-    bpe_dropout: 0.1
+    bpe_dropout: 0.0
     r2l: false
 
   decoder_tokenizer:
     library: yttm
     tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
-    bpe_dropout: 0.1
+    bpe_dropout: 0.0
     r2l: false
 
   encoder:
