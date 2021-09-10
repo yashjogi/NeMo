@@ -66,6 +66,13 @@ class TranslationDataConfig:
     concat_sampling_probabilities: Optional[List[float]] = None
 
 
+def get_number_of_words(ids, tokenizer):
+    lengths = []
+    for sent_ids in ids:
+        lengths.append(len(tokenizer.tokens_to_ids(sent_ids).split()))
+    return lengths
+
+
 class TranslationDataset(Dataset):
     def __init__(
         self,
@@ -82,6 +89,7 @@ class TranslationDataset(Dataset):
         use_cache: bool = False,
         reverse_lang_direction: bool = False,
         prepend_id: int = None,
+        add_src_num_words_to_batch: bool = False,
     ):
         self.dataset_src = dataset_src
         self.dataset_tgt = dataset_tgt
@@ -96,6 +104,7 @@ class TranslationDataset(Dataset):
         self.max_seq_length_ratio = max_seq_length_ratio
         self.reverse_lang_direction = reverse_lang_direction
         self.prepend_id = prepend_id
+        self.add_src_num_words_to_batch = add_src_num_words_to_batch
 
         # deprecation warnings for cache_ids, use_cache, and cache_data_per_node
         if self.cache_ids is True or self.use_cache is True or self.cache_data_per_node is True:
@@ -127,11 +136,13 @@ class TranslationDataset(Dataset):
                 max_tokens_diff=self.max_seq_length_diff,
                 max_tokens_ratio=self.max_seq_length_ratio,
             )
+        if self.add_src_num_words_to_batch:
+            src_num_words = get_number_of_words(src_ids, tokenizer_src)
         self.src_pad_id = tokenizer_src.pad_id
         self.tgt_pad_id = tokenizer_tgt.pad_id
 
         self.batch_indices = self.pack_data_into_batches(src_ids, tgt_ids)
-        self.batches = self.pad_batches(src_ids, tgt_ids, self.batch_indices)
+        self.batches = self.pad_batches(src_ids, tgt_ids, self.batch_indices, src_num_words=src_num_words)
 
     def __len__(self):
         return len(self.batches)
@@ -147,9 +158,13 @@ class TranslationDataset(Dataset):
             src_ids = np.insert(src_ids, 0, self.prepend_id, axis=-1)
         src_mask = (src_ids != self.src_pad_id).astype(np.int32)
         tgt_mask = (tgt_ids != self.tgt_pad_id).astype(np.int32)
-        return src_ids, src_mask, tgt_ids, tgt_mask, labels
+        if self.add_src_num_words_to_batch:
+            res = (src_ids, src_mask, tgt_ids, tgt_mask, labels, self.batches[idx]["src_num_words"])
+        else:
+            res = (src_ids, src_mask, tgt_ids, tgt_mask, labels)
+        return res
 
-    def pad_batches(self, src_ids, tgt_ids, batch_indices):
+    def pad_batches(self, src_ids, tgt_ids, batch_indices, src_num_words):
         """
         Augments source and target ids in the batches with padding symbol
         to make the lengths of all sentences in the batches equal.
@@ -165,6 +180,8 @@ class TranslationDataset(Dataset):
                 src_ids_[i][: len(src_ids[sentence_idx])] = src_ids[sentence_idx]
                 tgt_ids_[i][: len(tgt_ids[sentence_idx])] = tgt_ids[sentence_idx]
             batches[batch_idx] = {"src": src_ids_, "tgt": tgt_ids_}
+            if src_num_words is not None:
+                batches[batch_idx]["src_num_words"] = [src_num_words[sentence_idx] for sentence_idx in b]
         return batches
 
     def pack_data_into_batches(self, src_ids, tgt_ids):
@@ -348,6 +365,7 @@ class TarredTranslationDataset(IterableDataset):
         world_size: int = 1,
         reverse_lang_direction: bool = False,
         prepend_id: int = None,
+        add_src_num_words_to_batch: bool = False,
     ):
         super(TarredTranslationDataset, self).__init__()
 
@@ -357,6 +375,7 @@ class TarredTranslationDataset(IterableDataset):
         self.src_pad_id = encoder_tokenizer.pad_id
         self.tgt_pad_id = decoder_tokenizer.pad_id
         self.prepend_id = prepend_id
+        self.add_src_num_words_to_batch = add_src_num_words_to_batch
 
         valid_shard_strategies = ['scatter', 'replicate']
         if shard_strategy not in valid_shard_strategies:
@@ -434,9 +453,15 @@ class TarredTranslationDataset(IterableDataset):
         tgt_ids = tgt[:, :-1]
         if self.prepend_id:
             src_ids = np.insert(src_ids, 0, self.prepend_id, axis=-1)
+        if self.add_src_num_words_to_batch:
+            src_num_words = get_number_of_words(src_ids, self.encoder_tokenizer)
         src_mask = (src_ids != self.src_pad_id).astype(np.int32)
         tgt_mask = (tgt_ids != self.tgt_pad_id).astype(np.int32)
-        return src_ids, src_mask, tgt_ids, tgt_mask, labels
+        if self.add_src_num_words_to_batch:
+            res = (src_ids, src_mask, tgt_ids, tgt_mask, labels, src_num_words)
+        else:
+            res = (src_ids, src_mask, tgt_ids, tgt_mask, labels)
+        return res
 
     def __iter__(self):
         return self._dataset.__iter__()

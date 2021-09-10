@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import List, Optional
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 
@@ -32,6 +32,7 @@ class CharTokenizer(TokenizerSpec):
         sep_token: Optional[str] = None,
         cls_token: Optional[str] = None,
         unk_token: Optional[str] = None,
+        word_tokens: Optional[List[str]] = None
     ):
         """
         Args:
@@ -69,6 +70,10 @@ class CharTokenizer(TokenizerSpec):
         self.inv_vocab = {v: k for k, v in self.vocab.items()}
         self.vocab_size = len(self.vocab)
         self.special_tokens = self.tokens_to_ids(special_tokens_dict.values())
+        if word_tokens is None:
+            self.word_ids = None
+        else:
+            self.word_ids = self.tokens_to_ids(word_tokens)
 
     def add_special_tokens(self, special_tokens_dict: dict) -> int:
         """

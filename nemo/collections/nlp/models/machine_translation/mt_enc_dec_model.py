@@ -185,6 +185,7 @@ class MTEncDecModel(EncDecNLPModel):
             eos=self.decoder_tokenizer.eos_id,
             len_pen=cfg.len_pen,
             max_delta_length=cfg.max_generation_delta,
+            decoder_word_ids=self.decoder_tokenizer.word_ids,
         )
 
         # tie weights of embedding and softmax matrices
@@ -206,6 +207,7 @@ class MTEncDecModel(EncDecNLPModel):
             pad_id=self.decoder_tokenizer.pad_id, label_smoothing=cfg.label_smoothing
         )
         self.eval_loss_fn = NLLLoss(ignore_index=self.decoder_tokenizer.pad_id)
+        self.add_src_num_words_to_batch = cfg.model.get("add_src_num_words_to_batch", False)
 
     def filter_predicted_ids(self, ids):
         ids[ids >= self.decoder_tokenizer.vocab_size] = self.decoder_tokenizer.unk_id
@@ -270,12 +272,15 @@ class MTEncDecModel(EncDecNLPModel):
         if self.multilingual:
             self.source_processor = self.source_processor_list[dataloader_idx]
             self.target_processor = self.target_processor_list[dataloader_idx]
-
-        src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
+        if self.add_src_num_words_to_batch:
+            src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words = batch
+        else:
+            src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
+            num_src_words = None
         log_probs = self(src_ids, src_mask, tgt_ids, tgt_mask)
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
-        _, translations = self.batch_translate(src=src_ids, src_mask=src_mask)
+        _, translations = self.batch_translate(src=src_ids, src_mask=src_mask, num_tgt_words=num_src_words)
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
         else:
@@ -709,7 +714,13 @@ class MTEncDecModel(EncDecNLPModel):
         return translations
 
     @torch.no_grad()
-    def batch_translate(self, src: torch.LongTensor, src_mask: torch.LongTensor, return_beam_scores: bool = False):
+    def batch_translate(
+        self,
+        src: torch.LongTensor,
+        src_mask: torch.LongTensor,
+        return_beam_scores: bool = False,
+        num_src_words: Optional[List[int]] = None,
+    ):
         """	
         Translates a minibatch of inputs from source language to target language.	
         Args:	
@@ -724,7 +735,10 @@ class MTEncDecModel(EncDecNLPModel):
             self.eval()
             src_hiddens = self.encoder(input_ids=src, encoder_mask=src_mask)
             best_translations = self.beam_search(
-                encoder_hidden_states=src_hiddens, encoder_input_mask=src_mask, return_beam_scores=return_beam_scores
+                encoder_hidden_states=src_hiddens,
+                encoder_input_mask=src_mask,
+                return_beam_scores=return_beam_scores,
+                num_src_words=num_src_words,
             )
             if return_beam_scores:
                 all_translations, scores, best_translations = best_translations
