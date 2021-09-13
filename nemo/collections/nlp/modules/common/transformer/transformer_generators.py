@@ -838,9 +838,15 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         )
         ready_for_generation_finish = enough_words & not_pad_mask
         scores[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
-        result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, :self.beam_size]
-
-
+        result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
+        not_enough_words = scores[not_enough_words, :]
+        mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
+        not_enough_words[mask] = NEG_INF
+        resorted_scores, indices = torch.topk(not_enough_words, self.beam_size, dim=-1)
+        resorted_scores[not_enough_words, :] = resorted_scores
+        result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
+        num_generated_words[not_enough_words] = num_generated_words[not_enough_words] + mask.sum(dim=-1)
+        return result_scores, result_prefixes, num_generated_words
 
     def _forward(
         self,
@@ -901,7 +907,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
             log_probs, decoder_mems_list, lm_mems_list = self._one_step_forward(
                 prefixes[:, -1:], encoder_hidden_states, encoder_input_mask, decoder_mems_list, lm_mems_list, i + 1
             )
-            scores_i, prefixes_i, num_generate_words = self.topk_with_tgt(
+            scores_i, prefixes_i, num_generated_words = self.topk_with_tgt(
                 log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask,
             )
 
