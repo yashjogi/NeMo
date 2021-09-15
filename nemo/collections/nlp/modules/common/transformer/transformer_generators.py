@@ -461,7 +461,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         )
         tgt = prefixes.view(batch_size, self.beam_size, -1).gather(1, best_guesses).squeeze(1)
         if self.decoder_word_ids is not None and num_tgt_words is not None:
-            correct_mask = num_tgt_words.view(-1, self.beam_size)[0].eq(
+            correct_mask = num_tgt_words.view(-1, self.beam_size)[:, 0].eq(
                 is_in(tgt, self.decoder_word_ids).int().sum(dim=1)
             ) \
                 | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length)
