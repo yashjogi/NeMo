@@ -327,7 +327,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             f"Pad mask includes results which do not have enough words. "
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
         )
-        print("enough_words.shape, not_pad_mask.shape:", enough_words.shape, not_pad_mask.shape)
+        print("enough_words.dtype, not_pad_mask.dtype:", enough_words.dtype, not_pad_mask.dtype)
         ready_for_generation_finish = enough_words & not_pad_mask
         prefixes[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
