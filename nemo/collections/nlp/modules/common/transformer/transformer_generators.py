@@ -804,7 +804,7 @@ class EnsembleBeamSearchSequenceGenerator:
 
 
 def is_in(tensor, values):
-    result = torch.zeros(tensor.shape, dtype=torch.bool)
+    result = torch.zeros(tensor.shape, dtype=torch.bool, device=tensor.device)
     for v in values:
         result |= tensor == v
     return result
