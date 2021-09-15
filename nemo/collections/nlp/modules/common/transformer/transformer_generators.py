@@ -307,6 +307,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         return ((5 + lengths) / 6).pow(alpha)
 
     def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
+        pad_mask = pad_mask[:, 0]
         print("topk_with_tgt")
         if num_generated_words is None:
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
