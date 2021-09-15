@@ -137,8 +137,7 @@ class TranslationDataset(Dataset):
                 max_tokens_diff=self.max_seq_length_diff,
                 max_tokens_ratio=self.max_seq_length_ratio,
             )
-        if self.add_src_num_words_to_batch:
-            src_num_words = get_number_of_words(src_ids, tokenizer_src)
+        src_num_words = get_number_of_words(src_ids, tokenizer_src) if self.add_src_num_words_to_batch else None
         self.src_pad_id = tokenizer_src.pad_id
         self.tgt_pad_id = tokenizer_tgt.pad_id
 
