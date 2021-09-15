@@ -314,11 +314,10 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         return ((5 + lengths) / 6).pow(alpha)
 
     def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
-        pad_mask = pad_mask[:, 0].gt(0)
-        print("topk_with_tgt")
         if num_generated_words is None:
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
             return scores, prefixes, None
+        pad_mask = pad_mask[:, 0].gt(0)
         n = log_probs.shape[0]
         # 2 is for pad and eos tokens which may be removed
         scores, prefixes = torch.topk(log_probs, self.beam_size + 2, dim=-1)
@@ -334,7 +333,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             f"Pad mask includes results which do not have enough words. "
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
         )
-        print("enough_words.dtype, not_pad_mask.dtype:", enough_words.dtype, not_pad_mask.dtype)
         ready_for_generation_finish = enough_words & not_pad_mask
         prefixes[
             ready_for_generation_finish, :
@@ -423,7 +421,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             scores = scores / len_penalties
             scores, indices_i = torch.topk(scores.view(-1, self.beam_size ** 2), self.beam_size, dim=1)
             scores = scores.view(-1, 1) * len_penalties
-            num_generated_words = num_generated_words.view(-1, self.beam_size ** 2).gather(1, indices_i).view(-1)
+            if num_generated_words is not None:
+                num_generated_words = num_generated_words.view(-1, self.beam_size ** 2).gather(1, indices_i).view(-1)
 
             # select prefixes which correspond to the chosen hypotheses
             prefixes = prefixes.unsqueeze(1).repeat(1, self.beam_size, 1)

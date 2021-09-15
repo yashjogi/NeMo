@@ -6,7 +6,7 @@ model:
   beam_size: 4
   len_pen: 0.6
   multilingual: False
-  max_generation_delta: 5
+  max_generation_delta: 500
   label_smoothing: 0.0
   shared_tokenizer: False # train tokenizer model across src and tgt train data
   preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
@@ -63,7 +63,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.001
+    lr: 0.0003
     betas:
       - 0.9
       - 0.98
@@ -139,7 +139,7 @@ model:
 trainer:
   gpus: 4
   num_nodes: 1
-  max_epochs: 200
+  max_epochs: 1000
   amp_level: O2 # O1/O2 for mixed precision
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: ddp
