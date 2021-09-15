@@ -46,6 +46,7 @@ model:
     drop_last: false
     pin_memory: false
     num_workers: 8
+    add_src_num_words_to_batch: true
 
   test_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
@@ -58,6 +59,7 @@ model:
     drop_last: false
     pin_memory: false
     num_workers: 8
+    add_src_num_words_to_batch: true
 
   optim:
     name: adam
