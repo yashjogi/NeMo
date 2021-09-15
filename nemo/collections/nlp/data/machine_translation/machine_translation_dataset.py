@@ -70,7 +70,7 @@ class TranslationDataConfig:
 def get_number_of_words(ids, tokenizer):
     lengths = []
     for sent_ids in ids:
-        lengths.append(len(tokenizer.tokens_to_ids(sent_ids).split()))
+        lengths.append(len(tokenizer.ids_to_text(sent_ids).split()))
     return lengths
 
 
