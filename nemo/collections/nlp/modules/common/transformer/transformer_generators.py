@@ -361,6 +361,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         if num_tgt_words is not None:
             num_tgt_words = torch.tensor(num_tgt_words, device=device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
+        start_len = tgt.shape[1]
 
         # generate initial buffer of beam_size prefixes-hypotheses
         log_probs, decoder_mems_list = self._one_step_forward(tgt, encoder_hidden_states, encoder_input_mask, None, 0)
@@ -459,7 +460,14 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             torch.argmax(scores.view(-1, self.beam_size), dim=1, keepdim=True).repeat(1, prefixes.size(1)).unsqueeze(1)
         )
         tgt = prefixes.view(batch_size, self.beam_size, -1).gather(1, best_guesses).squeeze(1)
-
+        if self.decoder_word_ids is not None and num_tgt_words is not None:
+            correct_mask = num_tgt_words.eq(is_in(tgt, self.decoder_word_ids).int().sum(dim=1)) \
+                | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length)
+            assert torch.all(correct_mask), (
+                f"Number of predicted words for some inputs is lower than expected and number of predicted tokens is "
+                f"not equal to `max_generation_length={max_generation_length}`. start_len={start_len}, "
+                f"correct_mask={correct_mask}, mistaken_predictions={tgt[~correct_mask]}"
+            )
         if return_beam_scores:
             return prefixes, scores * len_penalties, tgt
         else:
