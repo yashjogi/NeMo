@@ -329,7 +329,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         )
         print("enough_words.dtype, not_pad_mask.dtype:", enough_words.dtype, not_pad_mask.dtype)
         ready_for_generation_finish = enough_words & not_pad_mask
-        prefixes[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
+        prefixes[ready_for_generation_finish, is_in(prefixes, self.decoder_word_ids)] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
         not_enough_words_scores = scores[not_enough_words, :]
         wrong_eos_pad_mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
@@ -338,7 +338,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         resorted_scores[not_enough_words, :] = resorted_scores
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
         num_generated_words = num_generated_words.unsqueeze(1).repeat(1, self.beam_size)
-        num_generated_words += is_in(result_prefixes, self.word_ids)
+        num_generated_words += is_in(result_prefixes, self.decoder_word_ids)
         return result_scores, result_prefixes, num_generated_words
 
     def _forward(
