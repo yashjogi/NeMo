@@ -208,7 +208,12 @@ class MTEncDecModel(EncDecNLPModel):
             pad_id=self.decoder_tokenizer.pad_id, label_smoothing=cfg.label_smoothing
         )
         self.eval_loss_fn = NLLLoss(ignore_index=self.decoder_tokenizer.pad_id)
-        self.add_src_num_words_to_batch = cfg.model.get("add_src_num_words_to_batch", False)
+        self.add_src_num_words_to_batch_validation = cfg.model.get(
+            "validation_ds", {}
+        ).get("add_src_num_words_to_batch", False)
+        self.add_src_num_words_to_batch_test = cfg.model.get(
+            "test_ds", {}
+        ).get("add_src_num_words_to_batch", False)
 
     def filter_predicted_ids(self, ids):
         ids[ids >= self.decoder_tokenizer.vocab_size] = self.decoder_tokenizer.unk_id
@@ -273,7 +278,10 @@ class MTEncDecModel(EncDecNLPModel):
         if self.multilingual:
             self.source_processor = self.source_processor_list[dataloader_idx]
             self.target_processor = self.target_processor_list[dataloader_idx]
-        if self.add_src_num_words_to_batch:
+        add_src_num_words_to_batch = (
+            self.add_src_num_words_to_batch_validation if mode == "val" else self.add_src_num_words_to_batch_test
+        )
+        if add_src_num_words_to_batch:
             src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words = batch
         else:
             src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
