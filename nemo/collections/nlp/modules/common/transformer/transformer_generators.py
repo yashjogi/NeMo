@@ -422,7 +422,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             scores = scores / len_penalties
             scores, indices_i = torch.topk(scores.view(-1, self.beam_size ** 2), self.beam_size, dim=1)
             scores = scores.view(-1, 1) * len_penalties
-            num_generated_words = num_generated_words.view(-1, self.beam_size ** 2)[indices_i].view(-1)
+            num_generated_words = num_generated_words.view(-1, self.beam_size ** 2).gather(1, indices_i).view(-1)
 
             # select prefixes which correspond to the chosen hypotheses
             prefixes = prefixes.unsqueeze(1).repeat(1, self.beam_size, 1)
