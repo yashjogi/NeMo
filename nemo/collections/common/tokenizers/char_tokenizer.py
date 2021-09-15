@@ -53,18 +53,25 @@ class CharTokenizer(TokenizerSpec):
         special_tokens_dict = {}
         if unk_token:
             special_tokens_dict["unk_token"] = unk_token
+            self.unk_token = unk_token
         if sep_token:
             special_tokens_dict["sep_token"] = sep_token
+            self.sep_token = sep_token
         if mask_token:
             special_tokens_dict["mask_token"] = mask_token
+            self.mask_token = mask_token
         if bos_token:
             special_tokens_dict["bos_token"] = bos_token
+            self.bos_token = bos_token
         if eos_token:
             special_tokens_dict["eos_token"] = eos_token
+            self.eos_token = eos_token
         if pad_token:
             special_tokens_dict["pad_token"] = pad_token
+            self.pad_token = pad_token
         if cls_token:
             special_tokens_dict["cls_token"] = cls_token
+            self.cls_token = cls_token
 
         self.add_special_tokens(special_tokens_dict)
         self.inv_vocab = {v: k for k, v in self.vocab.items()}

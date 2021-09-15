@@ -83,6 +83,10 @@ model:
     tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
     bpe_dropout: 0.0
     r2l: false
+    word_tokens:
+      - U
+      - u
+      - O
 
   encoder:
     library: nemo

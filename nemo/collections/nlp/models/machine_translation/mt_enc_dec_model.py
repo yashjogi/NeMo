@@ -94,6 +94,7 @@ class MTEncDecModel(EncDecNLPModel):
             else 0.0,
             decoder_model_name=cfg.decoder.get('model_name') if hasattr(cfg.decoder, 'model_name') else None,
             decoder_r2l=cfg.decoder_tokenizer.get('r2l', False),
+            decoder_word_tokens=cfg.decoder_tokenizer.get('word_tokens', None),
         )
 
         if self.multilingual:
@@ -417,6 +418,7 @@ class MTEncDecModel(EncDecNLPModel):
         decoder_bpe_dropout=0.0,
         decoder_model_name=None,
         decoder_r2l=False,
+        decoder_word_tokens=None,
     ):
 
         supported_tokenizers = ['yttm', 'huggingface', 'sentencepiece', 'megatron', 'byte-level']
@@ -445,6 +447,7 @@ class MTEncDecModel(EncDecNLPModel):
             special_tokens=None,
             use_fast=False,
             r2l=decoder_r2l,
+            word_tokens=decoder_word_tokens
         )
 
     def setup_training_data(self, train_data_config: Optional[DictConfig]):

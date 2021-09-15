@@ -22,7 +22,7 @@ __all__ = ['YouTokenToMeTokenizer']
 
 
 class YouTokenToMeTokenizer(TokenizerSpec):
-    def __init__(self, model_path, bpe_dropout=0.0, legacy=False, r2l=False):
+    def __init__(self, model_path, bpe_dropout=0.0, legacy=False, r2l=False, word_tokens=None):
         model_path = Path(model_path).expanduser()
         self.tokenizer = yttm.BPE(model=str(model_path))
         self.vocab_size = len(self.tokenizer.vocab())
@@ -30,6 +30,10 @@ class YouTokenToMeTokenizer(TokenizerSpec):
         self.bpe_dropout = bpe_dropout
         self.legacy = legacy
         self.r2l = r2l
+        if word_tokens is None:
+            self.word_ids = None
+        else:
+            self.word_ids = self.tokens_to_ids(word_tokens)
 
     def text_to_tokens(self, text):
         return self.tokenizer.encode(
