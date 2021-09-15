@@ -306,6 +306,37 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         """Returns length penalty according to https://arxiv.org/pdf/1609.08144.pdf"""
         return ((5 + lengths) / 6).pow(alpha)
 
+    def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
+        print("topk_with_tgt")
+        if num_generated_words is None:
+            scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
+            return scores, prefixes, None
+        n = log_probs.shape[0]
+        result_scores, result_prefixes = torch.zeros(n, self.beam_size)
+        # 2 is for pad and eos tokens which may be removed
+        scores, prefixes = torch.topk(log_probs, self.beam_size + 2, dim=-1)
+        result_scores[pad_mask, :] = scores[pad_mask, : self.beam_size]
+        result_prefixes[pad_mask, :] = prefixes[pad_mask, : self.beam_size]
+        not_pad_mask = ~pad_mask
+        not_enough_words = num_generated_words.lt(tgt_num_words)
+        enough_words = ~not_enough_words
+        assert (
+            torch.all(not_pad_mask[not_enough_words]),
+            f"Pad mask includes results which do not have enough words. "
+            f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
+        )
+        ready_for_generation_finish = enough_words & not_pad_mask
+        scores[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
+        result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
+        not_enough_words = scores[not_enough_words, :]
+        mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
+        not_enough_words[mask] = NEG_INF
+        resorted_scores, indices = torch.topk(not_enough_words, self.beam_size, dim=-1)
+        resorted_scores[not_enough_words, :] = resorted_scores
+        result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
+        num_generated_words[not_enough_words] = num_generated_words[not_enough_words] + mask.sum(dim=-1)
+        return result_scores, result_prefixes, num_generated_words
+
     def _forward(
         self,
         decoder_input_ids=None,
@@ -314,6 +345,9 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         return_beam_scores=False,
         num_tgt_words=None,
     ):
+        device = next(self.decoder.parameters()).device
+        if num_tgt_words is not None:
+            num_tgt_words = torch.tensor(num_tgt_words, device=device)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
 
         # generate initial buffer of beam_size prefixes-hypotheses
@@ -343,7 +377,10 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # prefixes_len tracks lengths of generated hypotheses to perform
         # length penalty correction
         prefixes_len = torch.zeros_like(scores).fill_(prefixes.size(1) + 1)
-
+        if self.decoder_word_ids is not None and num_tgt_words is not None:
+            num_generated_words = torch.zeros(prefixes.shape[0], device=device)
+        else:
+            num_generated_words = None
         for i in range(max_generation_length):
 
             # mask all finished hypotheses to exclude them from beam
@@ -353,7 +390,9 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             log_probs, decoder_mems_list = self._one_step_forward(
                 prefixes[:, -1:], encoder_hidden_states, encoder_input_mask, decoder_mems_list, i + 1
             )
-            scores_i, prefixes_i = torch.topk(log_probs[:, -1, :], self.beam_size, dim=-1)
+            scores_i, prefixes_i, num_generated_words = self.topk_with_tgt(
+                log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask,
+            )
 
             # for all prefixes ending with <eos> or <pad> replace generated
             # continuations with <pad>
@@ -818,37 +857,6 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         """Returns length penalty according to https://arxiv.org/pdf/1609.08144.pdf"""
         return ((5 + lengths) / 6).pow(alpha)
 
-    def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
-        print("topk_with_tgt")
-        if num_generated_words is None:
-            scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
-            return scores, prefixes, None
-        n = log_probs.shape[0]
-        result_scores, result_prefixes = torch.zeros(n, self.beam_size)
-        # 2 is for pad and eos tokens which may be removed
-        scores, prefixes = torch.topk(log_probs, self.beam_size + 2, dim=-1)
-        result_scores[pad_mask, :] = scores[pad_mask, : self.beam_size]
-        result_prefixes[pad_mask, :] = prefixes[pad_mask, : self.beam_size]
-        not_pad_mask = ~pad_mask
-        not_enough_words = num_generated_words.lt(tgt_num_words)
-        enough_words = ~not_enough_words
-        assert (
-            torch.all(not_pad_mask[not_enough_words]),
-            f"Pad mask includes results which do not have enough words. "
-            f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
-        )
-        ready_for_generation_finish = enough_words & not_pad_mask
-        scores[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
-        result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
-        not_enough_words = scores[not_enough_words, :]
-        mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
-        not_enough_words[mask] = NEG_INF
-        resorted_scores, indices = torch.topk(not_enough_words, self.beam_size, dim=-1)
-        resorted_scores[not_enough_words, :] = resorted_scores
-        result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
-        num_generated_words[not_enough_words] = num_generated_words[not_enough_words] + mask.sum(dim=-1)
-        return result_scores, result_prefixes, num_generated_words
-
     def _forward(
         self,
         decoder_input_ids=None,
@@ -857,10 +865,6 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         return_beam_scores=False,
         num_tgt_words=None,
     ):
-        print("num_tgt_words:", num_tgt_words)
-        device = next(self.decoder.parameters()).device
-        if num_tgt_words is not None:
-            num_tgt_words = torch.tensor(num_tgt_words, device=device)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
 
         # generate initial buffer of beam_size prefixes-hypotheses
@@ -895,10 +899,6 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         # prefixes_len tracks lengths of generated hypotheses to perform
         # length penalty correction
         prefixes_len = torch.zeros_like(scores).fill_(prefixes.size(1) + 1)
-        if self.decoder_word_ids is not None and num_tgt_words is not None:
-            num_generated_words = torch.zeros(prefixes.shape[0], device=device)
-        else:
-            num_generated_words = None
 
         for i in range(max_generation_length):
 
@@ -909,9 +909,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
             log_probs, decoder_mems_list, lm_mems_list = self._one_step_forward(
                 prefixes[:, -1:], encoder_hidden_states, encoder_input_mask, decoder_mems_list, lm_mems_list, i + 1
             )
-            scores_i, prefixes_i, num_generated_words = self.topk_with_tgt(
-                log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask,
-            )
+            scores_i, prefixes_i = torch.topk(log_probs[:, -1, :], self.beam_size, dim=-1)
 
             # for all prefixes ending with <eos> or <pad> replace generated
             # continuations with <pad>
