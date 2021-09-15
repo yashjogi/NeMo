@@ -312,9 +312,10 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
             return scores, prefixes, None
         n = log_probs.shape[0]
-        result_scores, result_prefixes = torch.zeros(n, self.beam_size)
         # 2 is for pad and eos tokens which may be removed
         scores, prefixes = torch.topk(log_probs, self.beam_size + 2, dim=-1)
+        result_scores = torch.zeros(n, self.beam_size, dtype=scores.dtype, device=scores.device)
+        result_prefixes = torch.zeros(n, self.beam_size, dtype=prefixes.dtype, device=prefixes.device)
         result_scores[pad_mask, :] = scores[pad_mask, : self.beam_size]
         result_prefixes[pad_mask, :] = prefixes[pad_mask, : self.beam_size]
         not_pad_mask = ~pad_mask
