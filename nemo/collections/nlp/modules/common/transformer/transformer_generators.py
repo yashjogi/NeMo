@@ -781,7 +781,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         Kwargs:
             all remaining parameters of GreedySequenceGenerator class
         """
-
+        print("new")
         super().__init__(embedding, decoder, log_softmax, **kwargs)
         self.language_model = language_model
         self.beam_size = beam_size
