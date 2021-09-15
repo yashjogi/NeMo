@@ -6,7 +6,7 @@ model:
   beam_size: 4
   len_pen: 0.6
   multilingual: False
-  max_generation_delta: 500
+  max_generation_delta: 100
   label_smoothing: 0.0
   shared_tokenizer: False # train tokenizer model across src and tgt train data
   preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
