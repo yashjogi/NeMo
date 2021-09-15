@@ -344,7 +344,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         wrong_eos_pad_mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
         not_enough_words_scores[wrong_eos_pad_mask] = NEG_INF
         resorted_scores, indices = torch.topk(not_enough_words_scores, self.beam_size, dim=-1)
-        resorted_scores[not_enough_words, :] = resorted_scores
+        result_scores[not_enough_words, :] = resorted_scores
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
         num_generated_words = num_generated_words.unsqueeze(1).repeat(1, self.beam_size)
         num_generated_words += is_in(result_prefixes, self.decoder_word_ids)
