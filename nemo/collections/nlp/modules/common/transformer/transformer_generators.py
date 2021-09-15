@@ -819,6 +819,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         return ((5 + lengths) / 6).pow(alpha)
 
     def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
+        print("topk_with_tgt")
         if num_generated_words is None:
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
             return scores, prefixes, None
@@ -858,7 +859,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
     ):
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
-            num_tgt_words = torch.tensor(num_tgt_words, device)
+            num_tgt_words = torch.tensor(num_tgt_words, device=device)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
 
         # generate initial buffer of beam_size prefixes-hypotheses
