@@ -857,6 +857,7 @@ class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
         return_beam_scores=False,
         num_tgt_words=None,
     ):
+        print("num_tgt_words:", num_tgt_words)
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
             num_tgt_words = torch.tensor(num_tgt_words, device=device)
