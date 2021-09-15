@@ -327,15 +327,16 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
         )
         ready_for_generation_finish = enough_words & not_pad_mask
-        scores[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
+        prefixes[ready_for_generation_finish, is_in(prefixes, self.word_ids)] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
-        not_enough_words = scores[not_enough_words, :]
-        mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
-        not_enough_words[mask] = NEG_INF
-        resorted_scores, indices = torch.topk(not_enough_words, self.beam_size, dim=-1)
+        not_enough_words_scores = scores[not_enough_words, :]
+        wrong_eos_pad_mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
+        not_enough_words_scores[wrong_eos_pad_mask] = NEG_INF
+        resorted_scores, indices = torch.topk(not_enough_words_scores, self.beam_size, dim=-1)
         resorted_scores[not_enough_words, :] = resorted_scores
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, indices]
-        num_generated_words[not_enough_words] = num_generated_words[not_enough_words] + mask.sum(dim=-1)
+        num_generated_words = num_generated_words.unsqueeze(1).repeat(1, self.beam_size)
+        num_generated_words += is_in(result_prefixes, self.word_ids)
         return result_scores, result_prefixes, num_generated_words
 
     def _forward(
@@ -348,7 +349,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
     ):
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
-            num_tgt_words = torch.tensor(num_tgt_words, device=device)
+            num_tgt_words = torch.tensor(num_tgt_words, device=device).unsqueeze(1).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
 
         # generate initial buffer of beam_size prefixes-hypotheses
@@ -410,6 +411,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             scores = scores / len_penalties
             scores, indices_i = torch.topk(scores.view(-1, self.beam_size ** 2), self.beam_size, dim=1)
             scores = scores.view(-1, 1) * len_penalties
+            num_generated_words = num_generated_words.view(-1, self.beam_size ** 2)[indices_i].view(-1)
 
             # select prefixes which correspond to the chosen hypotheses
             prefixes = prefixes.unsqueeze(1).repeat(1, self.beam_size, 1)
