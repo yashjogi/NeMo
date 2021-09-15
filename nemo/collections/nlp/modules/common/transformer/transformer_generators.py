@@ -283,6 +283,13 @@ class TopKSequenceGenerator(GreedySequenceGenerator):
         return pseudo_log_probs, decoder_mems_list
 
 
+def is_in(tensor, values):
+    result = torch.zeros(tensor.shape, dtype=torch.bool, device=tensor.device)
+    for v in values:
+        result |= tensor == v
+    return result
+
+
 class BeamSearchSequenceGenerator(GreedySequenceGenerator):
     def __init__(self, embedding, decoder, log_softmax, beam_size=1, len_pen=0, **kwargs):
         """
@@ -329,7 +336,9 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         )
         print("enough_words.dtype, not_pad_mask.dtype:", enough_words.dtype, not_pad_mask.dtype)
         ready_for_generation_finish = enough_words & not_pad_mask
-        prefixes[ready_for_generation_finish, is_in(prefixes, self.decoder_word_ids)] = self.eos
+        prefixes[
+            ready_for_generation_finish, :
+        ][is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids)] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
         not_enough_words_scores = scores[not_enough_words, :]
         wrong_eos_pad_mask = not_enough_words.eq(self.eos) | not_enough_words.eq(self.pad)
@@ -801,13 +810,6 @@ class EnsembleBeamSearchSequenceGenerator:
             yield
         finally:
             self.unfreeze()
-
-
-def is_in(tensor, values):
-    result = torch.zeros(tensor.shape, dtype=torch.bool, device=tensor.device)
-    for v in values:
-        result |= tensor == v
-    return result
 
 
 class BeamSearchSequenceGeneratorWithLanguageModel(GreedySequenceGenerator):
