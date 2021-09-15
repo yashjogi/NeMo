@@ -208,10 +208,10 @@ class MTEncDecModel(EncDecNLPModel):
             pad_id=self.decoder_tokenizer.pad_id, label_smoothing=cfg.label_smoothing
         )
         self.eval_loss_fn = NLLLoss(ignore_index=self.decoder_tokenizer.pad_id)
-        self.add_src_num_words_to_batch_validation = cfg.model.get(
+        self.add_src_num_words_to_batch_validation = cfg.get(
             "validation_ds", {}
         ).get("add_src_num_words_to_batch", False)
-        self.add_src_num_words_to_batch_test = cfg.model.get(
+        self.add_src_num_words_to_batch_test = cfg.get(
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
 
