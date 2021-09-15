@@ -732,7 +732,7 @@ class MTEncDecModel(EncDecNLPModel):
         src: torch.LongTensor,
         src_mask: torch.LongTensor,
         return_beam_scores: bool = False,
-        num_src_words: Optional[List[int]] = None,
+        num_tgt_words: Optional[List[int]] = None,
     ):
         """	
         Translates a minibatch of inputs from source language to target language.	
@@ -751,7 +751,7 @@ class MTEncDecModel(EncDecNLPModel):
                 encoder_hidden_states=src_hiddens,
                 encoder_input_mask=src_mask,
                 return_beam_scores=return_beam_scores,
-                num_src_words=num_src_words,
+                num_tgt_words=num_tgt_words,
             )
             if return_beam_scores:
                 all_translations, scores, best_translations = best_translations
