@@ -1,6 +1,7 @@
 WANDB_API_KEY="$1"
 
 read -r -d '' command << EOF
+git clone https://github.com/NVIDIA/NeMo
 cd NeMo
 git checkout translation_punc
 export PYTHONPATH="$(pwd)"
