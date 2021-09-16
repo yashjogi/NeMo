@@ -464,7 +464,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             correct_mask = num_tgt_words.view(-1, self.beam_size)[:, 0].eq(
                 is_in(tgt, self.decoder_word_ids).int().sum(dim=1)
             ) \
-                | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length)
+                | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length + 1)
             assert torch.all(correct_mask), (
                 f"Number of predicted words for some inputs is lower than expected and number of predicted tokens is "
                 f"not equal to `max_generation_length={max_generation_length}`. start_len={start_len}, "
