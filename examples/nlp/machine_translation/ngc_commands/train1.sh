@@ -4,6 +4,8 @@ read -r -d '' command << EOF
 git clone https://github.com/NVIDIA/NeMo
 cd NeMo
 git checkout translation_punc
+pip install -r requirements/requirements.txt
+pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
