@@ -5,9 +5,9 @@ git clone https://github.com/NVIDIA/NeMo
 cd NeMo
 git checkout translation_punc
 pip install -r requirements/requirements.txt
+pip install -r requirements/requirements_lightning.txt
+pip install -r requirements/requirements_test.txt
 pip install -r requirements/requirements_nlp.txt
-pip install wandb
-pip install omegaconf
 export PYTHONPATH="$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
