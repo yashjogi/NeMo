@@ -12,7 +12,7 @@ pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="\$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
-python enc_dec_nmt.py --config-path=conf --config-name aayn_base_punc
+python enc_dec_nmt.py --config-path=conf --config-name aayn_base_punc trainer.gpus=1
 set +e +x
 EOF
 
