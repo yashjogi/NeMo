@@ -9,7 +9,7 @@ pip install -r requirements/requirements.txt
 pip install -r requirements/requirements_lightning.txt
 pip install -r requirements/requirements_test.txt
 pip install -r requirements/requirements_nlp.txt
-export PYTHONPATH="$(pwd)"
+export PYTHONPATH="\$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 python enc_dec_nmt.py --config-path=conf --config-name aayn_base_punc
