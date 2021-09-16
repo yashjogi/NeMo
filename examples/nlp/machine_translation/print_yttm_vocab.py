@@ -1,6 +1,15 @@
 import argparse
+from pathlib import Path
 
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
+
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model", type=Path)
+    args = parser.parse_args()
+    args.model = args.model.expanduser()
+    return args
 
 
 def main():
@@ -9,11 +18,8 @@ def main():
         library="yttm",
         tokenizer_model=args.model,
     )
-    print("bos id:", tokenizer.bos_id)
-    print("eos id:", tokenizer.eos_id)
-    print("pad id:", tokenizer.pad_id)
-    print("unk id:", tokenizer.unk_id)
-
+    for i in range(tokenizer.vocab_size):
+        print(i, repr(tokenizer.ids_to_tokens([i])[0]))
 
 
 if __name__ == "__main__":
