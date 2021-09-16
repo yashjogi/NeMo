@@ -38,7 +38,7 @@ model:
   validation_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
     tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
-    tokens_in_batch: 50000
+    tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -50,7 +50,7 @@ model:
   test_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
     tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
-    tokens_in_batch: 50000
+    tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
     shuffle: false
