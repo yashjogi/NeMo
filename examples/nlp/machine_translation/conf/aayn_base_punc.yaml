@@ -14,8 +14,8 @@ model:
   tgt_language: 'en'
 
   train_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/autoregressive_labels.txt
     use_tarred_dataset: False # if true tar_file_name and meta_file_name will be used (or created automatically) 
     # config for preprocessing training data and creating a tarred datset automatically
     lines_per_dataset_fragment: 1000000 # Number of lines to consider for bucketing and padding
@@ -36,8 +36,8 @@ model:
     concat_sampling_probabilities: null # only used with ConcatTranslationDataset 
 
   validation_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
@@ -48,8 +48,8 @@ model:
     num_workers: 8
 
   test_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
+    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/input.txt
+    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev1000/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
