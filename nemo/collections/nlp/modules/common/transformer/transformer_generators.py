@@ -469,7 +469,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 f"Number of predicted words for some inputs is lower than expected and number of predicted tokens is "
                 f"not equal to `max_generation_length={max_generation_length}`. start_len={start_len}, "
                 f"correct_mask={correct_mask}, mistaken_predictions={tgt[~correct_mask]}, "
-                f"example_of_mistake={tgt[~correct_mask][0]}"
+                f"example_of_mistake={tgt[~correct_mask][0]}, len(example_of_mistake)={tgt[~correct_mask][0].shape[0]}"
             )
         if return_beam_scores:
             return prefixes, scores * len_penalties, tgt
