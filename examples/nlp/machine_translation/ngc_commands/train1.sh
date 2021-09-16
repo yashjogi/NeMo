@@ -1,6 +1,7 @@
 WANDB_API_KEY="$1"
 
 read -r -d '' command << EOF
+set -e -x
 git clone https://github.com/NVIDIA/NeMo
 cd NeMo
 git checkout translation_punc
@@ -12,6 +13,7 @@ export PYTHONPATH="$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 python enc_dec_nmt.py --config-path=conf --config-name aayn_base_punc
+set +e +x
 EOF
 
 ngc batch run \
