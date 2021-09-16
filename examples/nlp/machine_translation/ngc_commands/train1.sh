@@ -12,7 +12,7 @@ EOF
 ngc batch run \
   --instance dgx1v.16g.8.norm \
   --name "Autoreg_punc_cap_orig_mt" \
-  --image "pytorch:21.08-py3" \
+  --image "nvidia/pytorch:21.08-py3" \
   --result /result \
   --datasetid 88130:/data \
   --commandline "${command}"
