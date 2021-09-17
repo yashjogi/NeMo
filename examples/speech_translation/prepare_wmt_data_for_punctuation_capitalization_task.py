@@ -35,7 +35,9 @@ NUM_LENGTH_REMOVED_EXAMPLES = 3
 MORE_THAN_3_DOTS = re.compile(r'\.{4,}')
 MORE_THAN_3_SPACE_DOTS = re.compile(r'( \.){3,}')
 MORE_THAN_15_DOTS = re.compile(r'\.{15,}')
-DOT_SPACE_MULTIDOT = re.compile(r'\. \.{3}')
+DOT_SPACE_MULTIDOT = re.compile(r'\. \.{3}$')
+MORE_THAN_10_HYPHENS = re.compile(r'-{10,}')
+DOT_DIGIT_5 = re.compile(r'(\.\d+){4}')
 
 
 def get_args():
@@ -248,6 +250,8 @@ def preprocess_rapid(text, verbose=False):
                 text[-1] in SENTENCE_ENDINGS
                 and MORE_THAN_15_DOTS.search(text) is None
                 and MORE_THAN_3_SPACE_DOTS.search(text) is None
+                and MORE_THAN_10_HYPHENS.search(text) is None
+                and DOT_DIGIT_5.search(text) is None
             ):
                 file_utterances.append(text)
         if file_utterances:
@@ -270,9 +274,9 @@ def preprocess_news_commentary(text):
                 if location_string is not None:
                     line = line[location_string.span()[1] :]
                 line = line.strip()
-                if line:
+                if line and MORE_THAN_10_HYPHENS.search(line) is None:
                     discussion_text.append(line)
-            elif line_idx > 1:
+            elif line_idx > 1 and MORE_THAN_10_HYPHENS.search(line) is None:
                 discussion_text.append(line)
             line_idx += 1
         else:
