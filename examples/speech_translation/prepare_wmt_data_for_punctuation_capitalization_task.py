@@ -32,6 +32,8 @@ SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 NUM_LENGTH_REMOVED_EXAMPLES = 3
+MORE_THAN_3_DOTS = re.compile(r'\.{4,}')
+MORE_THAN_15_DOTS = re.compile(r'\.{15,}')
 
 
 def get_args():
@@ -240,7 +242,7 @@ def preprocess_rapid(text, verbose=False):
                     f"No utterance in English was found in file {file_id} in unit {unit_id}. "
                     f"Source language: {source['lang']}. Target language: {target['lang']}"
                 )
-            if text[-1] in SENTENCE_ENDINGS:
+            if text[-1] in SENTENCE_ENDINGS and MORE_THAN_15_DOTS.search(text) is None:
                 file_utterances.append(text)
         if file_utterances:
             result["rapid_file_" + file_id] = file_utterances
@@ -323,6 +325,13 @@ def create_doc_example_string(docs):
         s += k + '\n'
         s += '\n'.join(v) + '\n' * 3
     return s[:-3]
+
+
+def remove_wrong_docs(docs):
+    keys = list(docs.keys())
+    for name in keys:
+        if any(['.....' in line for line in docs[name]]):
+            del docs[name]
 
 
 def remove_wrong_lang_docs(docs, lang, model_path, max_fraction, max_length):
@@ -493,7 +502,7 @@ def create_not_whole_sentence_segments(
 def create_dataset_string(file_docs):
     result = ""
     for doc_id, doc in file_docs.items():
-        result += '\n'.join([f'<doc docid="{doc_id}">'] + doc + ['</doc>'])
+        result += '\n'.join([f'<doc docid="{doc_id}">'] + doc + ['</doc>']) + '\n'
     return result
 
 
@@ -507,7 +516,7 @@ def normalize_punctuation(all_docs, lang):
         '\n\n\n'.join(['\n'.join(v) for v in all_docs.values()]).encode('utf-8')
     )
     counter = 0
-    for k, text in zip(all_docs, outs.decode('utf-8').split('\n\n\n')):
+    for k, text in zip(all_docs, MORE_THAN_3_DOTS.sub('...', outs.decode('utf-8')).split('\n\n\n')):
         counter += 1
         lines = text.split('\n')
         assert len(lines) == len(all_docs[k]), f"len(lines)={len(lines)}, len(all_docs[k])={len(all_docs[k])}"
