@@ -9,6 +9,8 @@ from io import StringIO
 from math import ceil
 from pathlib import Path
 
+import fasttext
+import requests
 from bs4 import BeautifulSoup, NavigableString
 
 
@@ -29,6 +31,7 @@ STRIP_END = re.compile(r"\W+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
+NUM_LENGTH_REMOVED_EXAMPLES = 3
 
 
 def get_args():
@@ -38,7 +41,8 @@ def get_args():
         "--input_language",
         "-L",
         help="Used for punctuation normalization. en - English, de - German, cz - Czech, fr - French."
-        "Other options are also possible but there is not special instructions for punctuation normalization."
+        "Other options (List of supported languages https://fasttext.cc/docs/en/language-identification.html) are also "
+        "possible but there is not special instructions for punctuation normalization."
         "See https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/normalize-punctuation.perl",
         default="en",
     )
@@ -112,6 +116,30 @@ def get_args():
         type=set,
         default=set('"!(),-.:;?'),
     )
+    parser.add_argument(
+        "--fasttext_model",
+        "-f",
+        help="Path to fastText model used for language verification. The description and download links are here "
+        "https://fasttext.cc/docs/en/language-identification.html. If path to the model is not provided, then "
+        "lid.176.bin is downloaded and saved in the same directory with this script.",
+        type=Path,
+    )
+    parser.add_argument(
+        "--max_fraction_of_wrong_language",
+        "-R",
+        help="Max fraction of characters in a document which are identified by fastText as belonging to wrong "
+        "language. If the fraction is greater than `--max_fraction_of_wrong_language` a document is removed.",
+        type=float,
+        default=0.1,
+    )
+    parser.add_argument(
+        "--max_length_of_sentence_of_wrong_language",
+        "-s",
+        help="Max number of characters in a sentence identified by fastText model as written in wrong "
+        "language. A document with such a sentence is removed.",
+        type=int,
+        default=500,
+    )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
@@ -126,6 +154,30 @@ def get_args():
             f"Punctuation marks {args.allowed_punctuation - SUPPORTED_BERT_PUNCTUATION} are not allowed for BERT "
             f"labels."
         )
+    if args.fasttext_model is None:
+        save_path = Path(__file__).parent / Path("lid.176.bin")
+        if save_path.exists():
+            logging.info(f"Found fastText model {save_path}. Loading fastText model...")
+            try:
+                fasttext.load_model(str(save_path))
+            except ValueError:
+                logging.exception(
+                    f"Encountered ValueError when loading fastText model. Pass another model file or remove "
+                    f"{save_path} and script download not corrupted model file.")
+                raise
+            logging.info(f"Loaded successfully.")
+        else:
+            logging.info(
+                "Downloading fastText model lid.176.bin for language identification from "
+                "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin..."
+            )
+            r = requests.get(
+                "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin", allow_redirects=True
+            )
+            with save_path.open('wb') as f:
+                f.write(r.content)
+            logging.info(f"fastText model is saved to {save_path}")
+            args.fasttext_model = save_path
     return args
 
 
@@ -251,6 +303,62 @@ def add_docs(all_docs, file_docs, file_name):
             k += "_" + str(i)
         if not duplicate:
             all_docs[k] = v
+
+
+def get_lang(line, fasttext_model):
+    labels, _ = fasttext_model.predict(line, k=1)
+    lang = labels[0].split('__')[-1]
+    return lang
+
+
+def create_doc_example_string(docs):
+    s = ""
+    for k, v in docs.items():
+        s += k + '\n'
+        s += '\n'.join(v) + '\n' * 3
+    return s[:-3]
+
+
+def remove_wrong_lang_docs(docs, lang, model_path, max_fraction, max_length):
+    model = fasttext.load_model(str(model_path))
+    num_fraction_removed = 0
+    num_length_removed = 0
+    examples_of_fraction_removed = {}
+    examples_of_length_removed = {}
+    keys = list(docs.keys())
+    random.shuffle(keys)
+    for name in keys:
+        total_num_characters = 0
+        wrong_num_characters = 0
+        bad = False
+        for line in docs[name]:
+            if lang != get_lang(line, model):
+                if len(line) > max_length:
+                    bad = True
+                    if num_length_removed < NUM_LENGTH_REMOVED_EXAMPLES:
+                        examples_of_length_removed[name] = docs[name]
+                    num_length_removed += 1
+                    break
+                wrong_num_characters += len(line)
+            total_num_characters += len(line)
+        if not bad and wrong_num_characters / total_num_characters > max_fraction:
+            if num_fraction_removed < NUM_LENGTH_REMOVED_EXAMPLES:
+                examples_of_fraction_removed[name] = docs[name]
+            num_fraction_removed += 1
+            bad = True
+        if bad:
+            del docs[name]
+    logging.info(f"Number of documents removed because of too long sentences of wrong language: {num_length_removed}")
+    logging.info(f"Number of documents removed because of too big fraction of wrong language: {num_fraction_removed}")
+    logging.info(f"Original number of documents: {len(keys)}")
+    logging.info(
+        f"Examples of removed documents because of too long sentences of wrong language:\n"
+        f"{create_doc_example_string(examples_of_length_removed)}"
+    )
+    logging.info(
+        f"Examples of removed documents because of too big fraction of wrong language:\n"
+        f"{create_doc_example_string(examples_of_fraction_removed)}"
+    )
 
 
 def arrange_sentences_by_number_of_words(docs, sequence_length_range):
@@ -480,6 +588,13 @@ def main():
                     f.write(create_dataset_string(file_docs))
             add_docs(all_docs, file_docs, file_path)
             number_of_sentences_in_input += sum([len(doc) for doc in file_docs.values()])
+    remove_wrong_lang_docs(
+        all_docs,
+        args.input_language,
+        args.fasttext_model,
+        args.max_fraction_of_wrong_language,
+        args.max_length_of_sentence_of_wrong_language,
+    )
     normalize_punctuation(all_docs, args.input_language)
     if args.size is None:
         args.size = number_of_sentences_in_input
@@ -536,7 +651,6 @@ def main():
         with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
             for c in set(''.join(result)):
                 f.write(c + '\n')
-
 
 
 if __name__ == "__main__":
