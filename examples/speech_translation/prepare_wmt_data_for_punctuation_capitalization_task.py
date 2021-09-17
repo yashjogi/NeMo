@@ -183,7 +183,7 @@ def get_args():
             with save_path.open('wb') as f:
                 f.write(r.content)
             logging.info(f"fastText model is saved to {save_path}")
-            args.fasttext_model = save_path
+        args.fasttext_model = save_path
     return args
 
 
