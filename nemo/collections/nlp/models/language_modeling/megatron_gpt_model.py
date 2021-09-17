@@ -22,7 +22,6 @@ from pytorch_lightning.trainer.trainer import Trainer
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
     MegatronPretrainingSampler,
-    build_pretraining_data_loader,
 )
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
 from nemo.collections.nlp.models.language_modeling.megatron.gpt_model import GPTModel
@@ -34,8 +33,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
     average_losses_across_data_parallel_group,
     get_ltor_masks_and_position_ids,
 )
-from nemo.collections.nlp.parts.nlp_overrides import NLPCheckpointConnector
-from nemo.utils import AppState, app_state, logging
+from nemo.utils import AppState, logging
 
 
 class MegatronGPTModel(NLPModel):
@@ -68,6 +66,7 @@ class MegatronGPTModel(NLPModel):
             tokenizer_type='GPT2BPETokenizer',
             vocab_file=cfg.tokenizer.vocab_file,
             merge_file=cfg.tokenizer.merge_file,
+            fp16=cfg.get('fp16', True),
         )
         args = get_args()
 
