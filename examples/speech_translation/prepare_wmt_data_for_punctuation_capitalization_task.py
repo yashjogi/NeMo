@@ -568,7 +568,7 @@ def write_dataset(data, dir_, create_model_input, bert_labels, autoregressive_la
     if create_model_input:
         with (dir_ / Path("input.txt")).open('w') as f:
             for line in data:
-                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)).lower() + '\n')
+                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)).lower().strip() + '\n')
     if bert_labels:
         with (dir_ / Path("bert_labels.txt")).open('w') as f:
             for line in data:
