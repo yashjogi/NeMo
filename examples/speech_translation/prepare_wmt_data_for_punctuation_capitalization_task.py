@@ -22,7 +22,7 @@ random.seed(42)
 
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
-WORD = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
+WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -279,7 +279,7 @@ def preprocess_news_commentary(text):
 
 
 def cut_words(s, start_word, num_words):
-    words = WORD.findall(s)
+    words = WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(s)
     s = ''.join(words[start_word : start_word + num_words])
     ss = STRIP_START.match(s)
     if ss is not None:
@@ -442,6 +442,12 @@ def create_not_whole_sentence_segments(
     yet_to_cut_by_number_of_words = calculate_how_many_remain_to_cut(
         number_of_words_stats, size, percentage_segments_with_intact_sentences
     )
+    assert (
+        size == sum(number_of_words_stats.values()) + sum(yet_to_cut_by_number_of_words.values()),
+        f"size={size},"
+        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())},"
+        f"sum(yet_to_cut_by_number_of_words.values())={sum(yet_to_cut_by_number_of_words.values())}",
+    )
     nw_i = 0
     done = not bool(yet_to_cut_by_number_of_words)
     while not done:
@@ -452,13 +458,13 @@ def create_not_whole_sentence_segments(
                 if i >= next_sentence_i and len_ > 1:
                     shift = random.randint(0, len_ // 2)
                     text = all_docs[doc_id][i]
-                    num_words = len(WORD.findall(text))
+                    num_words = len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(text))
                     next_sentence_i = i + 1
                     number_of_words = list(yet_to_cut_by_number_of_words.keys())
                     nw_i %= len(number_of_words)
                     while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(all_docs[doc_id]):
                         text += ' ' + all_docs[doc_id][next_sentence_i]
-                        num_words += len(WORD.findall(all_docs[doc_id][next_sentence_i]))
+                        num_words += len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(all_docs[doc_id][next_sentence_i]))
                         next_sentence_i += 1
                     if shift + number_of_words[nw_i] < num_words:
                         if shift + number_of_words[nw_i] == num_words and shift == 0:
@@ -476,7 +482,11 @@ def create_not_whole_sentence_segments(
             if done:
                 break
         remaining_by_docs = {doc_id: set(range(len(doc))) for doc_id, doc in all_docs.items()}
-    assert len(result) == size - sum(number_of_words_stats.values())
+    assert (
+        len(result) == size - sum(number_of_words_stats.values()),
+        f"len(result)={len(result)}, size={size}, "
+        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}",
+    )
     return result
 
 
