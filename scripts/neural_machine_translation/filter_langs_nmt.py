@@ -47,7 +47,7 @@ def get_args():
     parser = argparse.ArgumentParser(
         description="It is a script for verifying language in machine translation data sets. If the script is used on "
         "a parallel corpus, it verifies both a source and a target language. If number of jobs `--num-jobs` is bigger "
-        "than 1 than lines in an input file (or files if parallel corpus is checked) split equally between workers. "
+        "than 1, then lines in an input file (or files if parallel corpus is checked) split equally between workers. "
         "If `num_jobs > 1` is used, the best performance is achieved if dataset is shuffled and lines with different "
         "lengths are distributed evenly in the input file. Filtered data is stored into `output_src`[, `--output-tgt`]"
         " and removed lines are put into `removed_src`[, `--removed-tgt`] files. If language cannot be detected "
