@@ -105,7 +105,7 @@ def get_megatron_lm_model(
     config_file: Optional[str] = None,
     checkpoint_file: Optional[str] = None,
     vocab_file: Optional[str] = None,
-    merges_file: Optional[str] = None
+    merges_file: Optional[str] = None,
 ) -> Tuple[MegatronBertEncoder, str]:
     """
     Returns MegatronBertEncoder and a default or user specified path to the checkpoint file
@@ -154,6 +154,9 @@ def get_megatron_lm_model(
     if not vocab_file:
         vocab_file = get_megatron_vocab_file(pretrained_model_name)
     
+    if not merges_file:
+        merges_file = get_megatron_merge_file(pretrained_model_name)
+
     if not merges_file:
         merges_file = get_megatron_merge_file(pretrained_model_name)
 
@@ -249,6 +252,26 @@ def get_megatron_vocab_file(pretrained_model_name: str) -> str:
     path = os.path.join(MEGATRON_CACHE, pretrained_model_name + "_vocab")
     path = _download(path, url)
     return path
+
+def get_megatron_merges_file(pretrained_model_name: str) -> str:
+    """
+    Gets merge file from cache or downloads it
+
+    Args:
+        pretrained_model_name: pretrained model name
+
+    Returns:
+        path: path to the vocab file
+    """
+    if 'gpt' not in pretrained_model_name.lower():
+        return None
+    _check_megatron_name(pretrained_model_name)
+    url = MEGATRON_CONFIG_MAP[pretrained_model_name]["merges_file"]
+
+    path = os.path.join(MEGATRON_CACHE, pretrained_model_name + "_merges")
+    path = _download(path, url)
+    return path
+
 
 def get_megatron_merges_file(pretrained_model_name: str) -> str:
     """

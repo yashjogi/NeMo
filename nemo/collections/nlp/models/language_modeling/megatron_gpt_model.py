@@ -64,6 +64,7 @@ class MegatronGPTModel(NLPModel):
             hidden_size=cfg.get('hidden_size', 16),
             num_attention_heads=cfg.get('num_attention_heads', 1),
             max_position_embeddings=cfg.get('max_position_embeddings', 512),
+            init_method_std=cfg.get('init_method_std', 0.02),
             tokenizer_type='GPT2BPETokenizer',
             vocab_file=cfg.tokenizer.vocab_file,
             merge_file=cfg.tokenizer.merge_file,
@@ -182,9 +183,12 @@ class MegatronGPTModel(NLPModel):
             seed=self.cfg.seed,
             skip_warmup=self.cfg.data.skip_warmup,
         )
-        logging.info(f'Length of train dataset: {len(self._train_ds)}')
-        logging.info(f'Length of val dataset: {len(self._validation_ds)}')
-        logging.info(f'Length of test dataset: {len(self._test_ds)}')
+        if self._train_ds is not None:
+            logging.info(f'Length of train dataset: {len(self._train_ds)}')
+        if self._validation_ds is not None:
+            logging.info(f'Length of val dataset: {len(self._validation_ds)}')
+        if self._test_ds is not None:
+            logging.info(f'Length of test dataset: {len(self._test_ds)}')
         logging.info(f'Finished building GPT datasets.')
         return self._train_ds, self._validation_ds, self._test_ds
 
