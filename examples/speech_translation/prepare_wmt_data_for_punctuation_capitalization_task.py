@@ -36,7 +36,13 @@ NUM_LENGTH_REMOVED_EXAMPLES = 3
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
-    parser.add_argument("input_files", help="List of files with input data", nargs="+", type=Path)
+    parser.add_argument(
+        "input_files",
+        help="List of files with input data. You should also provide `--corpus_types` list which elements are types "
+        "corresponding files.",
+        nargs="+",
+        type=Path,
+    )
     parser.add_argument(
         "--input_language",
         "-L",
