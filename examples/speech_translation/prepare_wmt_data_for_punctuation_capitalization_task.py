@@ -277,9 +277,10 @@ def preprocess_rapid(text, verbose=False):
                 and MORE_THAN_10_HYPHENS.search(text) is None
                 and DOT_DIGIT_5.search(text) is None
                 and not too_many_digits(text)
-                and text not in {'p.m.', 'Prov.'}
+                and text not in {'p.m.', 'Prov.', 'n.a.'}
                 and not (text.isupper() and len(text) > 20)
                 and not (ABBR_STRING.match(text) is not None and text != "No.")
+                and 'n.a. n.a.' not in text
             ):
                 file_utterances.append(text)
         if file_utterances:
