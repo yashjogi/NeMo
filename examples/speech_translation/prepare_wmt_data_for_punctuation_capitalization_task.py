@@ -26,7 +26,7 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
 # For splitting text into words and punctuation
-WORD = re.compile(r"(\w+([./]\w+)*|\b-?\d+(\.\d+)*)")
+WORD = re.compile(r"(\w+'\w+|\w+([./]\w+)*|\b-?\d+(\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -667,7 +667,7 @@ def write_dataset_re(data, dir_, create_model_input, bert_labels, autoregressive
     if create_model_input:
         with (dir_ / Path("input.txt")).open('w') as f:
             for line in split_data:
-                f.write(' '.join([s for s in line if WORD.match(s)]) + '\n')
+                f.write(' '.join([s.lower() for s in line if WORD.match(s)]) + '\n')
     if bert_labels:
         with (dir_ / Path("bert_labels.txt")).open('w') as f:
             for line in split_data:
