@@ -46,6 +46,7 @@ MORE_THAN_15_DOTS = re.compile(r'\.{15,}')
 DOT_SPACE_MULTIDOT = re.compile(r'\. \.{3}$')
 MORE_THAN_10_HYPHENS = re.compile(r'-{10,}')
 DOT_DIGIT_5 = re.compile(r'(\.\d+){4}')
+ABBR_STRING = re.compile(r'^[A-Z][a-z]?\.$')
 
 
 def get_args():
@@ -276,7 +277,9 @@ def preprocess_rapid(text, verbose=False):
                 and MORE_THAN_10_HYPHENS.search(text) is None
                 and DOT_DIGIT_5.search(text) is None
                 and not too_many_digits(text)
-                and 'n.a.' not in text
+                and text not in {'p.m.', 'Prov.'}
+                and not (text.isupper() and len(text) > 20)
+                and not (ABBR_STRING.match(text) is not None and text != "No.")
             ):
                 file_utterances.append(text)
         if file_utterances:
@@ -506,10 +509,22 @@ def create_not_whole_sentence_segments(
                     next_sentence_i = i + 1
                     number_of_words = list(yet_to_cut_by_number_of_words.keys())
                     nw_i %= len(number_of_words)
-                    while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(all_docs[doc_id]):
+                    found_line_with_no_punctuation_in_the_end = False
+                    while (
+                        not found_line_with_no_punctuation_in_the_end
+                        and shift + number_of_words[nw_i] + 1 > num_words
+                        and next_sentence_i < len(all_docs[doc_id])
+                    ):
+                        if all_docs[doc_id][next_sentence_i - 1][-1] not in SENTENCE_ENDINGS:
+                            found_line_with_no_punctuation_in_the_end = True
+                            break
                         text += ' ' + all_docs[doc_id][next_sentence_i]
-                        num_words += len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(all_docs[doc_id][next_sentence_i]))
+                        num_words += len(
+                            WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(all_docs[doc_id][next_sentence_i])
+                        )
                         next_sentence_i += 1
+                    if found_line_with_no_punctuation_in_the_end:
+                        continue
                     if shift + number_of_words[nw_i] < num_words:
                         if shift + number_of_words[nw_i] == num_words and shift == 0:
                             shift += 1
