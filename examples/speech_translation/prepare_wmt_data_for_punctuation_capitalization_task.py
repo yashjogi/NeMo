@@ -534,7 +534,7 @@ def create_not_whole_sentence_segments(
                         and shift + number_of_words[nw_i] + 1 > num_words
                         and next_sentence_i < len(all_docs[doc_id])
                     ):
-                        if all_docs[doc_id][next_sentence_i - 1][-1] not in SENTENCE_ENDINGS:
+                        if all_docs[doc_id][next_sentence_i - 1][-1] not in SENTENCE_ENDINGS + '";:':
                             found_line_with_no_punctuation_in_the_end = True
                             break
                         text += ' ' + all_docs[doc_id][next_sentence_i]
