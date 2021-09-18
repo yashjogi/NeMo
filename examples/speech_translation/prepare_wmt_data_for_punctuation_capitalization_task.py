@@ -276,6 +276,7 @@ def preprocess_rapid(text, verbose=False):
                 and MORE_THAN_10_HYPHENS.search(text) is None
                 and DOT_DIGIT_5.search(text) is None
                 and not too_many_digits(text)
+                and 'n.a.' not in text
             ):
                 file_utterances.append(text)
         if file_utterances:
