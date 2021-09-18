@@ -38,6 +38,8 @@ SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 NUM_LENGTH_REMOVED_EXAMPLES = 3
 MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION = 100
 MAX_DIGIT_ALPHA_QUOTIENT = 0.5
+MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_UPPERCASE_LIMIT = 64
+MAX_UPPER_CASE_QUOTIENT = 1.0
 DIGITS = set(string.digits)
 ASCII_LETTERS = set(string.ascii_letters)
 MORE_THAN_3_DOTS = re.compile(r'\.{4,}')
@@ -217,6 +219,21 @@ def too_many_digits(text):
     return too_many
 
 
+def too_many_uppercase(text):
+    num_uppercase = 0
+    num_lowercase = 0
+    if len(text) > MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_UPPERCASE_LIMIT:
+        for c in text:
+            if c.isupper():
+                num_uppercase += 1
+            if c.islower():
+                num_lowercase += 1
+        too_many = num_uppercase / (num_lowercase + 1e-12) > MAX_UPPER_CASE_QUOTIENT
+    else:
+        too_many = False
+    return too_many
+
+
 def preprocess_europarl(text):
     f = StringIO(text)
     docs = {}
@@ -278,9 +295,10 @@ def preprocess_rapid(text, verbose=False):
                 and DOT_DIGIT_5.search(text) is None
                 and not too_many_digits(text)
                 and text not in {'p.m.', 'Prov.', 'n.a.'}
-                and not (text.isupper() and len(text) > 20)
+                and not (text.isupper() and len(text) > 10)
                 and not (ABBR_STRING.match(text) is not None and text != "No.")
                 and 'n.a. n.a.' not in text
+                and not too_many_uppercase(text)
             ):
                 file_utterances.append(text)
         if file_utterances:
