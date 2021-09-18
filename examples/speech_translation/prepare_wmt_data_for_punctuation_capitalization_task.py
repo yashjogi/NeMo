@@ -731,6 +731,7 @@ def main():
     result += create_not_whole_sentence_segments(
         all_docs, selected_by_docs, number_of_words_stats, args.size, args.percentage_segments_with_intact_sentences,
     )
+    result = list(set(result))
     random.shuffle(result)
     if args.dev_size > len(result):
         raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({len(result)})")
