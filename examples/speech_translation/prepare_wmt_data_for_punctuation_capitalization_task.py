@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import re
+import string
 import subprocess
 from copy import deepcopy
 from io import StringIO
@@ -35,6 +36,10 @@ SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 NUM_LENGTH_REMOVED_EXAMPLES = 3
+MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION = 100
+MAX_DIGIT_ALPHA_QUOTIENT = 0.5
+DIGITS = set(string.digits)
+ASCII_LETTERS = set(string.ascii_letters)
 MORE_THAN_3_DOTS = re.compile(r'\.{4,}')
 MORE_THAN_3_SPACE_DOTS = re.compile(r'( \.){3,}')
 MORE_THAN_15_DOTS = re.compile(r'\.{15,}')
@@ -196,6 +201,21 @@ def get_args():
     return args
 
 
+def too_many_digits(text):
+    num_alpha_chars = 0
+    num_digits = 0
+    if len(text) > MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION:
+        for c in text:
+            if c in ASCII_LETTERS:
+                num_alpha_chars += 1
+            elif c in DIGITS:
+                num_digits += 1
+        too_many = num_digits / (num_alpha_chars + 1e-12) > MAX_DIGIT_ALPHA_QUOTIENT
+    else:
+        too_many = False
+    return too_many
+
+
 def preprocess_europarl(text):
     f = StringIO(text)
     docs = {}
@@ -204,7 +224,7 @@ def preprocess_europarl(text):
         if m is None:
             raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
         text = m.group(1).strip()
-        if text:
+        if text and not too_many_digits(text):
             doc = "europarl_" + m.group(2).strip()
             if doc not in docs:
                 docs[doc] = [text]
@@ -255,6 +275,7 @@ def preprocess_rapid(text, verbose=False):
                 and MORE_THAN_3_SPACE_DOTS.search(text) is None
                 and MORE_THAN_10_HYPHENS.search(text) is None
                 and DOT_DIGIT_5.search(text) is None
+                and not too_many_digits(text)
             ):
                 file_utterances.append(text)
         if file_utterances:
@@ -279,7 +300,7 @@ def preprocess_news_commentary(text):
                 line = line.strip()
                 if line and MORE_THAN_10_HYPHENS.search(line) is None:
                     discussion_text.append(line)
-            elif line_idx > 1 and MORE_THAN_10_HYPHENS.search(line) is None:
+            elif line_idx > 1 and MORE_THAN_10_HYPHENS.search(line) is None and not too_many_digits(line):
                 discussion_text.append(line)
             line_idx += 1
         else:
