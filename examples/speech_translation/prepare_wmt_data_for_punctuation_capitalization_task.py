@@ -22,7 +22,10 @@ random.seed(42)
 
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
+# For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
+# For splitting text into words and punctuation
+WORD = re.compile(r"(\w+([./]\w+)*|\b-?\d+(\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -601,6 +604,59 @@ def write_dataset(data, dir_, create_model_input, bert_labels, autoregressive_la
                 f.write(create_autoregressive_labels(line, allowed_punctuation) + '\n')
 
 
+def create_bert_labels_re(line, allowed_punctuation):
+    labels = ""
+    allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
+    for w_i, word in enumerate(line):
+        if WORD.match(word):
+            if len(word) > 0 and word.isupper():
+                labels += 'U'
+            elif word[0].isupper():
+                labels += 'u'
+            else:
+                labels += "O"
+            labels += line[w_i + 1][0] if w_i < len(line) - 1 and line[w_i + 1][0] in allowed_punctuation else 'O'
+            labels += ' '
+    return labels
+
+
+def create_autoregressive_labels_re(line, allowed_punctuation):
+    labels = ""
+    for w_i, word in enumerate(line):
+        if WORD.match(word):
+            if len(word) > 1 and word.isupper():
+                labels += 'U'
+            elif word[0].isupper():
+                labels += 'u'
+            else:
+                labels += 'O'
+        else:
+            for c in word:
+                if c in allowed_punctuation | {' '}:
+                    labels += c
+    return SPACE_DUP.sub(' ', labels)
+
+
+def write_dataset_re(data, dir_, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
+    dir_.mkdir(exist_ok=True, parents=True)
+    with (dir_ / Path("text.txt")).open('w') as f:
+        for line in data:
+            f.write(line + '\n')
+    split_data = [[s for s in WORD.split(line) if s] for line in data]
+    if create_model_input:
+        with (dir_ / Path("input.txt")).open('w') as f:
+            for line in split_data:
+                f.write(' '.join([s for s in line if WORD.match(s)]) + '\n')
+    if bert_labels:
+        with (dir_ / Path("bert_labels.txt")).open('w') as f:
+            for line in split_data:
+                f.write(create_bert_labels_re(line, allowed_punctuation) + '\n')
+    if autoregressive_labels:
+        with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
+            for line in split_data:
+                f.write(create_autoregressive_labels_re(line, allowed_punctuation) + '\n')
+
+
 def main():
     args = get_args()
     all_docs = {}
@@ -660,7 +716,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     test_size = int(args.size * args.test_ratio / 100)
     if test_size > 0:
-        write_dataset(
+        write_dataset_re(
             result[:test_size],
             args.output_dir / Path("test"),
             args.create_model_input,
@@ -669,7 +725,7 @@ def main():
             args.allowed_punctuation,
         )
     if args.dev_size > 0:
-        write_dataset(
+        write_dataset_re(
             result[test_size : test_size + args.dev_size],
             args.output_dir / Path("dev"),
             args.create_model_input,
@@ -677,7 +733,7 @@ def main():
             args.autoregressive_labels,
             args.allowed_punctuation,
         )
-    write_dataset(
+    write_dataset_re(
         result[test_size + args.dev_size :],
         args.output_dir / Path("train"),
         args.create_model_input,
