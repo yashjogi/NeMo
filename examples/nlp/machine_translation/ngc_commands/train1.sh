@@ -21,5 +21,5 @@ ngc batch run \
   --name "ml-model.aayn autoreg_punc_cap_orig_mt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
-  --datasetid 88130:/data \
+  --datasetid 88288:/data \
   --commandline "${command}"
