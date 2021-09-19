@@ -274,10 +274,11 @@ class MTEncDecModel(EncDecNLPModel):
 
     def eval_step(self, batch, batch_idx, mode, dataloader_idx=0):
         for i in range(len(batch)):
-            if batch[i].ndim == 3:
-                # Dataset returns already batched data and the first dimension of size 1 added by DataLoader
-                # is excess.
-                batch[i] = batch[i].squeeze(dim=0)
+            batch[i] = batch[i].squeeze(dim=0)
+            # if batch[i].ndim == 3:
+            #     # Dataset returns already batched data and the first dimension of size 1 added by DataLoader
+            #     # is excess.
+            #     batch[i] = batch[i].squeeze(dim=0)
 
         if self.multilingual:
             self.source_processor = self.source_processor_list[dataloader_idx]
