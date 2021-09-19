@@ -376,7 +376,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             log_probs[:, -1, :],
             num_generated_words,
             num_tgt_words.view(-1, self.beam_size)[:, 0],
-            torch.zeros(log_probs.shape[0], 1, dtype=torch.bool),
+            torch.zeros(log_probs.shape[0], 1, dtype=torch.bool, device=device),
         )
         scores, prefixes, num_generated_words = scores.view(-1, 1), prefixes.view(-1, 1), num_generated_words.view(-1)
 
