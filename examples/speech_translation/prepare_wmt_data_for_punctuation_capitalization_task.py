@@ -33,7 +33,7 @@ SPACE_DUP = re.compile(r" {2,}")
 STRIP_START = re.compile(r"^\W+")
 STRIP_END = re.compile(r"\W+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
-SENTENCE_ENDINGS = ".?!"
+SENTENCE_ENDINGS = ".?!\";:,)"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 NUM_LENGTH_REMOVED_EXAMPLES = 3
 MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION = 100
@@ -242,7 +242,7 @@ def preprocess_europarl(text):
         if m is None:
             raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
         text = m.group(1).strip()
-        if text and not too_many_digits(text):
+        if text and not too_many_digits(text) and text[-1] in SENTENCE_ENDINGS:
             doc = "europarl_" + m.group(2).strip()
             if doc not in docs:
                 docs[doc] = [text]
@@ -267,6 +267,22 @@ def preprocess_ted(text):
     return result
 
 
+def check_rapid_line(line):
+    return (
+        line[-1] in SENTENCE_ENDINGS
+        and MORE_THAN_15_DOTS.search(line) is None
+        and MORE_THAN_3_SPACE_DOTS.search(line) is None
+        and MORE_THAN_10_HYPHENS.search(line) is None
+        and DOT_DIGIT_5.search(line) is None
+        and not too_many_digits(line)
+        and line not in {'p.m.', 'Prov.', 'n.a.'}
+        and not (line.isupper() and len(line) > 10)
+        and not (ABBR_STRING.match(line) is not None and line != "No.")
+        and 'n.a. n.a.' not in line
+        and not too_many_uppercase(line)
+    )
+
+
 def preprocess_rapid(text, verbose=False):
     soup = BeautifulSoup(text)
     result = {}
@@ -287,25 +303,23 @@ def preprocess_rapid(text, verbose=False):
                     f"No utterance in English was found in file {file_id} in unit {unit_id}. "
                     f"Source language: {source['lang']}. Target language: {target['lang']}"
                 )
-            if (
-                text[-1] in SENTENCE_ENDINGS
-                and MORE_THAN_15_DOTS.search(text) is None
-                and MORE_THAN_3_SPACE_DOTS.search(text) is None
-                and MORE_THAN_10_HYPHENS.search(text) is None
-                and DOT_DIGIT_5.search(text) is None
-                and not too_many_digits(text)
-                and text not in {'p.m.', 'Prov.', 'n.a.'}
-                and not (text.isupper() and len(text) > 10)
-                and not (ABBR_STRING.match(text) is not None and text != "No.")
-                and 'n.a. n.a.' not in text
-                and not too_many_uppercase(text)
-            ):
+            if check_rapid_line(text):
                 file_utterances.append(text)
         if file_utterances:
             result["rapid_file_" + file_id] = file_utterances
         elif verbose:
             logging.warning(f"Found empty RAPID document {file_id}")
     return result
+
+
+def check_news_commentary_line(line):
+    return (
+        MORE_THAN_10_HYPHENS.search(line) is None
+        and not too_many_digits(line)
+        and not (line.isupper() and len(line) > 10)
+        and not too_many_uppercase(line)
+        and line[-1] in SENTENCE_ENDINGS
+    )
 
 
 def preprocess_news_commentary(text):
@@ -323,7 +337,7 @@ def preprocess_news_commentary(text):
                 line = line.strip()
                 if line and MORE_THAN_10_HYPHENS.search(line) is None:
                     discussion_text.append(line)
-            elif line_idx > 1 and MORE_THAN_10_HYPHENS.search(line) is None and not too_many_digits(line):
+            elif line_idx > 1 and check_news_commentary_line(line):
                 discussion_text.append(line)
             line_idx += 1
         else:
@@ -334,6 +348,10 @@ def preprocess_news_commentary(text):
             discussion_text = []
             discussion_count += 1
             line_idx = 0
+    if discussion_text:
+        result[f"news-commentary_discussion{discussion_count}"] = discussion_text
+    else:
+        logging.warning(f"Found empty news-commentary discussion starting at line {line_i}")
     return result
 
 
@@ -528,22 +546,12 @@ def create_not_whole_sentence_segments(
                     next_sentence_i = i + 1
                     number_of_words = list(yet_to_cut_by_number_of_words.keys())
                     nw_i %= len(number_of_words)
-                    found_line_with_no_punctuation_in_the_end = False
-                    while (
-                        not found_line_with_no_punctuation_in_the_end
-                        and shift + number_of_words[nw_i] + 1 > num_words
-                        and next_sentence_i < len(all_docs[doc_id])
-                    ):
-                        if all_docs[doc_id][next_sentence_i - 1][-1] not in SENTENCE_ENDINGS + '";:':
-                            found_line_with_no_punctuation_in_the_end = True
-                            break
+                    while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(all_docs[doc_id]):
                         text += ' ' + all_docs[doc_id][next_sentence_i]
                         num_words += len(
                             WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(all_docs[doc_id][next_sentence_i])
                         )
                         next_sentence_i += 1
-                    if found_line_with_no_punctuation_in_the_end:
-                        continue
                     if shift + number_of_words[nw_i] < num_words:
                         if shift + number_of_words[nw_i] == num_words and shift == 0:
                             shift += 1
@@ -590,7 +598,7 @@ def normalize_punctuation(all_docs, lang):
         DOT_SPACE_MULTIDOT.sub('.', MORE_THAN_3_DOTS.sub('...', outs.decode('utf-8'))).split('\n\n\n')
     ):
         counter += 1
-        lines = text.split('\n')
+        lines = [line.strip() for line in text.split('\n')]
         assert len(lines) == len(all_docs[k]), f"len(lines)={len(lines)}, len(all_docs[k])={len(all_docs[k])}"
         all_docs[k] = lines
     assert counter == len(all_docs), f"counter={counter}, len(all_docs)={len(all_docs)}"
