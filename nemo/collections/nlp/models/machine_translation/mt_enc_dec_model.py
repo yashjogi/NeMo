@@ -287,6 +287,7 @@ class MTEncDecModel(EncDecNLPModel):
         )
         if add_src_num_words_to_batch:
             src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words = batch
+            print("num_src_words:", num_src_words)
         else:
             src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
             num_src_words = None
