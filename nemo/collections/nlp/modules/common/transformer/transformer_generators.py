@@ -359,6 +359,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
     ):
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
+            print("num_tgt_words:", num_tgt_words)
             num_tgt_words = torch.tensor(num_tgt_words, device=device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
         start_len = tgt.shape[1] + 1
