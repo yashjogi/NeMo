@@ -392,7 +392,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # length penalty correction
         prefixes_len = torch.zeros_like(scores).fill_(prefixes.size(1) + 1)
         if self.decoder_word_ids is not None and num_tgt_words is not None:
-            num_generated_words = torch.zeros(prefixes.shape[0], device=device)
+            num_generated_words = is_in(prefixes, self.decoder_word_ids).int().sum(dim=1)
+            # num_generated_words = torch.zeros(prefixes.shape[0], device=device)
         else:
             num_generated_words = None
         for i in range(max_generation_length):
