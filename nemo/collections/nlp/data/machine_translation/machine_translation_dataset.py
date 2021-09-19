@@ -181,7 +181,9 @@ class TranslationDataset(Dataset):
                 tgt_ids_[i][: len(tgt_ids[sentence_idx])] = tgt_ids[sentence_idx]
             batches[batch_idx] = {"src": src_ids_, "tgt": tgt_ids_}
             if src_num_words is not None:
-                batches[batch_idx]["src_num_words"] = [src_num_words[sentence_idx] for sentence_idx in b]
+                batches[batch_idx]["src_num_words"] = np.array(
+                    [src_num_words[sentence_idx] for sentence_idx in b], dtype=np.int32
+                )
         return batches
 
     def pack_data_into_batches(self, src_ids, tgt_ids):

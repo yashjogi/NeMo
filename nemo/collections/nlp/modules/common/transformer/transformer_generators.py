@@ -360,7 +360,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
             print("num_tgt_words:", num_tgt_words)
-            num_tgt_words = torch.tensor(num_tgt_words, device=device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
+            num_tgt_words = num_tgt_words.to(device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
         start_len = tgt.shape[1] + 1
 
@@ -472,7 +472,9 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 f"correct_mask={correct_mask}, mistaken_predictions={tgt[~correct_mask]}, "
                 f"example_of_mistake={tgt[~correct_mask][0]}, "
                 f"len(example_of_mistake)={tgt[~correct_mask][0].shape[0]}, "
-                f"num_tgt_words_in_example_mistake={num_tgt_words.view(-1, self.beam_size)[:, 0]}"
+                f"num_tgt_words_in_example_mistake={num_tgt_words.view(-1, self.beam_size)[0, 0]}, "
+                f"num_of_predicted_words_in_example_mistake="
+                f"{is_in(tgt[~correct_mask][0], self.decoder_word_ids).count_nonzero()}"
             )
         if return_beam_scores:
             return prefixes, scores * len_penalties, tgt
