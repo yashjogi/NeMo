@@ -23,7 +23,7 @@ model:
     tar_shuffle_n: 100 # How many samples to look ahead and load to be shuffled
     shard_strategy: scatter # tarred dataset shard distribution strategy
     n_preproc_jobs: -2 # number of processes to use for data preprocessing (-2 means all but 2)
-    tokens_in_batch: 1024
+    tokens_in_batch: 16000
     clean: true
     max_seq_length: 512
     shuffle: true
