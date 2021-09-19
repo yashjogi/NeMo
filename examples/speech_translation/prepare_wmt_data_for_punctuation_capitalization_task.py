@@ -26,7 +26,7 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
 # For splitting text into words and punctuation
-WORD = re.compile(r"(?:\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
+WORD = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -61,6 +61,7 @@ ROMAN_NUMERAL = re.compile(
     flags=re.I,
 )
 HTTP = re.compile(r'https?://', flags=re.I)
+BRACKETS_AND_CONTENT = re.compile(r'\(.*\)')
 
 
 def get_args():
@@ -284,6 +285,7 @@ def contain_number(word):
 
 
 def all_words_contain_numbers(line):
+    line = BRACKETS_AND_CONTENT.sub('', line).strip()
     words = WORD.findall(line)
     return not words or all([contain_number(w) for w in words])
 
