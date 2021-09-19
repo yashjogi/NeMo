@@ -159,7 +159,6 @@ class TranslationDataset(Dataset):
         src_mask = (src_ids != self.src_pad_id).astype(np.int32)
         tgt_mask = (tgt_ids != self.tgt_pad_id).astype(np.int32)
         if self.add_src_num_words_to_batch:
-            print(f'self.batches[{idx}]["src_num_words"]:', self.batches[idx]["src_num_words"])
             res = (src_ids, src_mask, tgt_ids, tgt_mask, labels, self.batches[idx]["src_num_words"])
         else:
             res = (src_ids, src_mask, tgt_ids, tgt_mask, labels)
