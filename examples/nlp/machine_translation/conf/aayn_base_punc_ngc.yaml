@@ -18,7 +18,7 @@ model:
     tgt_file_name: null
     use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
     # config for preprocessing training data and creating a tarred datset automatically
-    metadata_file: /data/train_autoregressive_tarred/metadata.tokens.32768.json
+    metadata_file: /data/train_autoregressive_tarred/metadata.tokens.16384.json
     tar_file_prefix: parallel # prefix for tar file names
     shuffle: true
     drop_last: false
