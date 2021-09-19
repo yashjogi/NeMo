@@ -26,7 +26,7 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
 # For splitting text into words and punctuation
-WORD = re.compile(r"(\w+'\w+|\w+([./]\w+)*|\b-?\d+(\.\d+)*)")
+WORD = re.compile(r"(?:\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -280,12 +280,12 @@ def preprocess_ted(text):
 
 
 def contain_number(word):
-    return DIGIT.search(word) is not None or ROMAN_NUMERAL.search(word)
+    return DIGIT.search(word) is not None or ROMAN_NUMERAL.search(word) is not None
 
 
 def all_words_contain_numbers(line):
     words = WORD.findall(line)
-    return all([contain_number(w) for w in words])
+    return not words or all([contain_number(w) for w in words])
 
 
 def check_rapid_line(line):
