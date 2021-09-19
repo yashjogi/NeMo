@@ -36,10 +36,11 @@ SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!\";:,)"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
 NUM_LENGTH_REMOVED_EXAMPLES = 3
-MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION = 100
+MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_DIGIT_ALPHA_QUOTIENT_APPLICATION = 64
 MAX_DIGIT_ALPHA_QUOTIENT = 0.5
-MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_UPPERCASE_LIMIT = 64
+MIN_NUM_CHARACTERS_IN_SENTENCE_FOR_UPPERCASE_LIMIT = 32
 MAX_UPPER_CASE_QUOTIENT = 1.0
+MAX_UPPERCASE_START_LEN = 4
 DIGITS = set(string.digits)
 ASCII_LETTERS = set(string.ascii_letters)
 MORE_THAN_3_DOTS = re.compile(r'\.{4,}')
@@ -49,6 +50,17 @@ DOT_SPACE_MULTIDOT = re.compile(r'\. \.{3}$')
 MORE_THAN_10_HYPHENS = re.compile(r'-{10,}')
 DOT_DIGIT_5 = re.compile(r'(\.\d+){4}')
 ABBR_STRING = re.compile(r'^[A-Z][a-z]?\.$')
+REF = re.compile(r'^\(\d+(?:\.\d+)?\)$')
+SE = re.compile(r'^S\.E\.')
+DIGIT = re.compile(r'\d')
+ROMAN_NUMERAL = re.compile(
+    r'(M{1,3}(CM|CD|D?C{0,3})?(XC|XL|L?X{0,3})?(IX|IV|V?I{0,3})?'
+    r'|(CM|CD|DC{0,3}|C{1,3})(XC|XL|L?X{0,3})?(IX|IV|V?I{0,3})?'
+    r'|(XC|XL|LX{0,3}|X{1,3})(IX|IV|V?I{0,3})?'
+    r'|(IX|IV|VI{0,3}|I{1,3}))',
+    flags=re.I,
+)
+HTTP = re.compile(r'https?://', flags=re.I)
 
 
 def get_args():
@@ -267,6 +279,15 @@ def preprocess_ted(text):
     return result
 
 
+def contain_number(word):
+    return DIGIT.search(word) is not None or ROMAN_NUMERAL.search(word)
+
+
+def all_words_contain_numbers(line):
+    words = WORD.findall(line)
+    return all([contain_number(w) for w in words])
+
+
 def check_rapid_line(line):
     return (
         line[-1] in SENTENCE_ENDINGS
@@ -275,11 +296,17 @@ def check_rapid_line(line):
         and MORE_THAN_10_HYPHENS.search(line) is None
         and DOT_DIGIT_5.search(line) is None
         and not too_many_digits(line)
-        and line not in {'p.m.', 'Prov.', 'n.a.'}
+        and line not in {'p.m.', 'Prov.', 'n.a.', 'Prof.'}
         and not (line.isupper() and len(line) > 10)
         and not (ABBR_STRING.match(line) is not None and line != "No.")
         and 'n.a. n.a.' not in line
         and not too_many_uppercase(line)
+        and REF.match(line) is None
+        and SE.match(line) is None
+        and not line[: MAX_UPPERCASE_START_LEN + 1].isupper()
+        and not all_words_contain_numbers(line)
+        and 'HYPERLINK' not in line
+        and HTTP.search(line) is None
     )
 
 
