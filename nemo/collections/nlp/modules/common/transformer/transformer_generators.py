@@ -366,8 +366,19 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
 
         # generate initial buffer of beam_size prefixes-hypotheses
         log_probs, decoder_mems_list = self._one_step_forward(tgt, encoder_hidden_states, encoder_input_mask, None, 0)
-        scores, prefixes = torch.topk(log_probs.permute(0, 2, 1), self.beam_size, dim=1)
-        scores, prefixes = scores.view(-1, 1), prefixes.view(-1, 1)
+        # scores, prefixes = torch.topk(log_probs.permute(0, 2, 1), self.beam_size, dim=1)
+        if self.decoder_word_ids is not None and num_tgt_words is not None:
+            # num_generated_words = is_in(prefixes, self.decoder_word_ids).int().sum(dim=1)
+            num_generated_words = torch.zeros(log_probs.shape[0], device=device)
+        else:
+            num_generated_words = None
+        scores, prefixes, num_generated_words = self.topk_with_tgt(
+            log_probs[:, -1, :],
+            num_generated_words,
+            num_tgt_words,
+            torch.zeros(log_probs.shape[0], 1, dtype=torch.bool),
+        )
+        scores, prefixes, num_generated_words = scores.view(-1, 1), prefixes.view(-1, 1), num_generated_words.view(-1)
 
         # repeat init target prefixes and cached memory states beam_size times
         prefixes = torch.cat((tgt.repeat(1, self.beam_size).view(-1, 1), prefixes), dim=1)
@@ -391,11 +402,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # prefixes_len tracks lengths of generated hypotheses to perform
         # length penalty correction
         prefixes_len = torch.zeros_like(scores).fill_(prefixes.size(1) + 1)
-        if self.decoder_word_ids is not None and num_tgt_words is not None:
-            num_generated_words = is_in(prefixes, self.decoder_word_ids).int().sum(dim=1)
-            # num_generated_words = torch.zeros(prefixes.shape[0], device=device)
-        else:
-            num_generated_words = None
         for i in range(max_generation_length):
 
             # mask all finished hypotheses to exclude them from beam
@@ -465,8 +471,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         if self.decoder_word_ids is not None and num_tgt_words is not None:
             correct_mask = num_tgt_words.view(-1, self.beam_size)[:, 0].eq(
                 is_in(tgt, self.decoder_word_ids).int().sum(dim=1)
-            ) \
-                | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length)
+            ) | ((tgt.ne(self.eos) & tgt.ne(self.pad)).int().sum(dim=1) - start_len).eq(max_generation_length)
             assert torch.all(correct_mask), (
                 f"Number of predicted words for some inputs is lower than expected and number of predicted tokens is "
                 f"not equal to `max_generation_length={max_generation_length}`. start_len={start_len}, "
