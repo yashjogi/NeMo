@@ -380,7 +380,11 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             ),
             torch.zeros(log_probs.shape[0], 1, dtype=torch.bool, device=device),
         )
-        scores, prefixes, num_generated_words = scores.view(-1, 1), prefixes.view(-1, 1), num_generated_words.view(-1)
+        scores, prefixes, num_generated_words = (
+            scores.view(-1, 1),
+            prefixes.view(-1, 1),
+            None if num_generated_words is None else num_generated_words.view(-1)
+        )
 
         # repeat init target prefixes and cached memory states beam_size times
         prefixes = torch.cat((tgt.repeat(1, self.beam_size).view(-1, 1), prefixes), dim=1)
