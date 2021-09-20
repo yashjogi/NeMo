@@ -3,7 +3,7 @@ WANDB_API_KEY="$1"
 read -r -d '' command << EOF
 set -e -x
 git clone https://github.com/NVIDIA/NeMo
-mkdir -r /result/nemo_experiments
+mkdir -p /result/nemo_experiments
 cd NeMo
 git checkout iwslt_cascade
 pip install -r requirements/requirements.txt
