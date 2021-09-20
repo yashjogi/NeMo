@@ -45,8 +45,8 @@ model:
   punct_label_ids: null # will be filled during training
   capit_label_ids: null # will be filled during training
   class_labels:
-    punct_labels_file: punct_label_ids.csv
-    capit_labels_file: capit_label_ids.csv
+    punct_labels_file: null
+    capit_labels_file: null
   dataset:
     data_dir: /data/train # /path/to/training/data
     # parameters for dataset preprocessing
@@ -80,7 +80,7 @@ model:
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: null # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    ds_item: /data/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
     text_file: text_dev.txt
     labels_file: labels_dev.txt
     shuffle: false
@@ -90,7 +90,7 @@ model:
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: null # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    ds_item: /data/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
     text_file: text_test.txt
     labels_file: labels_test.txt
     shuffle: false
