@@ -140,10 +140,11 @@ trainer:
   progress_bar_refresh_rate: 0
 
 exp_manager:
+  exp_dir: /result/nemo_experiments
   name: AAYNBase
-  files_to_copy: []
+  create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: fixed_beam_search_punc_aayn_base_bs16384_1gpu_lr3e-4_300000steps_BPEdp0_dp0.1_lblsmoothing0
+    name: fixed_beam_search_punc_aayn_base_bs16384_1gpu_lr3e-4_steps300000_BPEdp0_dp0.1_lblsmoothing0
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
