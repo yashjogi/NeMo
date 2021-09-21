@@ -132,10 +132,11 @@ def tokenize_and_create_masks_parallel(
     n = len(queries) // (njobs - 1)
     split_queries = [queries[n * i : n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1) :]]
     split_punct_labels_lines = (
-        [punct_labels_lines[n * i : n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1) :]]
+        [punct_labels_lines[n * i : n * (i + 1)] for i in range(n_split - 1)]
+        + [punct_labels_lines[n * (n_split - 1) :]]
     )
     split_capit_labels_lines = (
-        [capit_labels_lines[n * i: n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1):]]
+        [capit_labels_lines[n * i: n * (i + 1)] for i in range(n_split - 1)] + [capit_labels_lines[n * (n_split - 1):]]
     )
     args = list(
         zip(
