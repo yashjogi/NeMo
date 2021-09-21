@@ -15,6 +15,7 @@
 __all__ = ['BertPunctuationCapitalizationDataset', 'BertPunctuationCapitalizationInferDataset']
 
 import itertools
+import multiprocessing as mp
 import os
 import pickle
 from typing import Dict, List, Optional
@@ -31,53 +32,21 @@ from nemo.core.neural_types.elements import BoolType
 from nemo.utils import logging
 
 
-def get_features(
-    queries: List[str],
-    max_seq_length: int,
-    tokenizer: TokenizerSpec,
-    punct_label_ids: dict = None,
-    capit_label_ids: dict = None,
-    pad_label: str = 'O',
-    punct_labels_lines=None,
-    capit_labels_lines=None,
-    ignore_extra_tokens=False,
-    ignore_start_end: Optional[bool] = False,
-):
-    """
-    Processes the data and returns features.
-
-    Args:
-        queries: text sequences
-        max_seq_length: max sequence length minus 2 for [CLS] and [SEP]
-        tokenizer: such as AutoTokenizer
-        pad_label: pad value use for labels. By default, it's the neutral label.
-        punct_label_ids: dict to map punctuation labels to label ids.
-            Starts with pad_label->0 and then increases in alphabetical order.
-            Required for training and evaluation, not needed for inference.
-        capit_label_ids: dict to map labels to label ids. Starts
-            with pad_label->0 and then increases in alphabetical order.
-            Required for training and evaluation, not needed for inference.
-        punct_labels: list of labels for every word in a sequence (str)
-        capit_labels: list of labels for every word in a sequence (str)
-        ignore_extra_tokens: whether to ignore extra tokens in the loss_mask
-        ignore_start_end: whether to ignore bos and eos tokens in the loss_mask
-
-    Returns:
-        all_input_ids: input ids for all tokens
-        all_segment_ids: token type ids
-        all_input_mask: attention mask to use for BERT model
-        all_subtokens_mask: masks out all subwords besides the first one
-        all_loss_mask: loss mask to mask out tokens during training
-        punct_all_labels: all labels for punctuation task (ints)
-        capit_all_labels: all labels for capitalization task (ints)
-        punct_label_ids: label (str) to id (int) map for punctuation task
-        capit_label_ids: label (str) to id (int) map for capitalization task
-    """
+def tokenize_and_create_masks(args):
+    (
+        queries,
+        tokenizer,
+        ignore_start_end,
+        punct_label_ids,
+        capit_label_ids,
+        punct_labels_lines,
+        capit_labels_lines,
+        pad_label,
+        ignore_extra_tokens,
+    ) = args
     all_subtokens = []
     all_loss_mask = []
     all_subtokens_mask = []
-    all_segment_ids = []
-    all_input_ids = []
     all_input_mask = []
     sent_lengths = []
     punct_all_labels = []
@@ -131,7 +100,119 @@ def get_features(
             punct_all_labels.append(punct_labels)
             capit_labels.append(pad_id)
             capit_all_labels.append(capit_labels)
+    return (
+        all_subtokens,
+        all_loss_mask,
+        all_subtokens_mask,
+        all_input_mask,
+        sent_lengths,
+        punct_all_labels,
+        capit_all_labels,
+    )
 
+
+def tokenize_and_create_masks_parallel(
+    queries,
+    tokenizer,
+    ignore_start_end,
+    punct_label_ids,
+    capit_label_ids,
+    punct_labels_lines,
+    capit_labels_lines,
+    pad_label,
+    ignore_extra_tokens,
+    njobs,
+):
+    if njobs is None:
+        njobs = mp.cpu_count()
+    n = len(queries) // njobs
+    split_queries = [queries[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
+    args = list(
+        zip(
+            split_queries,
+            [tokenizer] * njobs,
+            [ignore_start_end] * njobs,
+            [punct_label_ids] * njobs,
+            [capit_label_ids] * njobs,
+            [punct_labels_lines] * njobs,
+            [capit_labels_lines] * njobs,
+            [pad_label] * njobs,
+            [ignore_extra_tokens] * njobs,
+        )
+    )
+    with mp.Pool(njobs) as pool:
+        result = pool.map(tokenize_and_create_masks, args)
+    return [list(itertools.chain(e)) for e in zip(*result)]
+
+
+def get_features(
+    queries: List[str],
+    max_seq_length: int,
+    tokenizer: TokenizerSpec,
+    punct_label_ids: dict = None,
+    capit_label_ids: dict = None,
+    pad_label: str = 'O',
+    punct_labels_lines=None,
+    capit_labels_lines=None,
+    ignore_extra_tokens=False,
+    ignore_start_end: Optional[bool] = False,
+    njobs: Optional[int] = None,
+):
+    """
+    Processes the data and returns features.
+
+    Args:
+        queries: text sequences
+        max_seq_length: max sequence length minus 2 for [CLS] and [SEP]
+        tokenizer: such as AutoTokenizer
+        pad_label: pad value use for labels. By default, it's the neutral label.
+        punct_label_ids: dict to map punctuation labels to label ids.
+            Starts with pad_label->0 and then increases in alphabetical order.
+            Required for training and evaluation, not needed for inference.
+        capit_label_ids: dict to map labels to label ids. Starts
+            with pad_label->0 and then increases in alphabetical order.
+            Required for training and evaluation, not needed for inference.
+        punct_labels: list of labels for every word in a sequence (str)
+        capit_labels: list of labels for every word in a sequence (str)
+        ignore_extra_tokens: whether to ignore extra tokens in the loss_mask
+        ignore_start_end: whether to ignore bos and eos tokens in the loss_mask
+
+    Returns:
+        all_input_ids: input ids for all tokens
+        all_segment_ids: token type ids
+        all_input_mask: attention mask to use for BERT model
+        all_subtokens_mask: masks out all subwords besides the first one
+        all_loss_mask: loss mask to mask out tokens during training
+        punct_all_labels: all labels for punctuation task (ints)
+        capit_all_labels: all labels for capitalization task (ints)
+        punct_label_ids: label (str) to id (int) map for punctuation task
+        capit_label_ids: label (str) to id (int) map for capitalization task
+    """
+    all_segment_ids = []
+    all_input_ids = []
+    with_label = False
+
+    (
+        all_subtokens,
+        all_loss_mask,
+        all_subtokens_mask,
+        all_input_mask,
+        sent_lengths,
+        punct_all_labels,
+        capit_all_labels,
+    ) = tokenize_and_create_masks_parallel(
+        queries,
+        tokenizer,
+        ignore_start_end,
+        punct_label_ids,
+        capit_label_ids,
+        punct_labels_lines,
+        capit_labels_lines,
+        pad_label,
+        ignore_extra_tokens,
+        njobs,
+    )
+    pad_id = punct_label_ids[pad_label]
     max_seq_length = min(max_seq_length, max(sent_lengths))
     logging.info(f'Max length: {max_seq_length}')
     get_stats(sent_lengths)
@@ -246,6 +327,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         get_label_frequencies: bool = False,
         punct_label_ids_file: str = 'punct_label_ids.csv',
         capit_label_ids_file: str = 'capit_label_ids.csv',
+        njobs: Optional[int] = None,
     ):
         """ Initializes BertPunctuationCapitalizationDataset. """
 
@@ -368,6 +450,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 capit_label_ids=capit_label_ids,
                 ignore_extra_tokens=ignore_extra_tokens,
                 ignore_start_end=ignore_start_end,
+                njobs=njobs,
             )
 
             pickle.dump(features, open(features_pkl, "wb"))

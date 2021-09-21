@@ -14,6 +14,8 @@ import fasttext
 import requests
 from bs4 import BeautifulSoup, NavigableString
 
+from nemo.collections.nlp.modules import get_tokenizer
+
 
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
@@ -176,6 +178,12 @@ def get_args():
         type=int,
         default=500,
     )
+    parser.add_argument(
+        "--tokenizer",
+        "-z",
+        help="Tokenizer used for checking characters for tokenizability.",
+        default="bert-base-uncased",
+    )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
@@ -245,6 +253,37 @@ def too_many_uppercase(text):
     else:
         too_many = False
     return too_many
+
+
+def remove_untokenizable_characters(text, tokenizer):
+    tmp_new_line_character = "NEWLINECHARACTER"
+    while tmp_new_line_character in text and len(tmp_new_line_character) < 20:
+        tmp_new_line_character += 'R'
+    while tmp_new_line_character in text and len(tmp_new_line_character) < 30:
+        tmp_new_line_character = 'N' + tmp_new_line_character
+    if tmp_new_line_character in text:
+        logging.warning(
+            f'Could not find temporary replacement for new line character. It is possible that a space character will '
+            f'be removed as not tokenizable'
+        )
+    else:
+        text = re.sub('\n', tmp_new_line_character, text)
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(tmp_new_line_character, '\n', text)
+    untokenizable_characters = list()
+    for c in set(text) - {' ', '\n'}:
+        if not tokenizer.text_to_ids(c):
+            untokenizable_characters.append(c)
+    if '\\' in untokenizable_characters:
+        untokenizable_characters.remove('\\')
+        untokenizable_characters = ['\\\\'] + untokenizable_characters
+    if '^' == untokenizable_characters[0]:
+        untokenizable_characters.remove('^')
+        untokenizable_characters.append('^')
+    if '-' in untokenizable_characters:
+        untokenizable_characters.remove('-')
+        untokenizable_characters.append('-')
+    return re.sub('[' + ''.join(untokenizable_characters) + ']', '', text)
 
 
 def preprocess_europarl(text):
@@ -342,7 +381,7 @@ def preprocess_rapid(text, verbose=False):
                     f"Source language: {source['lang']}. Target language: {target['lang']}"
                 )
             if check_rapid_line(text):
-                file_utterances.append(text)
+                file_utterances.append(SPACE_DUP.sub(' ', text.replace(chr(61623), ' ')).strip())
         if file_utterances:
             result["rapid_file_" + file_id] = file_utterances
         elif verbose:
@@ -767,19 +806,20 @@ def write_dataset_re(data, dir_, create_model_input, bert_labels, autoregressive
 
 def main():
     args = get_args()
+    tokenizer = get_tokenizer(args.tokenizer)
     all_docs = {}
     number_of_sentences_in_input = 0
     for corpus_type, file_path in zip(args.corpus_types, args.input_files):
         logging.info(f"Processing file {file_path}..")
         with file_path.open() as f:
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-                file_docs = preprocess_europarl(f.read())
+                file_docs = preprocess_europarl(remove_untokenizable_characters(f.read(), tokenizer))
             elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:
-                file_docs = preprocess_news_commentary(f.read())
+                file_docs = preprocess_news_commentary(remove_untokenizable_characters(f.read(), tokenizer))
             elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:
-                file_docs = preprocess_ted(f.read())
+                file_docs = preprocess_ted(remove_untokenizable_characters(f.read(), tokenizer))
             elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:
-                file_docs = preprocess_rapid(f.read())
+                file_docs = preprocess_rapid(remove_untokenizable_characters(f.read(), tokenizer))
             else:
                 raise ValueError(
                     f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"

@@ -102,6 +102,7 @@ model:
     vocab_file: null # path to vocab file
     tokenizer_model: null # only used if tokenizer is sentencepiece
     special_tokens: null
+    use_fast: true
 
   language_model:
     pretrained_model_name: bert-base-uncased
