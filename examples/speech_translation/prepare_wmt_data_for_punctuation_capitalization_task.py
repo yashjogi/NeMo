@@ -24,7 +24,7 @@ random.seed(42)
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
-WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:-\w+)*(?:'\w+)?)\b\W*")
+WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:(?:-|\.)\w+)*(?:'\w+)?)\b\W*")
 # For splitting text into words and punctuation
 WORD = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
@@ -255,7 +255,12 @@ def preprocess_europarl(text):
         if m is None:
             raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
         text = m.group(1).strip()
-        if text and not too_many_digits(text) and text[-1] in SENTENCE_ENDINGS:
+        if (
+            text
+            and not too_many_digits(text)
+            and text[-1] in SENTENCE_ENDINGS
+            and WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(text) is not None
+        ):
             doc = "europarl_" + m.group(2).strip()
             if doc not in docs:
                 docs[doc] = [text]
@@ -272,7 +277,10 @@ def preprocess_ted(text):
         title = doc.find("title").text
         key = "TED_" + doc_id + "._" + title
         text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        lines = [
+            line.strip() for line in text.split('\n')
+            if WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line.strip()) is not None
+        ]
         if lines:
             result[key] = lines
         else:
@@ -309,6 +317,7 @@ def check_rapid_line(line):
         and not all_words_contain_numbers(line)
         and 'HYPERLINK' not in line
         and HTTP.search(line) is None
+        and WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line) is not None
     )
 
 
@@ -348,6 +357,7 @@ def check_news_commentary_line(line):
         and not (line.isupper() and len(line) > 10)
         and not too_many_uppercase(line)
         and line[-1] in SENTENCE_ENDINGS
+        and WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line) is not None
     )
 
 
@@ -485,7 +495,12 @@ def arrange_sentences_by_number_of_words(docs, sequence_length_range):
     for doc_id, doc in docs.items():
         for start_sentence_i, sentence in enumerate(doc):
             for end_sentence_i in range(start_sentence_i + 1, len(doc)):
-                n_words = sum([len(doc[i].split()) for i in range(start_sentence_i, end_sentence_i)])
+                n_words = sum(
+                    [
+                        len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
+                        for i in range(start_sentence_i, end_sentence_i)
+                    ]
+                )
                 if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
                     break
                 result[n_words].append((doc_id, start_sentence_i, end_sentence_i))
