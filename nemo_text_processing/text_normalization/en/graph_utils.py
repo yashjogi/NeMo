@@ -181,10 +181,17 @@ def add_class_label(fst, label: str, preserve_order=False):
 
     return res
 
+def delete_label(fst, label: str):
+    res =  pynutil.delete(f"{label}: \"") + fst + pynutil.delete("\"")
+    with_label = pynutil.delete(f"{label}: \"") + pynini.accep("<") +NEMO_DIGIT +pynini.accep(">") + fst + pynini.accep("</") + NEMO_DIGIT + pynini.accep(">") + pynutil.delete("\"")
+    res |= pynutil.add_weight(with_label, weight=-0.001)
+    
+    return res
+
 def delete_class_label(fst, label: str, preserve_order=False):
     res =  pynutil.delete(f"{label} {{") + delete_space + fst
     with_label = pynutil.delete(f"{label} {{") +delete_space+ pynutil.delete("open_tag: \"") + pynini.accep("<") +NEMO_DIGIT +pynini.accep(">") + pynutil.delete("\"") + delete_space + fst + delete_space + pynutil.delete("close_tag: \"") + pynini.accep("</") + NEMO_DIGIT + pynini.accep(">") + pynutil.delete("\"")
-    res|= pynutil.add_weight(with_label, weight=0)
+    res|= pynutil.add_weight(with_label, weight=-0.0001)
     
     if preserve_order:
         res += pynini.closure(delete_space+

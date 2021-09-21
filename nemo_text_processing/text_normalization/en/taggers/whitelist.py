@@ -65,5 +65,5 @@ class WhiteListFst(GraphFst):
             graph |= _get_whitelist_graph("lower_cased") | _get_whitelist_non_deterministic_graph()
 
         graph = (convert_space(graph)).optimize()
-        graph = add_label( graph, "name")
-        self.fst = graph.optimize()
+        self.graph = add_label( graph, "name")
+        self.fst = self.graph.optimize()

@@ -178,7 +178,7 @@ class MeasureFst(GraphFst):
         ordinal_verbalizer = OrdinalVerbalizer().graph
         ordinal_tagger = OrdinalTagger(cardinal=cardinal).graph
         ordinal_num = pynini.compose(
-            pynutil.insert("integer: \"") + ordinal_tagger + pynutil.insert("\""), ordinal_verbalizer
+            add_label(ordinal_tagger, "integer"), ordinal_verbalizer
         )
 
         address_num = pynini.closure(NEMO_DIGIT, 1) @ cardinal.single_digits_graph

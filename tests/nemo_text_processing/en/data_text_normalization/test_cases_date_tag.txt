@@ -1,0 +1,18 @@
+july 25 2012~july twenty fifth twenty twelve
+<1>july</1> 25 2012~<1>july</1> twenty fifth twenty twelve
+<1>july</1> <2>25</2> 2012~<1>july</1> <2>twenty fifth</2> twenty twelve
+<1>july</1> <2>25</2> <3>2012</3>~<1>july</1> <2>twenty fifth</2> <3>twenty twelve</3>
+<1>jul</1> <2>25</2> <3>2012</3>~<1>july</1> <2>twenty fifth</2> <3>twenty twelve</3>
+1980s~nineteen eighties
+1980 s~nineteen eighties
+<1>25</1> <2>july</2> <3>2012</3>~the <1>twenty fifth</1> of <2>july</2> <3>twenty twelve</3>
+<1>15</1> <2>january</2>~the <1>fifteenth</1> of <2>january</2>
+<1>january</1> <2>1</2>~<1>january</1> <2>first</2>
+2012~twenty twelve
+july 1506~july fifteen o six
+2006-08-05~august fifth two thousand six
+<1>august</1> <2>23</2>, <3>2002</3>~<1>august</1> <2>twenty third</2> <3>two thousand two</3>
+<1>august</1> <2>23,</2> <3>2002</3>~<1>august</1> <2>23,</2> <3>two thousand two</3>
+<2>25</2> <3>sept.</3>~the <2>twenty fifth</2> of <3>september</3>
+SEPT. 15~september fifteenth
+16 July, 1943~the sixteenth of july nineteen forty three

@@ -40,13 +40,9 @@ def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstL
     numbers = cardinal_up_to_hundred
     suffix = pynini.union("million", "billion", "trillion", "quadrillion", "quintillion", "sextillion")
     res = (
-        pynutil.insert("integer_part: \"")
-        + numbers
-        + pynutil.insert("\"")
+       add_label(numbers, "integer_part")
         + delete_extra_space
-        + pynutil.insert("quantity: \"")
-        + suffix
-        + pynutil.insert("\"")
+        + add_label(suffix, "quantity")
     )
     res |= decimal + delete_extra_space + add_label( (suffix | "thousand"), "quantity")
     return res

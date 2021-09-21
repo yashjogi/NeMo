@@ -20,6 +20,8 @@ from nemo_text_processing.text_normalization.en.graph_utils import (
     convert_space,
     delete_space,
     insert_space,
+    add_label,
+    add_class_label
 )
 from nemo_text_processing.text_normalization.en.utils import get_abs_path
 
@@ -71,25 +73,19 @@ class TimeFst(GraphFst):
         graph_minute_single = pynini.union(*labels_minute_single) @ cardinal
         graph_minute_double = pynini.union(*labels_minute_double) @ cardinal
 
-        final_graph_hour = pynutil.insert("hours: \"") + graph_hour + pynutil.insert("\"")
+        final_graph_hour = add_label(graph_hour, "hours")
         final_graph_minute = (
-            pynutil.insert("minutes: \"")
-            + (pynini.cross("0", "o") + insert_space + graph_minute_single | graph_minute_double)
-            + pynutil.insert("\"")
+            add_label((pynini.cross("0", "o") + insert_space + graph_minute_single | graph_minute_double), "minutes")
         )
         final_graph_second = (
-            pynutil.insert("seconds: \"")
-            + (pynini.cross("0", "o") + insert_space + graph_minute_single | graph_minute_double)
-            + pynutil.insert("\"")
+            add_label( (pynini.cross("0", "o") + insert_space + graph_minute_single | graph_minute_double), "seconds")
         )
-        final_suffix = pynutil.insert("suffix: \"") + convert_space(suffix_graph) + pynutil.insert("\"")
+        final_suffix = add_label(convert_space(suffix_graph), "suffix")
         final_suffix_optional = pynini.closure(delete_space + insert_space + final_suffix, 0, 1)
         final_time_zone_optional = pynini.closure(
             delete_space
             + insert_space
-            + pynutil.insert("zone: \"")
-            + convert_space(time_zone_graph)
-            + pynutil.insert("\""),
+            + add_label(convert_space(time_zone_graph), "zone"),
             0,
             1,
         )

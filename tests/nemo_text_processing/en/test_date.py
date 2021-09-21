@@ -59,6 +59,21 @@ class TestDate:
         # pred_non_deterministic = self.normalizer_with_audio_en.normalize(test_input, n_tagged=100)
         # assert expected in pred_non_deterministic
 
+
+
+    @parameterized.expand(parse_test_case_file('en/data_text_normalization/test_cases_date_tag.txt'))
+    @pytest.mark.skipif(
+        not PYNINI_AVAILABLE, reason="`pynini` not installed, please install via nemo_text_processing/setup.sh"
+    )
+    @pytest.mark.run_only_on('CPU')
+    @pytest.mark.unit
+    def test_norm_uncased(self, test_input, expected):
+        pred = self.normalizer_en.normalize(test_input, verbose=False)
+        assert pred == expected
+        # pred_non_deterministic = self.normalizer_with_audio_en.normalize(test_input, n_tagged=100)
+        # assert expected in pred_non_deterministic
+
+
     normalizer_uppercased = (
         Normalizer(input_case='cased', lang='en', cache_dir=CACHE_DIR, overwrite_cache=False)
         if PYNINI_AVAILABLE

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_text_processing.text_normalization.en.graph_utils import NEMO_CHAR, GraphFst, delete_space, insert_space
+from nemo_text_processing.text_normalization.en.graph_utils import NEMO_CHAR, GraphFst, delete_class_label, delete_label, delete_space, insert_space
 
 try:
     import pynini
@@ -43,33 +43,29 @@ class MeasureFst(GraphFst):
         super().__init__(name="measure", kind="verbalize", deterministic=deterministic)
         optional_sign = cardinal.optional_sign
         unit = (
-            pynutil.delete("units: \"")
-            + pynini.difference(pynini.closure(NEMO_CHAR - " ", 1), "address")
-            + pynutil.delete("\"")
+            delete_label(
+            pynini.difference(pynini.closure(NEMO_CHAR - " ", 1), "address")
+            , "units")
             + delete_space
         )
 
         graph_decimal = (
-            pynutil.delete("decimal {")
-            + delete_space
-            + optional_sign
+            delete_class_label(
+            optional_sign
             + delete_space
             + decimal.numbers
-            + delete_space
-            + pynutil.delete("}")
+            , "decimal")
         )
         graph_cardinal = (
-            pynutil.delete("cardinal {")
-            + delete_space
-            + optional_sign
+            delete_class_label(
+            optional_sign
             + delete_space
             + cardinal.numbers
-            + delete_space
-            + pynutil.delete("}")
+            , "cardinal")
         )
 
         graph_fraction = (
-            pynutil.delete("fraction {") + delete_space + fraction.graph + delete_space + pynutil.delete("}")
+            delete_class_label(fraction.graph, "fraction")
         )
 
         graph = (graph_cardinal | graph_decimal | graph_fraction) + delete_space + insert_space + unit

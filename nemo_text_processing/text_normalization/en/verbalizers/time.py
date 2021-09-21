@@ -19,6 +19,8 @@ from nemo_text_processing.text_normalization.en.graph_utils import (
     GraphFst,
     delete_space,
     insert_space,
+    delete_label,
+    delete_class_label
 )
 
 try:
@@ -43,43 +45,13 @@ class TimeFst(GraphFst):
 
     def __init__(self, deterministic: bool = True):
         super().__init__(name="time", kind="verbalize", deterministic=deterministic)
-        hour = (
-            pynutil.delete("hours:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
-            + pynutil.delete("\"")
-        )
-        minute = (
-            pynutil.delete("minutes:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
-            + pynutil.delete("\"")
-        )
-        suffix = (
-            pynutil.delete("suffix:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
-            + pynutil.delete("\"")
-        )
+        hour = delete_label(pynini.closure(NEMO_NOT_QUOTE, 1), "hours")
+        minute = delete_label(pynini.closure(NEMO_NOT_QUOTE, 1), "minutes")
+        suffix = delete_label(pynini.closure(NEMO_NOT_QUOTE, 1), "suffix")
         optional_suffix = pynini.closure(delete_space + insert_space + suffix, 0, 1)
-        zone = (
-            pynutil.delete("zone:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
-            + pynutil.delete("\"")
-        )
+        zone = delete_label(pynini.closure(NEMO_NOT_QUOTE, 1), "zone")
         optional_zone = pynini.closure(delete_space + insert_space + zone, 0, 1)
-        second = (
-            pynutil.delete("seconds:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
-            + pynutil.delete("\"")
-        )
+        second = delete_label(pynini.closure(NEMO_NOT_QUOTE, 1), "seconds")
         graph_hms = (
             hour
             + pynutil.insert(" hours ")

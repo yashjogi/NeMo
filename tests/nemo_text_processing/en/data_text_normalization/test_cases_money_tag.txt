@@ -1,0 +1,4 @@
+<1>$15.2</1> billion~<1>fifteen point two dollars</1> billion
+<2>$20.506</2>~<2>twenty point five o six dollars</2>
+<1>$15.2 billion</1>~<1>fifteen point two billion dollars</1>
+$15.2 <1>billion</1>~fifteen point two <1>billion</1> dollars

@@ -1,0 +1,2 @@
+<2>2788 San Tomas Expy, Santa Clara, CA</2> <3>95051</3>~<2>two seven eight eight San Tomas Expressway Santa Clara California</2> <3>nine five zero five one</3>
+<2>123 Smth St, City, NY</2>~<2>one two three Smth Street City New York</2>

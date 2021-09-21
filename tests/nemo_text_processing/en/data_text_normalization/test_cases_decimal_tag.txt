@@ -1,0 +1,2 @@
+<2>100</2> million~<2>one hundred</2> million
+<2>100</2> <1>million</1>~<2>one hundred</2> <1>million</1>

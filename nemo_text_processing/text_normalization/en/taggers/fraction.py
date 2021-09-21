@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_text_processing.text_normalization.en.graph_utils import GraphFst
+from nemo_text_processing.text_normalization.en.graph_utils import GraphFst, add_label, add_class_label
 
 try:
     import pynini
@@ -39,7 +39,7 @@ class FractionFst(GraphFst):
         super().__init__(name="fraction", kind="classify", deterministic=deterministic)
         cardinal_graph = cardinal.graph
 
-        integer = pynutil.insert("integer_part: \"") + cardinal_graph + pynutil.insert("\"") + pynini.accep(" ")
+        integer = add_label(cardinal_graph, "integer_part") + pynini.accep(" ")
         numerator = (
             pynutil.insert("numerator: \"") + cardinal_graph + (pynini.cross("/", "\" ") | pynini.cross(" / ", "\" "))
         )
