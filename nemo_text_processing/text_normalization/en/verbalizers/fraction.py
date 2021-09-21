@@ -63,7 +63,7 @@ class FractionFst(GraphFst):
             numerator_one + insert_space + denominator + pynutil.delete("\""), 0.0001
         )
 
-        graph = integer + denominator_half | (fraction_with_one | fraction_default)
+        graph = integer + (denominator_half | fraction_with_one | fraction_default )
         graph |= pynutil.add_weight(pynini.cross("numerator: \"one\" denominator: \"two\"", "one half"), -1)
         graph |= (numerator | numerator_one) + insert_space + denominator_one_two
 

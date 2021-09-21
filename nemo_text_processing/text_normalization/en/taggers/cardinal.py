@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from nemo_text_processing.text_normalization.en.graph_utils import NEMO_ALPHA, NEMO_DIGIT, GraphFst, insert_space
+from nemo_text_processing.text_normalization.en.graph_utils import NEMO_ALPHA, NEMO_DIGIT, GraphFst, add_label, insert_space
 from nemo_text_processing.text_normalization.en.taggers.date import get_hundreds_graph
 from nemo_text_processing.text_normalization.en.utils import get_abs_path, load_labels
 
@@ -101,7 +101,7 @@ class CardinalFst(GraphFst):
             )
             final_graph |= remove_leading_zeros
 
-        final_graph = optional_minus_graph + pynutil.insert("integer: \"") + final_graph + pynutil.insert("\"")
+        final_graph = optional_minus_graph + add_label( final_graph, "integer")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 

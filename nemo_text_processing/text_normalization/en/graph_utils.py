@@ -163,6 +163,42 @@ def convert_space(fst) -> 'pynini.FstLike':
     """
     return fst @ pynini.cdrewrite(pynini.cross(NEMO_SPACE, NEMO_NON_BREAKING_SPACE), "", "", NEMO_SIGMA)
 
+def add_label(fst, label: str):
+    res =  pynutil.insert(f"{label}: \"") + fst + pynutil.insert("\"")
+    with_label =  pynutil.insert(f"{label}: \"") + pynini.accep("<") + NEMO_DIGIT +pynini.accep(">") + fst + pynini.accep("</")+NEMO_DIGIT+pynini.accep(">") + pynutil.insert("\"")
+    res|= pynutil.add_weight(with_label, weight=0)
+
+    return res
+
+def add_class_label(fst, label: str, preserve_order=False):
+    res =  pynutil.insert(f"{label} {{ ") + fst 
+    with_label =  pynutil.insert(f"{label} {{ ") + pynutil.insert("open_tag: \"") +pynini.accep("<") + NEMO_DIGIT +pynini.accep(">")+pynutil.insert("\" ") + fst + pynutil.insert(" close_tag: \"") +pynini.accep("</") + NEMO_DIGIT +pynini.accep(">") + pynutil.insert("\"")
+    res|= pynutil.add_weight(with_label, weight=0)
+    
+    if preserve_order:
+        res += pynutil.insert(" preserve_order: true")
+    res += pynutil.insert(" }")
+
+    return res
+
+def delete_class_label(fst, label: str, preserve_order=False):
+    res =  pynutil.delete(f"{label} {{") + delete_space + fst
+    with_label = pynutil.delete(f"{label} {{") +delete_space+ pynutil.delete("open_tag: \"") + pynini.accep("<") +NEMO_DIGIT +pynini.accep(">") + pynutil.delete("\"") + delete_space + fst + delete_space + pynutil.delete("close_tag: \"") + pynini.accep("</") + NEMO_DIGIT + pynini.accep(">") + pynutil.delete("\"")
+    res|= pynutil.add_weight(with_label, weight=0)
+    
+    if preserve_order:
+        res += pynini.closure(delete_space+
+            (pynutil.delete("preserve_order:") + delete_space + pynutil.delete("true"))
+            | (pynutil.delete("field_order:")
+            + delete_space
+            + pynutil.delete("\"")
+            + NEMO_NOT_QUOTE
+            + pynutil.delete("\""))
+        )
+    res += delete_space + pynutil.delete("}")
+
+    
+    return res @ pynini.cdrewrite(pynini.cross(u"\u00A0", " "), "", "", NEMO_SIGMA)
 
 class GraphFst:
     """
@@ -199,7 +235,7 @@ class GraphFst:
     def fst(self, fst):
         self._fst = fst
 
-    def add_tokens(self, fst) -> 'pynini.FstLike':
+    def add_tokens(self, fst, preserve_order=False) -> 'pynini.FstLike':
         """
         Wraps class name around to given fst
 
@@ -209,9 +245,9 @@ class GraphFst:
         Returns:
             Fst: fst
         """
-        return pynutil.insert(f"{self.name} {{ ") + fst + pynutil.insert(" }")
-
-    def delete_tokens(self, fst) -> 'pynini.FstLike':
+        res =  add_class_label(fst, self.name, preserve_order=preserve_order)
+        return res
+    def delete_tokens(self, fst, preserve_order=False) -> 'pynini.FstLike':
         """
         Deletes class name wrap around output of given fst
 
@@ -221,13 +257,5 @@ class GraphFst:
         Returns:
             Fst: fst
         """
-        res = (
-            pynutil.delete(f"{self.name}")
-            + delete_space
-            + pynutil.delete("{")
-            + delete_space
-            + fst
-            + delete_space
-            + pynutil.delete("}")
-        )
-        return res @ pynini.cdrewrite(pynini.cross(u"\u00A0", " "), "", "", NEMO_SIGMA)
+        return delete_class_label(fst, label=self.name, preserve_order=preserve_order)
+

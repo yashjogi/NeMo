@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_text_processing.text_normalization.en.graph_utils import GraphFst, convert_space
+from nemo_text_processing.text_normalization.en.graph_utils import GraphFst, convert_space, add_label
 from nemo_text_processing.text_normalization.en.utils import get_abs_path, load_labels
 
 try:
@@ -64,5 +64,6 @@ class WhiteListFst(GraphFst):
         if not deterministic:
             graph |= _get_whitelist_graph("lower_cased") | _get_whitelist_non_deterministic_graph()
 
-        self.graph = (convert_space(graph)).optimize()
-        self.fst = (pynutil.insert("name: \"") + self.graph + pynutil.insert("\"")).optimize()
+        graph = (convert_space(graph)).optimize()
+        graph = add_label( graph, "name")
+        self.fst = graph.optimize()

@@ -18,6 +18,7 @@ from nemo_text_processing.text_normalization.en.graph_utils import (
     NEMO_DIGIT,
     NEMO_SIGMA,
     TO_LOWER,
+    add_label,
     GraphFst,
     delete_extra_space,
     insert_space,
@@ -154,23 +155,19 @@ class DateFst(GraphFst):
         year_graph = _get_year_graph(deterministic)
 
         YEAR_WEIGHT = 0.001
-        year_graph_standalone = (
-            pynutil.insert("year: \"") + pynutil.add_weight(year_graph, YEAR_WEIGHT) + pynutil.insert("\"")
-        )
+        year_graph_standalone = add_label(pynutil.add_weight(year_graph, YEAR_WEIGHT), "year")
+        month_graph = add_label(month_graph, "month")
+        month_numbers_graph = add_label(month_numbers_graph, "month")
 
-        month_graph = pynutil.insert("month: \"") + month_graph + pynutil.insert("\"")
-        month_numbers_graph = pynutil.insert("month: \"") + month_numbers_graph + pynutil.insert("\"")
+        day_graph = ((pynini.union("1", "2", "3") + NEMO_DIGIT) | NEMO_DIGIT) @ cardinal_graph
+        day_graph = add_label(day_graph, "day")
 
-        day_graph = (
-            pynutil.insert("day: \"")
-            + ((pynini.union("1", "2", "3") + NEMO_DIGIT) | NEMO_DIGIT) @ cardinal_graph
-            + pynutil.insert("\"")
-        )
+        
 
         two_digit_year = NEMO_DIGIT ** (2) @ (cardinal.single_digits_graph | cardinal_graph)
-        two_digit_year = pynutil.insert("year: \"") + two_digit_year + pynutil.insert("\"")
+        two_digit_year = add_label(two_digit_year, "year")
 
-        year_graph = pynutil.insert("year: \"") + year_graph + pynutil.insert("\"")
+        year_graph = add_label(year_graph, "year")
         graph_year = pynini.closure(pynutil.delete(","), 0, 1) + delete_extra_space + year_graph
         optional_graph_year = pynini.closure(graph_year, 0, 1)
         graph_mdy = month_graph + (
@@ -203,54 +200,56 @@ class DateFst(GraphFst):
 
         final_graph = graph_mdy | graph_dmy
         if deterministic:
-            final_graph += pynutil.insert(" preserve_order: true")
+            final_graph = final_graph
         else:
             final_graph += pynini.closure(pynutil.insert(" preserve_order: true"), 0, 1)
-        final_graph |= graph_ymd | year_graph_standalone
 
-        if not deterministic:
-            ymd_to_mdy_graph = None
-            mdy_to_dmy_graph = None
+        # if not deterministic:
+        #     ymd_to_mdy_graph = None
+        #     mdy_to_dmy_graph = None
 
-            for month in [x[0] for x in load_labels(get_abs_path("data/months/names.tsv"))]:
-                for day in [x[0] for x in load_labels(get_abs_path("data/months/days.tsv"))]:
-                    ymd_to_mdy_curr = (
-                        pynutil.insert("month: \"" + month + "\" day: \"" + day + "\" ")
-                        + pynini.accep('year:')
-                        + NEMO_SIGMA
-                        + pynutil.delete(" month: \"" + month + "\" day: \"" + day + "\"")
-                    )
+        #     for month in [x[0] for x in load_labels(get_abs_path("data/months/names.tsv"))]:
+        #         for day in [x[0] for x in load_labels(get_abs_path("data/months/days.tsv"))]:
+        #             ymd_to_mdy_curr = (
+        #                 pynutil.insert("month: \"" + month + "\" day: \"" + day + "\" ")
+        #                 + pynini.accep('year:')
+        #                 + NEMO_SIGMA
+        #                 + pynutil.delete(" month: \"" + month + "\" day: \"" + day + "\"")
+        #             )
 
-                    # YY-MM-DD -> MM-DD-YY
-                    ymd_to_mdy_curr = pynini.compose(final_graph, ymd_to_mdy_curr)
-                    ymd_to_mdy_graph = (
-                        ymd_to_mdy_curr
-                        if ymd_to_mdy_graph is None
-                        else pynini.union(ymd_to_mdy_curr, ymd_to_mdy_graph)
-                    )
+        #             # YY-MM-DD -> MM-DD-YY
+        #             ymd_to_mdy_curr = pynini.compose(final_graph, ymd_to_mdy_curr)
+        #             ymd_to_mdy_graph = (
+        #                 ymd_to_mdy_curr
+        #                 if ymd_to_mdy_graph is None
+        #                 else pynini.union(ymd_to_mdy_curr, ymd_to_mdy_graph)
+        #             )
 
-                    mdy_to_dmy_curr = (
-                        pynutil.insert("day: \"" + day + "\" month: \"" + month + "\" ")
-                        + pynutil.delete("month: \"" + month + "\" day: \"" + day + "\" ")
-                        + pynini.accep('year:')
-                        + NEMO_SIGMA
-                    )
+        #             mdy_to_dmy_curr = (
+        #                 pynutil.insert("day: \"" + day + "\" month: \"" + month + "\" ")
+        #                 + pynutil.delete("month: \"" + month + "\" day: \"" + day + "\" ")
+        #                 + pynini.accep('year:')
+        #                 + NEMO_SIGMA
+        #             )
 
-                    # pynini.compose(ymd_to_mdy_curr, mdy_to_dmy_curr) to handle:
-                    # YY-MM-DD (input format) -> MM-DD-YY (intermediate ymd_to_mdy_curr representation) -> DD-MM-YY
-                    # '2000-01-05' -> 'day: "five" month: "january" year: "two thousand"'
-                    # pynini.compose(final_graph, mdy_to_dmy_curr) to handle:
-                    # MM-DD-YY (input format) -> DD-MM-YY
-                    mdy_to_dmy_curr = pynini.compose(ymd_to_mdy_curr, mdy_to_dmy_curr) | pynini.compose(
-                        final_graph, mdy_to_dmy_curr
-                    )
-                    mdy_to_dmy_graph = (
-                        mdy_to_dmy_curr
-                        if mdy_to_dmy_graph is None
-                        else pynini.union(mdy_to_dmy_curr, mdy_to_dmy_graph)
-                    )
+        #             # pynini.compose(ymd_to_mdy_curr, mdy_to_dmy_curr) to handle:
+        #             # YY-MM-DD (input format) -> MM-DD-YY (intermediate ymd_to_mdy_curr representation) -> DD-MM-YY
+        #             # '2000-01-05' -> 'day: "five" month: "january" year: "two thousand"'
+        #             # pynini.compose(final_graph, mdy_to_dmy_curr) to handle:
+        #             # MM-DD-YY (input format) -> DD-MM-YY
+        #             mdy_to_dmy_curr = pynini.compose(ymd_to_mdy_curr, mdy_to_dmy_curr) | pynini.compose(
+        #                 final_graph, mdy_to_dmy_curr
+        #             )
+        #             mdy_to_dmy_graph = (
+        #                 mdy_to_dmy_curr
+        #                 if mdy_to_dmy_graph is None
+        #                 else pynini.union(mdy_to_dmy_curr, mdy_to_dmy_graph)
+        #             )
 
-            final_graph |= ymd_to_mdy_graph | mdy_to_dmy_graph
+        #     final_graph |= ymd_to_mdy_graph | mdy_to_dmy_graph
 
-        final_graph = self.add_tokens(final_graph)
+        final_graph = self.add_tokens(final_graph, preserve_order=True)
+
+        
+        final_graph |= self.add_tokens(graph_ymd | year_graph_standalone)
         self.fst = final_graph.optimize()

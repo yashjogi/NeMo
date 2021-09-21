@@ -74,17 +74,14 @@ class MeasureFst(GraphFst):
 
         graph = (graph_cardinal | graph_decimal | graph_fraction) + delete_space + insert_space + unit
 
-        # SH adds "preserve_order: true" by default
-        preserve_order = pynutil.delete("preserve_order:") + delete_space + pynutil.delete("true") + delete_space
-        graph |= unit + insert_space + (graph_cardinal | graph_decimal) + delete_space + pynini.closure(preserve_order)
         address = (
             pynutil.delete("units: \"address\" ")
             + delete_space
             + graph_cardinal
-            + delete_space
-            + pynini.closure(preserve_order)
         )
-        graph |= address
+        graph_preserve_order = unit + insert_space + (graph_cardinal | graph_decimal) 
+        graph_preserve_order |=address
 
         delete_tokens = self.delete_tokens(graph)
+        delete_tokens |= self.delete_tokens(graph_preserve_order, preserve_order=True)
         self.fst = delete_tokens.optimize()

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_text_processing.text_normalization.en.graph_utils import GraphFst, delete_extra_space, delete_space
+from nemo_text_processing.text_normalization.en.graph_utils import GraphFst, add_label, delete_extra_space, delete_space
 from nemo_text_processing.text_normalization.en.utils import get_abs_path
 
 try:
@@ -48,7 +48,7 @@ def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstL
         + suffix
         + pynutil.insert("\"")
     )
-    res |= decimal + delete_extra_space + pynutil.insert("quantity: \"") + (suffix | "thousand") + pynutil.insert("\"")
+    res |= decimal + delete_extra_space + add_label( (suffix | "thousand"), "quantity")
     return res
 
 

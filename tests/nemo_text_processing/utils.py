@@ -42,6 +42,7 @@ def parse_test_case_file(file_name: str):
         for line in f:
             spoken, written = line.split('~')
             test_pairs.append((spoken, written.strip("\n")))
+            test_pairs.append(('<2>'+spoken+'</2>', '<2>'+written.strip("\n")+'</2>'))
     return test_pairs
 
 

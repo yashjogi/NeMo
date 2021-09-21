@@ -22,6 +22,8 @@ from nemo_text_processing.text_normalization.en.graph_utils import (
     SINGULAR_TO_PLURAL,
     GraphFst,
     convert_space,
+    add_label,
+    add_class_label,
     delete_space,
 )
 from nemo_text_processing.text_normalization.en.taggers.ordinal import OrdinalFst as OrdinalTagger
@@ -70,64 +72,47 @@ class MeasureFst(GraphFst):
             delete_space + pynutil.insert(NEMO_NON_BREAKING_SPACE) + graph_unit2, 0, 1,
         )
 
-        unit_plural = (
-            pynutil.insert("units: \"")
-            + (graph_unit_plural + optional_graph_unit2 | graph_unit2)
-            + pynutil.insert("\"")
-        )
+        unit_plural = add_label( (graph_unit_plural + optional_graph_unit2 | graph_unit2), "units")
 
-        unit_singular = (
-            pynutil.insert("units: \"") + (graph_unit + optional_graph_unit2 | graph_unit2) + pynutil.insert("\"")
-        )
-
-        subgraph_decimal = (
-            pynutil.insert("decimal { ")
-            + optional_graph_negative
-            + decimal.final_graph_wo_negative
+        unit_singular = add_label( (graph_unit + optional_graph_unit2 | graph_unit2), "units")
+        subgraph_decimal = (add_class_label(optional_graph_negative + decimal.final_graph_wo_negative, "decimal")
             + delete_space
-            + pynutil.insert(" } ")
+            + pynutil.insert(" ")
             + unit_plural
         )
+        
 
         subgraph_cardinal = (
-            pynutil.insert("cardinal { ")
-            + optional_graph_negative
+            add_class_label( optional_graph_negative
             + pynutil.insert("integer: \"")
             + ((NEMO_SIGMA - "1") @ cardinal_graph)
+            + pynutil.insert("\""),"cardinal")
             + delete_space
-            + pynutil.insert("\"")
-            + pynutil.insert(" } ")
+            + pynutil.insert(" ")
             + unit_plural
         )
 
         subgraph_cardinal |= (
-            pynutil.insert("cardinal { ")
-            + optional_graph_negative
+            add_class_label(optional_graph_negative
             + pynutil.insert("integer: \"")
             + pynini.cross("1", "one")
+            + pynutil.insert("\""), "cardinal")
             + delete_space
-            + pynutil.insert("\"")
-            + pynutil.insert(" } ")
+            + pynutil.insert(" ")
             + unit_singular
         )
 
-        cardinal_dash_alpha = (
-            pynutil.insert("cardinal { integer: \"")
+        cardinal_dash_alpha = add_class_label(pynutil.insert("integer: \"")
             + cardinal_graph
             + pynini.cross('-', '')
-            + pynutil.insert("\" } units: \"")
-            + pynini.closure(NEMO_ALPHA, 1)
-            + pynutil.insert("\"")
-        )
-
+            + pynutil.insert("\""), "cardinal") + pynutil.insert(" ") + add_label(pynini.closure(NEMO_ALPHA, 1), "units")
+    
         alpha_dash_cardinal = (
-            pynutil.insert("units: \"")
-            + pynini.closure(NEMO_ALPHA, 1)
-            + pynini.cross('-', '')
-            + pynutil.insert("\"")
-            + pynutil.insert(" cardinal { integer: \"")
+            add_label(pynini.closure(NEMO_ALPHA, 1)
+            + pynini.cross('-', ''), "units")
+            + pynutil.insert(" ") + add_class_label(pynutil.insert("integer: \"")
             + cardinal_graph
-            + pynutil.insert("\" } preserve_order: true")
+            + pynutil.insert("\""), label="cardinal")
         )
 
         decimal_dash_alpha = (
@@ -154,32 +139,31 @@ class MeasureFst(GraphFst):
             + pynutil.insert("\"")
             + pynutil.insert(" decimal { ")
             + decimal.final_graph_wo_negative
-            + pynutil.insert(" } preserve_order: true")
+            + pynutil.insert(" }")
         )
 
         subgraph_fraction = (
-            pynutil.insert("fraction { ") + fraction.graph + delete_space + pynutil.insert(" } ") + unit_plural
+            add_class_label( fraction.graph + delete_space, "fraction") + delete_space + pynutil.insert(" ") + unit_plural
         )
 
         address = self.get_address_graph(cardinal)
         address = (
             pynutil.insert("units: \"address\" cardinal { integer: \"")
             + address
-            + pynutil.insert("\" } preserve_order: true")
+            + pynutil.insert("\" }")
         )
 
         final_graph = (
             subgraph_decimal
             | subgraph_cardinal
             | cardinal_dash_alpha
-            | alpha_dash_cardinal
             | decimal_dash_alpha
             | decimal_times
-            | alpha_dash_decimal
             | subgraph_fraction
-            | address
         )
         final_graph = self.add_tokens(final_graph)
+        final_graph_keep_order = alpha_dash_cardinal | alpha_dash_decimal | address
+        final_graph |= self.add_tokens(final_graph_keep_order, preserve_order=True)
         self.fst = final_graph.optimize()
 
     def get_address_graph(self, cardinal):
