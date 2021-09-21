@@ -43,35 +43,18 @@ def tokenize_and_create_masks(args):
         capit_labels_lines,
         pad_label,
         ignore_extra_tokens,
+        with_label,
         rank,
     ) = args
-    all_subtokens = []
-    all_loss_mask = []
-    all_subtokens_mask = []
-    all_input_mask = []
-    sent_lengths = []
-    punct_all_labels = []
-    capit_all_labels = []
-    with_label = False
-
-    if punct_labels_lines and capit_labels_lines:
-        with_label = True
-
+    all_subtokens, all_loss_mask, all_subtokens_mask, all_input_mask, sent_lengths = [], [], [], [], []
+    punct_all_labels, capit_all_labels = [], []
     for i, query in enumerate(queries):
         words = query.strip().split()
-
-        # add bos token
-        subtokens = [tokenizer.cls_token]
-        loss_mask = [1 - ignore_start_end]
-        subtokens_mask = [0]
+        subtokens, loss_mask, subtokens_mask = [tokenizer.cls_token], [1 - ignore_start_end], [0]
         if with_label:
             pad_id = punct_label_ids[pad_label]
-            punct_labels = [pad_id]
-            punct_query_labels = [punct_label_ids[lab] for lab in punct_labels_lines[i]]
-
-            capit_labels = [pad_id]
-            capit_query_labels = [capit_label_ids[lab] for lab in capit_labels_lines[i]]
-
+            punct_labels, punct_query_labels = [pad_id], [punct_label_ids[lab] for lab in punct_labels_lines[i]]
+            capit_labels, capit_query_labels = [pad_id], [capit_label_ids[lab] for lab in capit_labels_lines[i]]
         for j, word in enumerate(words):
             word_tokens = tokenizer.text_to_tokens(word)
             subtokens.extend(word_tokens)
@@ -123,6 +106,7 @@ def tokenize_and_create_masks_parallel(
     capit_labels_lines,
     pad_label,
     ignore_extra_tokens,
+    with_label,
     njobs,
 ):
     if njobs is None:
@@ -149,6 +133,7 @@ def tokenize_and_create_masks_parallel(
             split_capit_labels_lines,
             [pad_label] * n_split,
             [ignore_extra_tokens] * n_split,
+            [with_label] * n_split,
             range(njobs - 1),
         )
     )
@@ -202,7 +187,7 @@ def get_features(
     """
     all_segment_ids = []
     all_input_ids = []
-    with_label = False
+    with_label = punct_labels_lines and capit_labels_lines
     logging.info("Start initial tokenization.")
     (
         all_subtokens,
@@ -222,6 +207,7 @@ def get_features(
         capit_labels_lines,
         pad_label,
         ignore_extra_tokens,
+        with_label,
         njobs,
     )
     logging.info("Finished initial tokenization.")
