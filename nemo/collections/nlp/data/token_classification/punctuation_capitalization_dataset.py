@@ -128,26 +128,27 @@ def tokenize_and_create_masks_parallel(
     if njobs is None:
         njobs = mp.cpu_count()
     logging.info(f"Running tokenization with {njobs} jobs.")
-    n = len(queries) // njobs
-    split_queries = [queries[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
+    n_split = max(njobs - 1, 1)
+    n = len(queries) // (njobs - 1)
+    split_queries = [queries[n * i : n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1) :]]
     split_punct_labels_lines = (
-        [punct_labels_lines[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
+        [punct_labels_lines[n * i : n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1) :]]
     )
     split_capit_labels_lines = (
-        [capit_labels_lines[n * i: n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1):]]
+        [capit_labels_lines[n * i: n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1):]]
     )
     args = list(
         zip(
             split_queries,
-            [tokenizer] * njobs,
-            [ignore_start_end] * njobs,
-            [punct_label_ids] * njobs,
-            [capit_label_ids] * njobs,
+            [tokenizer] * n_split,
+            [ignore_start_end] * n_split,
+            [punct_label_ids] * n_split,
+            [capit_label_ids] * n_split,
             split_punct_labels_lines,
             split_capit_labels_lines,
-            [pad_label] * njobs,
-            [ignore_extra_tokens] * njobs,
-            range(njobs),
+            [pad_label] * n_split,
+            [ignore_extra_tokens] * n_split,
+            range(njobs - 1),
         )
     )
     with mp.Pool(njobs) as pool:
