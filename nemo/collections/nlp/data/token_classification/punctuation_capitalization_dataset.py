@@ -154,7 +154,7 @@ def tokenize_and_create_masks_parallel(
     )
     with mp.Pool(njobs) as pool:
         result = pool.map(tokenize_and_create_masks, args)
-    return [list(itertools.chain(e)) for e in zip(*result)]
+    return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
 def get_features(
