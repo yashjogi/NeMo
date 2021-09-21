@@ -125,6 +125,7 @@ def tokenize_and_create_masks_parallel(
 ):
     if njobs is None:
         njobs = mp.cpu_count()
+    logging.info(f"Running tokenization with {njobs} jobs.")
     n = len(queries) // njobs
     split_queries = [queries[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
     args = list(
