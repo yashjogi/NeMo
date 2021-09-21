@@ -128,6 +128,12 @@ def tokenize_and_create_masks_parallel(
     logging.info(f"Running tokenization with {njobs} jobs.")
     n = len(queries) // njobs
     split_queries = [queries[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
+    split_punct_labels_lines = (
+        [punct_labels_lines[n * i : n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1) :]]
+    )
+    split_capit_labels_lines = (
+        [capit_labels_lines[n * i: n * (i + 1)] for i in range(njobs - 1)] + [queries[n * (njobs - 1):]]
+    )
     args = list(
         zip(
             split_queries,
@@ -135,8 +141,8 @@ def tokenize_and_create_masks_parallel(
             [ignore_start_end] * njobs,
             [punct_label_ids] * njobs,
             [capit_label_ids] * njobs,
-            [punct_labels_lines] * njobs,
-            [capit_labels_lines] * njobs,
+            split_punct_labels_lines,
+            split_capit_labels_lines,
             [pad_label] * njobs,
             [ignore_extra_tokens] * njobs,
         )
