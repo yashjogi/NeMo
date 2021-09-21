@@ -45,8 +45,8 @@ model:
   punct_label_ids: null # will be filled during training
   capit_label_ids: null # will be filled during training
   class_labels:
-    punct_labels_file: punct_label_ids.csv
-    capit_labels_file: capit_label_ids.csv
+    punct_labels_file: ../../workspace/punct_label_ids.csv
+    capit_labels_file: ../../workspace/capit_label_ids.csv
   dataset:
     data_dir: /data/train # /path/to/training/data
     # parameters for dataset preprocessing
