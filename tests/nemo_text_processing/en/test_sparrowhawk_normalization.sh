@@ -20,6 +20,32 @@ runtest () {
   done < "$input"
 }
 
+testTNDateTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_date_tag.txt
+  runtest $input
+}
+
+testTNDecimalTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_decimal_tag.txt
+  runtest $input
+}
+testTNFractionTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_fraction_tag.txt
+  runtest $input
+}
+testTNMeasureTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_measure_tag.txt
+  runtest $input
+}
+testTNMoneyTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_money_tag.txt
+  runtest $input
+}
+testTNTimeTag() {
+  input=$PROJECT_DIR/en/data_text_normalization/test_cases_time_tag.txt
+  runtest $input
+}
+
 testTNBoundary() {
   input=$PROJECT_DIR/en/data_text_normalization/test_cases_boundary.txt
   runtest $input

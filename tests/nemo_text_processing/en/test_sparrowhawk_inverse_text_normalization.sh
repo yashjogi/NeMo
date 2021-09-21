@@ -20,6 +20,32 @@ runtest () {
   done < "$input"
 }
 
+testITNDateTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_date_tag.txt
+  runtest $input
+}
+
+testITNDecimalTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_decimal_tag.txt
+  runtest $input
+}
+testITNFractionTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_fraction_tag.txt
+  runtest $input
+}
+testITNMeasureTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_measure_tag.txt
+  runtest $input
+}
+testITNMoneyTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_money_tag.txt
+  runtest $input
+}
+testITNTimeTag() {
+  input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_time_tag.txt
+  runtest $input
+}
+
 testITNCardinal() {
   input=$PROJECT_DIR/en/data_inverse_text_normalization/test_cases_cardinal.txt
   runtest $input
