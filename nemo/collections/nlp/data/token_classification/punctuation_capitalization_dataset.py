@@ -101,7 +101,7 @@ def tokenize_and_create_masks(args):
             punct_all_labels.append(punct_labels)
             capit_labels.append(pad_id)
             capit_all_labels.append(capit_labels)
-    logging.info(f"Finished process with rank {rank}")
+    logging.info(f"Finished tokenization process with rank {rank}")
     return (
         all_subtokens,
         all_loss_mask,
