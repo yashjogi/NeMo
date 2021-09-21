@@ -255,7 +255,9 @@ def too_many_uppercase(text):
     return too_many
 
 
-def remove_untokenizable_characters(text, tokenizer):
+def remove_untokenizable_characters(docs, tokenizer):
+    names = list(docs.keys())
+    text = '\n\n\n'.join(['\n'.join(doc) for doc in docs.values()])
     tmp_new_line_character = "NEWLINECHARACTER"
     while tmp_new_line_character in text and len(tmp_new_line_character) < 20:
         tmp_new_line_character += 'R'
@@ -283,7 +285,13 @@ def remove_untokenizable_characters(text, tokenizer):
     if '-' in untokenizable_characters:
         untokenizable_characters.remove('-')
         untokenizable_characters.append('-')
-    return re.sub('[' + ''.join(untokenizable_characters) + ']', '', text)
+    uc = '[' + ''.join(untokenizable_characters) + ']'
+    text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
+    doc_texts = text.split('\n\n\n')
+    assert len(doc_texts) == len(names)
+    for i, name in enumerate(names):
+        docs[name] = doc_texts[i].split('\n')
+    return docs
 
 
 def preprocess_europarl(text):
@@ -339,7 +347,8 @@ def all_words_contain_numbers(line):
 
 def check_rapid_line(line):
     return (
-        line[-1] in SENTENCE_ENDINGS
+        len(line) > 0
+        and line[-1] in SENTENCE_ENDINGS
         and MORE_THAN_15_DOTS.search(line) is None
         and MORE_THAN_3_SPACE_DOTS.search(line) is None
         and MORE_THAN_10_HYPHENS.search(line) is None
@@ -391,7 +400,8 @@ def preprocess_rapid(text, verbose=False):
 
 def check_news_commentary_line(line):
     return (
-        MORE_THAN_10_HYPHENS.search(line) is None
+        len(line) > 0
+        and MORE_THAN_10_HYPHENS.search(line) is None
         and not too_many_digits(line)
         and not (line.isupper() and len(line) > 10)
         and not too_many_uppercase(line)
@@ -813,13 +823,13 @@ def main():
         logging.info(f"Processing file {file_path}..")
         with file_path.open() as f:
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-                file_docs = preprocess_europarl(remove_untokenizable_characters(f.read(), tokenizer))
+                file_docs = remove_untokenizable_characters(preprocess_europarl(f.read()), tokenizer)
             elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:
-                file_docs = preprocess_news_commentary(remove_untokenizable_characters(f.read(), tokenizer))
+                file_docs = remove_untokenizable_characters(preprocess_news_commentary(f.read()), tokenizer)
             elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:
-                file_docs = preprocess_ted(remove_untokenizable_characters(f.read(), tokenizer))
+                file_docs = remove_untokenizable_characters(preprocess_ted(f.read()), tokenizer)
             elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:
-                file_docs = preprocess_rapid(remove_untokenizable_characters(f.read(), tokenizer))
+                file_docs = remove_untokenizable_characters(preprocess_rapid(f.read()), tokenizer)
             else:
                 raise ValueError(
                     f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
