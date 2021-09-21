@@ -43,6 +43,7 @@ def tokenize_and_create_masks(args):
         capit_labels_lines,
         pad_label,
         ignore_extra_tokens,
+        rank,
     ) = args
     all_subtokens = []
     all_loss_mask = []
@@ -100,6 +101,7 @@ def tokenize_and_create_masks(args):
             punct_all_labels.append(punct_labels)
             capit_labels.append(pad_id)
             capit_all_labels.append(capit_labels)
+    logging.info(f"Finished process with rank {rank}")
     return (
         all_subtokens,
         all_loss_mask,
@@ -145,6 +147,7 @@ def tokenize_and_create_masks_parallel(
             split_capit_labels_lines,
             [pad_label] * njobs,
             [ignore_extra_tokens] * njobs,
+            range(njobs),
         )
     )
     with mp.Pool(njobs) as pool:
@@ -198,7 +201,7 @@ def get_features(
     all_segment_ids = []
     all_input_ids = []
     with_label = False
-
+    logging.info("Start initial tokenization.")
     (
         all_subtokens,
         all_loss_mask,
@@ -219,12 +222,13 @@ def get_features(
         ignore_extra_tokens,
         njobs,
     )
+    logging.info("Finished initial tokenization.")
     pad_id = punct_label_ids[pad_label]
     max_seq_length = min(max_seq_length, max(sent_lengths))
     logging.info(f'Max length: {max_seq_length}')
     get_stats(sent_lengths)
     too_long_count = 0
-
+    logging.info("Clip and pad...")
     for i, subtokens in enumerate(all_subtokens):
         if len(subtokens) > max_seq_length:
             subtokens = [tokenizer.cls_token] + subtokens[-max_seq_length + 1 :]
@@ -251,7 +255,7 @@ def get_features(
                 capit_all_labels[i] = capit_all_labels[i] + [pad_id] * extra
 
         all_segment_ids.append([0] * max_seq_length)
-
+    logging.info(f"Finished clipping and padding.")
     logging.info(f'{too_long_count} are longer than {max_seq_length}')
 
     for i in range(min(len(all_input_ids), 5)):
