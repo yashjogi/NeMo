@@ -89,7 +89,10 @@ def read_one_audiosegment(manifest, target_sr, rng, tarred_audio=False, audio_da
 
     return AudioSegment.from_file(audio_file, target_sr=target_sr, offset=offset, duration=duration)
 
-
+# only impulse, 
+# x gain 
+# x whitenoise and 
+# x noise
 class Perturbation(object):
     def max_augmentation_length(self, length):
         return length
@@ -288,10 +291,17 @@ class GainPerturbation(Perturbation):
         self._max_gain_dbfs = max_gain_dbfs
         self._rng = random.Random() if rng is None else rng
 
+    def norm_attitude(self, samples):
+        if max(abs(samples)) > 1.0:
+            samples = samples / max(abs(samples))
+        return samples
+
     def perturb(self, data):
         gain = self._rng.uniform(self._min_gain_dbfs, self._max_gain_dbfs)
         # logging.debug("gain: %d", gain)
         data._samples = data._samples * (10.0 ** (gain / 20.0))
+        # here
+        data._samples = self.norm_attitude(data._samples)
 
 
 class ImpulsePerturbation(Perturbation):
@@ -423,6 +433,11 @@ class NoisePerturbation(Perturbation):
             self._manifest, target_sr, self._rng, tarred_audio=self._tarred_audio, audio_dataset=self._data_iterator
         )
 
+    def norm_attitude(self, samples):
+        if max(abs(samples)) > 1.0:
+            samples = samples / max(abs(samples))
+        return samples
+
     def perturb(self, data):
         noise = read_one_audiosegment(
             self._manifest,
@@ -454,6 +469,8 @@ class NoisePerturbation(Perturbation):
 
         else:
             data._samples += noise._samples
+
+        data._samples = self.norm_attitude(data._samples)
 
     def perturb_with_foreground_noise(
         self, data, noise, data_rms=None, max_noise_dur=2, max_additions=1,
@@ -496,11 +513,18 @@ class WhiteNoisePerturbation(Perturbation):
         self.max_level = int(max_level)
         self._rng = np.random.RandomState() if rng is None else rng
 
+
+    def norm_attitude(self, samples):
+        if max(abs(samples)) > 1.0:
+            samples = samples / max(abs(samples))
+        return samples
+
     def perturb(self, data):
         noise_level_db = self._rng.randint(self.min_level, self.max_level, dtype='int32')
         noise_signal = self._rng.randn(data._samples.shape[0]) * (10.0 ** (noise_level_db / 20.0))
         data._samples += noise_signal
-
+        data._samples = self.norm_attitude(data._samples)
+    
 
 class RirAndNoisePerturbation(Perturbation):
     """
