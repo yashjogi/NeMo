@@ -25,5 +25,5 @@ ngc batch run \
   --name "ml-model.bert punctuation_capitalization_training_on_wmt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
-  --datasetid 88505:/data \
+  --datasetid 88512:/data \
   --commandline "${command}"
