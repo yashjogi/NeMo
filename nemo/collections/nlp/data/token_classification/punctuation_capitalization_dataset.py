@@ -265,8 +265,8 @@ def get_features(
         np.array(all_loss_mask, dtype=np.bool),
         np.array(punct_all_labels, dtype=np.int8),
         np.array(capit_all_labels, dtype=np.int8),
-        np.array(punct_label_ids),
-        np.array(capit_label_ids),
+        punct_label_ids,
+        capit_label_ids,
     )
 
 
