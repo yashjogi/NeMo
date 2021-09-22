@@ -123,6 +123,7 @@ def main():
                 np.concatenate(hyp_capitalization_ids),
                 labels=[id_],
                 average="micro",
+                zero_division=0,
             )
             for lbl, id_ in capitalization_labels_to_ids.items() if id_ > 0 and id_ in capitalization_ids_present_in_ref
         }
@@ -132,6 +133,7 @@ def main():
                 np.concatenate(hyp_punctuation_ids),
                 labels=[id_],
                 average="micro",
+                zero_division=0,
             )
             for lbl, id_ in punctuation_labels_to_ids.items() if id_ > 1 and id_ in punctuation_ids_present_in_ref
         }
