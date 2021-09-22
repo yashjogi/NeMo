@@ -23,9 +23,9 @@ def main():
     args = get_args()
     capitalization_re = re.compile(f'[{args.capitalization_labels}]', flags=re.I)
     with args.input.open() as f:
-        punctuation = itertools.accumulate(
-            f, lambda x, y: x.update(capitalization_re.split(y.strip())), initial=Counter()
-        )
+        punctuation = Counter()
+        for line in f:
+            punctuation.update(capitalization_re.split(line.strip()))
     with args.output.open('w') as f:
         json.dump(punctuation, f, indent=2)
 

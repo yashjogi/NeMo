@@ -109,14 +109,16 @@ def main():
             ),
         },
     }
+    punctuation_ids_present_in_ref = set.union.update(*ref_punctuation_ids)
+    capitalization_ids_present_in_ref = set.union(*ref_capitalization_ids)
     for name, metric in [('precision', precision_score), ('recall', recall_score),  ('F1', f1_score)]:
         result['capitalization'][name] = {
             lbl: metric(ref_capitalization_ids, hyp_capitalization_ids, pos_label=id_)
-            for lbl, id_ in capitalization_labels_to_ids.items() if id_ > 0
+            for lbl, id_ in capitalization_labels_to_ids.items() if id_ > 0 and id_ in capitalization_ids_present_in_ref
         }
         result['punctuation'][name] = {
             lbl: metric(ref_punctuation_ids, hyp_punctuation_ids, pos_label=id_)
-            for lbl, id_ in punctuation_labels_to_ids.items() if id_ > 1
+            for lbl, id_ in punctuation_labels_to_ids.items() if id_ > 1 and id_ in punctuation_ids_present_in_ref
         }
     with args.output.open('w') as f:
         json.dump(result, f, indent=2)
