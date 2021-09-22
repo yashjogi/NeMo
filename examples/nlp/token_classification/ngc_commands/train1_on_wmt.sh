@@ -13,7 +13,7 @@ pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="\$(pwd)"
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
-python -c "from nemo.collections.nlp.modules import get_tokenizer;get_tokenizer('bert-base-uncased', use_fast=True)"
+python -c "from nemo.collections.nlp.modules import get_tokenizer;get_tokenizer('bert-base-uncased', use_fast=False)"
 python punctuation_capitalization_train.py --config-path=conf \
     --config-name wmt_train \
     trainer.gpus=1

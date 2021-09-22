@@ -13,7 +13,8 @@ pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="\$(pwd)"
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
-sleep 36000
+python -c "from nemo.collections.nlp.modules import get_tokenizer;get_tokenizer('bert-base-uncased', use_fast=False)"
+sleep 100000
 set +e +x
 EOF
 
@@ -22,5 +23,5 @@ ngc batch run \
   --name "ml-model.bert punctuation_capitalization_training_on_wmt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
-  --datasetid 88471:/data \
+  --datasetid 88505:/data \
   --commandline "${command}"
