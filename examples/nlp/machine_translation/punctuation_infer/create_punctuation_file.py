@@ -21,11 +21,15 @@ def get_args():
 
 def main():
     args = get_args()
+    rstrip = re.compile(f"[^{args.capitalization_labels}]*$")
     capitalization_re = re.compile(f'[{args.capitalization_labels}]', flags=re.I)
     with args.input.open() as f:
         punctuation = Counter()
         for line in f:
-            punctuation.update(capitalization_re.split(line.strip()))
+            line = line.strip()
+            if ' ' not in rstrip.search(line).group(0):
+                line += ' '
+            punctuation.update(capitalization_re.split(line))
     punctuation = dict(sorted(punctuation.items(), key=lambda x: -x[1]))
     del punctuation['']
     with args.output.open('w') as f:
