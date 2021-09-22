@@ -502,8 +502,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
             self.all_input_mask[idx],
             self.all_subtokens_mask[idx],
             self.all_loss_mask[idx],
-            self.punct_all_labels[idx].astype(np.int32),
-            self.capit_all_labels[idx].astype(np.int32),
+            self.punct_all_labels[idx].astype(np.int64),
+            self.capit_all_labels[idx].astype(np.int64),
         )
 
 
