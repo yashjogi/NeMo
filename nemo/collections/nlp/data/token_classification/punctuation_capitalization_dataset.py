@@ -498,12 +498,12 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def __getitem__(self, idx):
         return (
             self.all_input_ids[idx],
-            self.all_segment_ids[idx],
+            self.all_segment_ids[idx].astype(np.int32),
             self.all_input_mask[idx],
             self.all_subtokens_mask[idx],
             self.all_loss_mask[idx],
-            self.punct_all_labels[idx],
-            self.capit_all_labels[idx],
+            self.punct_all_labels[idx].astype(np.int32),
+            self.capit_all_labels[idx].astype(np.int32),
         )
 
 
