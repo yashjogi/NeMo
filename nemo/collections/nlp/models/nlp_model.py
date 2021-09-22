@@ -116,6 +116,7 @@ class NLPModel(ModelPT, Exportable):
             vocab_file=vocab_file,
             special_tokens=OmegaConf.to_container(cfg.special_tokens) if cfg.special_tokens else None,
             tokenizer_model=self.register_artifact(config_path='tokenizer.tokenizer_model', src=cfg.tokenizer_model),
+            use_fast=cfg.get('use_fast', False),
         )
 
         if vocab_file is None:
