@@ -142,14 +142,6 @@ def infer_signal(model, signal):
     )
     return log_probs
 
-def match_diar_labels_speakers(old_diar_labels, new_diar_labels):
-    metric = DiarizationErrorRate(collar=0.5, skip_overlap=True, uem=None)
-    reference = labels_to_pyannote_object(old_diar_labels)
-    hypothesis = labels_to_pyannote_object(new_diar_labels)
-    metric(reference, hypothesis, detailed=True)
-    mapping_dict = metric.optimal_mapping(reference, hypothesis)
-    return mapping_dict 
-
 def get_partial_ref_labels(pred_labels, ref_labels):
     last_pred_time = float(pred_labels[-1].split()[1])
     ref_labels_out = []
@@ -208,7 +200,7 @@ def callback_sim(asr, uniq_key, buffer_counter, sdata, frame_count, time_info, s
         asr.get_word_ts(text, timestamps, end_stamp)
         string_out = asr.get_speaker_label_per_word(uniq_key, asr.word_seq, asr.word_ts_seq, diar_labels)
         write_txt(f"{asr.diar._out_dir}/online_trans.txt", string_out.strip())
-    # time.sleep(0.97 - time.time() + start_time)
+    time.sleep(0.97 - time.time() + start_time)
 
 class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
     def __init__(self, cfg: DictConfig, params: Dict):
@@ -364,10 +356,11 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
                 emb_n_per_cluster[curr_idx] += target_number
                 new_emb_n -= target_number
             count += 1
+        print("Counter:", count_dict)
         assert sum(emb_n_per_cluster) == targeted_total_n, "emb_n_per_cluster does not match with targeted number new_emb_n."
         return emb_n_per_cluster
 
-    def merge_emb(self, cmat, tick2d, emb_ndx, cluster_labels, method='avg'):
+    def reduce_emb(self, cmat, tick2d, emb_ndx, cluster_labels, method='avg'):
         LI, RI = tick2d[0, :], tick2d[1, :]
         LI_argdx = tick2d[0].argsort()
 
@@ -394,7 +387,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         history_n, current_n = self._history_buffer_segment_count, self._current_buffer_segment_count
         add_new_emb_to_history = True
 
-        print("[Streaming with history buffer:] emb_in.shape:", emb_in.shape)
+        print("[Streaming diarization with history buffer]: emb_in.shape:", emb_in.shape)
         if len(self.history_embedding_buffer_emb) > 0:
             if emb_in.shape[0] <= self.index_dict['max_embed_count']:
                 # If the number of embeddings is decreased compared to the last trial,
@@ -440,7 +433,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
                     cmat = np.tril(mat[:,ndx][ndx,:])
                     tick2d = self.getIndecesForEmbeddingReduction(cmat, ndx, N)
                     spk_cluster_labels, emb_ndx = before_cluster_labels[ndx], emb[ndx]
-                    result_emb, tick_sum, merged_cluster_labels = self.merge_emb(cmat, tick2d, emb_ndx, spk_cluster_labels, method='avg')
+                    result_emb, tick_sum, merged_cluster_labels = self.reduce_emb(cmat, tick2d, emb_ndx, spk_cluster_labels, method='avg')
                     assert (ndx.shape[0] - N) == result_emb.shape[0], ipdb.set_trace()
                 total_emb.append(result_emb)
                 total_cluster_labels.append(merged_cluster_labels)
@@ -449,11 +442,8 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             self.history_embedding_buffer_label = np.hstack(total_cluster_labels)
             assert self.history_embedding_buffer_emb.shape[0] == history_n, ipdb.set_trace()
         else:
-            print("====== Skipping embedding merging =====")
             total_emb.append(self.history_embedding_buffer_emb)
             total_cluster_labels.append(self.history_embedding_buffer_label)
-
-        # self.index_dict[self.frame_index] = (emb_in.shape[0], hist_curr_boundary)
 
         # Add the current buffer
         total_emb.append(emb_in[hist_curr_boundary:])
@@ -467,6 +457,14 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         return history_and_current_emb, history_and_current_labels, current_n, add_new_emb_to_history
     
     def getIndecesForEmbeddingReduction(self, cmat, ndx, N):
+        """
+        Get indeces of the embeddings we want to merge or drop.
+
+        Args:
+            cmat: (np.array)
+            ndx: (np.array)
+            N: (int)
+        """
         comb_limit = int(ndx.shape[0]/2)
         assert N <= comb_limit, f" N is {N}: {N} is bigger than comb_limit -{comb_limit}"
         idx2d = np.unravel_index(np.argsort(cmat, axis=None)[::-1], cmat.shape)
@@ -485,16 +483,14 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
 
     def getReducedMat(self, mat, emb):
         margin_seg_n = mat.shape[0] - (self._current_buffer_segment_count + self._history_buffer_segment_count)
-        if margin_seg_n> 0:
+        if margin_seg_n > 0:
             mat = 0.5*(mat + mat.T)
             np.fill_diagonal(mat, 0)
             merged_emb, cluster_labels, current_n, add_new = self.mergeEmbedding(emb, mat)
-            # logging.info(f"Using matrix reduction, clustering matrix size of mat.shape {merged_emb.shape}")
         else:
             merged_emb = emb
             current_n = self._current_buffer_segment_count
             cluster_labels, add_new = None, True
-            # logging.info(f"Using standard offline clustering, clustering matrix size of mat.shape {merged_emb.shape}")
         return merged_emb, cluster_labels, add_new
     
     def online_eval_diarization(self, pred_labels, rttm_file, ROUND=2):
@@ -502,8 +498,8 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         all_hypotheses, all_references = [], []
 
         if os.path.exists(rttm_file):
-            ref_labels = rttm_to_labels(rttm_file)
-            ref_labels = get_partial_ref_labels(pred_labels, ref_labels)
+            ref_labels_total = rttm_to_labels(rttm_file)
+            ref_labels = get_partial_ref_labels(pred_labels, ref_labels_total)
             reference = labels_to_pyannote_object(ref_labels)
             all_references.append(reference)
         else:
@@ -514,16 +510,20 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         est_n_spk = self.get_num_of_spk_from_labels(pred_labels)
         ref_n_spk = self.get_num_of_spk_from_labels(ref_labels)
         hypothesis = labels_to_pyannote_object(pred_labels)
-
-        all_hypotheses.append(hypothesis)
-        DER, CER, FA, MISS, = get_DER(all_references, all_hypotheses)
-        logging.info(
-            "Streaming Diar [frame-    {}th    ]: DER:{:.4f} MISS:{:.4f} FA:{:.4f}, CER:{:.4f}".format(
-                self.frame_index, DER, MISS, FA, CER
+        if ref_labels == [] and pred_labels != []:
+            DER, CER, FA, MISS = 1.0, 0, 1.0, 0
+            der_dict, der_stat_dict = self.get_stat_DER(DER, CER, FA, MISS)
+            return der_dict, der_stat_dict
+        else:
+            all_hypotheses.append(hypothesis)
+            DER, CER, FA, MISS, = get_DER(all_references, all_hypotheses)
+            logging.info(
+                "Streaming Diar [frame-    {}th    ]: DER:{:.4f} MISS:{:.4f} FA:{:.4f}, CER:{:.4f}".format(
+                    self.frame_index, DER, MISS, FA, CER
+                )
             )
-        )
-        der_dict, der_stat_dict = self.get_stat_DER(DER, CER, FA, MISS)
-        return der_dict, der_stat_dict
+            der_dict, der_stat_dict = self.get_stat_DER(DER, CER, FA, MISS)
+            return der_dict, der_stat_dict
     
     def get_stat_DER(self, DER, CER, FA, MISS, ROUND=2):
         der_dict = {"DER": round(100*DER, ROUND), 
@@ -566,7 +566,6 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             Y: (List[int])
                 Speaker label for each segment.
         """
-       
         mat = getCosAffinityMatrix(emb)
         org_mat = copy.deepcopy(mat)
         emb, reduced_labels, add_new = self.getReducedMat(mat, emb)
@@ -577,7 +576,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         if emb.shape[0] == 1:
             return np.array([0])
         elif emb.shape[0] <= max(enhanced_count_thres, min_samples_for_NMESC) and oracle_num_speakers is None:
-            est_num_of_spk_enhanced = getEnhancedSpeakerCount(key, emb, cuda, random_test_count=5, anchor_spk_n=3, anchor_sample_n=10, sigma=0.1)
+            est_num_of_spk_enhanced = getEnhancedSpeakerCount(key, emb, cuda, random_test_count=5, anchor_spk_n=3, anchor_sample_n=10, sigma=100)
         else:
             est_num_of_spk_enhanced = None
 
@@ -601,16 +600,12 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             affinity_mat = getAffinityGraphMat(mat, p_hat_value)
         else:
             affinity_mat = mat
-            # est_num_of_spk, _, _ = self.estimateNumofSpeakers(affinity_mat, max_num_speaker, cuda)
         
         if oracle_num_speakers:
             est_num_of_spk = oracle_num_speakers
         elif est_num_of_spk_enhanced:
             est_num_of_spk = est_num_of_spk_enhanced
-      
-        # Prevent decreasing speaker counts.
-        history_speaker_count = len(set(self.cumulative_cluster_labels))
-        est_num_of_spk = min(max(history_speaker_count, est_num_of_spk), max_num_speaker)
+     s 
 
         spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, cuda=cuda)
         Y = spectral_model.predict(affinity_mat)
@@ -620,7 +615,6 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             update_point = self._history_buffer_segment_count
             Y_matched, cost = self.matchNewOldclusterLabels(self.cumulative_cluster_labels, Y)
             if add_new:
-                # print("Estimated # of speakers:", est_num_of_spk)
                 assert Y_matched[update_point:].shape[0] == self._current_buffer_segment_count, "Update point sync is not correct."
                 Y_out = np.hstack((self.cumulative_cluster_labels[:self.history_buffer_seg_end], Y_matched[update_point:]))
                 self.cumulative_cluster_labels = Y_out
@@ -632,9 +626,6 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             # Regular offline clustering
             Y_out = Y
             self.cumulative_cluster_labels = Y_out
-            print("self.cumulative_cluster_labels.shape", self.cumulative_cluster_labels.shape)
-
-        self.embedding_count_history.append(emb.shape[0])
         return Y_out
     
     def matchNewOldclusterLabels(self, cum_labels, Y):
@@ -643,26 +634,63 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         cumulated labels in history and the new clustering output labels.
 
         cum_labels (np.array):
+            Cumulated diarization labels. This will be concatenated with history embedding speaker label
+            then compared with the predicted label Y.
+
         Y (np.array):
+            Contains predicted labels for reduced history embeddings concatenated with the predicted label.
+            Permutation is not matched yet.
 
         """
-        enc = OneHotEncoder(handle_unknown='ignore') 
         spk_count = max(len(set(cum_labels)), len(set(Y)))
-        all_spks = [ [x] for x in range(spk_count)]
-        enc.fit(all_spks)
-        P = cum_labels[self.history_buffer_seg_end:]
-        Q = Y[self._history_buffer_segment_count:]
+        P = np.hstack((self.history_embedding_buffer_label, cum_labels[self.history_buffer_seg_end:]))
+        Q = Y
         min_len = min(P.shape[0], Q.shape[0])
         P, Q = P[:min_len], Q[:min_len]
-        P = enc.transform(P.reshape(-1, 1)).toarray()
-        Q = enc.transform(Q.reshape(-1, 1)).toarray()
-        try:
-            stacked = np.hstack((P, Q))
-        except:
-            ipdb.set_trace()
-        cost = -1*linear_kernel(stacked.T)[spk_count:, :spk_count]
-        row_ind, col_ind = linear_sum_assignment(cost)
-        mapping_array = col_ind
+        PuQ = (set(P) | set(Q))
+        PiQ = (set(P) & set(Q))
+        PmQ, QmP =  set(P) - set(Q),  set(Q) - set(P)
+
+        if len(PiQ) == 0:
+            pass
+        elif len(PmQ) > 0 or len(QmP) > 0:
+            # Only keep common speaker labels.
+            keyQ = ~np.zeros_like(Q).astype(bool)
+            keyP = ~np.zeros_like(P).astype(bool)
+            for spk in list(QmP):
+                keyQ[Q == spk] = False
+            for spk in list(PmQ):
+                keyP[P == spk] = False
+            common_key = keyP*keyQ
+            P, Q = P[common_key], Q[common_key]
+
+        all_spks = [ [x] for x in range(len(PuQ))]
+
+        if len(PuQ) == 1:
+            # When two speaker vectors are exactly the same: No need to encode.
+            col_ind = np.array([0, 0])
+            cost = None
+        else:
+            # Use one-hot encodding to find the best match.
+            enc = OneHotEncoder(handle_unknown='ignore') 
+            enc.fit(all_spks)
+            enc_P = enc.transform(P.reshape(-1, 1)).toarray()
+            enc_Q = enc.transform(Q.reshape(-1, 1)).toarray()
+            stacked = np.hstack((enc_P, enc_Q))
+            cost = -1*linear_kernel(stacked.T)[spk_count:, :spk_count]
+            row_ind, col_ind = linear_sum_assignment(cost)
+
+        if len(PmQ) > 0 or len(QmP) > 0:
+            # If number of are speakers in each vector is not the same
+            mapping_array = np.arange(len(set(PuQ))).astype(int)
+            for x in range(mapping_array.shape[0]):
+                if x in (set(PmQ) | set(QmP)):
+                    mapping_array[x] = x
+                else:
+                    mapping_array[x] = col_ind[x]
+        else:
+            mapping_array = col_ind
+
         return mapping_array[Y], cost
 
 # simple data layer to pass audio signal
@@ -735,11 +763,10 @@ class Frame_ASR_DIAR:
         self.n_embed_seg_hop = int(self.sr * self.diar.embed_seg_hop)
         
         self.embs_array = None
-        # np.array([])
         self.frame_index = 0
         self.cumulative_cluster_labels = []
         
-        self.nonspeech_threshold = 45  # minimun width to consider non-speech activity 
+        self.nonspeech_threshold = 105  # minimun width to consider non-speech activity 
         self.calibration_offset = -0.18
         self.time_stride = self.timestep_duration
         self.overlap_frames_count = int(self.n_frame_overlap/self.sr)
@@ -751,7 +778,6 @@ class Frame_ASR_DIAR:
         self.rttm_file_path = []
         self.word_seq = []
         self.word_ts_seq = []
-        # self.result_diar_labels = []
         self.merged_cluster_labels = []
         self.use_offline_asr = False
         self.offline_logits = None
@@ -802,23 +828,6 @@ class Frame_ASR_DIAR:
         self.word_seq.extend(_trans_words)
         self.word_ts_seq.extend(word_timetamps)
   
-    def get_timestamps_from_logits(self, logit_np):
-        log_prob = torch.from_numpy(logit_np)
-        logits_len = torch.from_numpy(np.array([log_prob.shape[0]]))
-        greedy_predictions = log_prob.argmax(dim=-1, keepdim=False).unsqueeze(0)
-        decoded, ts = self.wer_ts.ctc_decoder_predictions_tensor_with_ts(
-            greedy_predictions, predictions_len=logits_len
-        )
-        char_ts  = [ (float(t)*self.time_stride + self.frame_start) for t in ts[0]]
-        end_stamp = self.frame_start + logit_np.shape[0]*self.time_stride
-        text = decoded[0][:len(decoded)-self.offset]
-        char_ts = char_ts[:len(decoded)-self.offset]
-        ipdb.set_trace()
-        try:
-            self.get_word_ts(text, char_ts, end_stamp)
-        except:
-            ipdb.set_trace()
-    
     def _run_embedding_extractor(self, audio_signal):
         self.diar._speaker_model.eval()
         torch_audio_signal, torch_audio_signal_lens = self._convert_to_torch_var(audio_signal)
@@ -871,43 +880,6 @@ class Frame_ASR_DIAR:
         string_labels = self._process_cluster_labels(segment_ranges, cluster_labels)
         return string_labels
 
-    def update_speaker_label_segments(self, labels):
-        assert labels != []
-        if self.merged_cluster_labels == []:
-            self.merged_cluster_labels = copy.deepcopy(labels)
-            return labels
-        else:
-            new_labels = []
-            mapping_dict = match_diar_labels_speakers(self.merged_cluster_labels, labels)
-
-            # The start point of the diarization result update
-            update_start = max([self.buffer_start - self.online_diar_label_update_sec, self.buffer_init_time]) 
-            
-            # Include new labels that are after update_start.
-            # Using mapping dict, the best matching speaker label is selected.
-            while len(labels) > 0:
-                stt_b, end_b, spk_b = labels[-1].split()
-                b_range = float(stt_b), float(end_b)
-                if update_start < b_range[0] or (b_range[0] <= update_start < b_range[1]):
-                    label = labels.pop()
-                    stt_str, end_str, spk_str = label.split()
-                    spk_str = self.get_mapped_speaker(mapping_dict, spk_str)
-                    new_labels.insert(0, f"{stt_str} {end_str} {spk_str}")
-                else:
-                    break
-            
-            # Remove the old labels
-            while len(self.merged_cluster_labels) > 0:
-                stt_a, end_a, spk_a = self.merged_cluster_labels[-1].split()
-                a_range = float(stt_a), float(end_a)
-                if update_start < a_range[0] or (a_range[0] <= update_start < a_range[1]):
-                    self.merged_cluster_labels.pop()
-                else:
-                    break
-
-            self.merged_cluster_labels.extend(new_labels)
-            return self.merged_cluster_labels
-    
     @staticmethod 
     def get_mapped_speaker(speaker_mapping, speaker):
         if speaker in speaker_mapping:
@@ -1006,7 +978,7 @@ class Frame_ASR_DIAR:
                 string_out = self.diar.print_word(string_out, words[j], params)
 
             stt_sec, end_sec = self.diar.get_timestamp_in_sec(word_ts_stt_end, params)
-        return string_out # print("string out:", string_out)
+        return string_out 
         
     def _decode_and_cluster(self, frame, offset=0):
         torch.manual_seed(0)
@@ -1028,9 +1000,8 @@ class Frame_ASR_DIAR:
             self.buffer_start, audio_signal, audio_lengths, speech_labels_used = self._get_diar_offline_segments(self.uniq_id)
         else:
             self.buffer_start, audio_signal, audio_lengths = self._get_diar_segments(speech_labels_from_logits)
-            self.buffer_start_, audio_signal_, audio_lengths_, speech_labels_used_ = self._get_diar_offline_segments(self.uniq_id)
 
-        if self.buffer_start >= 0:
+        if self.buffer_start >= 0 and audio_signal != []:
             logging.info(f"frame {self.frame_index}th, Segment range: {audio_lengths[0][0]}s - {audio_lengths[-1][-1]}s")
             labels = self._online_diarization(audio_signal, audio_lengths)
         else:
@@ -1073,8 +1044,9 @@ class Frame_ASR_DIAR:
             self.frame_start = round(buffer_start + int(self.n_frame_overlap/self.sr), ROUND)
             frame_end = self.frame_start + self.frame_len 
             
-            if self.diar.segment_raw_audio_list == []:
+            if self.diar.segment_raw_audio_list == [] and speech_labels_from_logits != []:
                 self.buffer_init_time = self.buffer_start
+
                 speech_labels_from_logits[0][0] = max(speech_labels_from_logits[0][0], 0.0)
                 speech_labels_initial = copy.deepcopy(speech_labels_from_logits)
                 
@@ -1157,6 +1129,7 @@ class Frame_ASR_DIAR:
         speech_label_for_new_segments = getMergedSpeechLabel(update_overlap_speech_labels, 
                                                              new_coming_speech_labels) 
         
+        # For generating self.cumulative_speech_labels        
         current_frame_speech_labels = getSubRangeList(target_range=current_range, 
                                                       source_list=speech_labels_from_logits)
 
@@ -1189,9 +1162,7 @@ class Frame_ASR_DIAR:
                 ipdb.set_trace()
 
             sigs_list.extend(sigs)
-            # segment_offset = range_t[0] + float(self.frame_overlap)
             segment_offset = range_t[0]
-            # ipdb.set_trace()
             for seg_idx, sig_len in enumerate(sig_lens):
                 seg_len_sec = float(sig_len / self.sr)
                 start_abs_sec = round(float(segment_offset + seg_idx*self.diar.embed_seg_hop), ROUND)
@@ -1274,7 +1245,8 @@ class Frame_ASR_DIAR:
 if __name__ == "__main__":
     GT_RTTM_DIR="/disk2/scps/rttm_scps/all_callhome_rttm.scp"
     AUDIO_SCP="/disk2/scps/audio_scps/all_callhome.scp"
-    ORACLE_VAD="/disk2/scps/oracle_vad/modified_oracle_callhome_ch109.json"
+    # GT_RTTM_DIR="/disk2/scps/rttm_scps/ami_test_rttm.scp"
+    # AUDIO_SCP="/disk2/scps/audio_scps/ami_test_audio.scp"
     reco2num='/disk2/datasets/modified_callhome/RTTMS/reco2num.txt'
     SEG_LENGTH=1.5
     SEG_SHIFT=0.75
@@ -1284,9 +1256,14 @@ if __name__ == "__main__":
     SPK_EMBED_MODEL="/disk2/ejrvs/model_comparision/contextnet_v1.nemo"
     DIARIZER_OUT_DIR='./'
     reco2num='null'
-    session_name = "en_4092"  ### [For DEMO] up to 0.0183
-    session_name = "en_0638"  ### [For DEMO] Easy sample offline  DER: 0.2026      MISS 0.0277 FA: 0.1294, CER:0.0455
-    session_name = "en_4325"  ### Hard sample
+    session_name = "ES2004d.Mix-Headset" # Easy sample DER:0.2305 MISS:0.0726 FA:0.0291, CER:0.1288
+    # session_name = "IS1009c.Mix-Headset" # Hard Sample, high CER after 1300s
+    # session_name = "TS3007d.Mix-Headset" # RTTM file is empty until 99s
+    # session_name = "IS1009b.Mix-Headset" # 
+    # session_name = "ES2004c.Mix-Headset" # Hard sample 
+    session_name = "en_4092"  ### [For DEMO] up to 0.0183 , getEnhancedSpeakerCount shows huge difference
+    # session_name = "en_0638"  ### [For DEMO] Easy sample offline  DER: 0.2026      MISS 0.0277 FA: 0.1294, CER:0.0455
+    # session_name = "en_4325"  ### Hard sample
     # session_name = "en_4065"  ### Hard sample
     # session_name = "en_4145"  ### Easy sample huge MISS 0.4581 FA: 0.0050, CER:0.0075
     # session_name = "en_5208"  ### Hard sample for ASR MISS 0.1925 FA: 0.0020, CER:0.3569 - one speaker volume is really low!
@@ -1300,7 +1277,6 @@ if __name__ == "__main__":
     f"diarizer.paths2audio_files={AUDIO_SCP}",
     f"diarizer.out_dir={DIARIZER_OUT_DIR}",
     f"diarizer.oracle_num_speakers={reco2num}",
-    f"diarizer.speaker_embeddings.oracle_vad_manifest={ORACLE_VAD}",
     f"diarizer.speaker_embeddings.window_length_in_sec={SEG_LENGTH}",
     f"diarizer.speaker_embeddings.shift_length_in_sec={SEG_SHIFT}",
     ]
@@ -1313,7 +1289,7 @@ if __name__ == "__main__":
         "shift_length_in_sec": 0.75,
         "print_transcript": False,
         "lenient_overlap_WDER": True,
-        "threshold": 40,  # minimun width to consider non-speech activity
+        "threshold": 45,  # minimun width to consider non-speech activity
         "external_oracle_vad": False,
         "ASR_model_name": 'QuartzNet15x5Base-En',
     }
@@ -1323,10 +1299,11 @@ if __name__ == "__main__":
     cfg_diar = hydra.compose(config_name="/speaker_diarization.yaml", overrides=overrides)
     
     diar = OnlineClusteringDiarizer(cfg=cfg_diar, params=params)
-    diar.online_diar_buffer_segment_quantity = 20
-    diar.online_history_buffer_segment_quantity = 80
-    diar.enhanced_count_thres = 80
-    diar.max_num_speaker = 2
+    diar.nonspeech_threshold = params['threshold']
+    diar.online_diar_buffer_segment_quantity = 50
+    diar.online_history_buffer_segment_quantity = 150
+    diar.enhanced_count_thres = 0
+    diar.max_num_speaker = 8
     diar.oracle_num_speakers = None
     diar.prepare_diarization()
     
