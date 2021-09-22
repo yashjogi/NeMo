@@ -26,6 +26,8 @@ def main():
         punctuation = Counter()
         for line in f:
             punctuation.update(capitalization_re.split(line.strip()))
+    punctuation = dict(sorted(punctuation.items(), key=lambda x: -x))
+    del punctuation['']
     with args.output.open('w') as f:
         json.dump(punctuation, f, indent=2)
 
