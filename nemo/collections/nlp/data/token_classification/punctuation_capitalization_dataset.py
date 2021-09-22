@@ -258,15 +258,15 @@ def get_features(
             logging.info("capit_labels: %s" % " ".join(list(map(str, capit_all_labels[i]))))
 
     return (
-        all_input_ids,
-        all_segment_ids,
-        all_input_mask,
-        all_subtokens_mask,
-        all_loss_mask,
-        punct_all_labels,
-        capit_all_labels,
-        punct_label_ids,
-        capit_label_ids,
+        np.array(all_input_ids, dtype=np.int32),
+        np.array(all_segment_ids, dtype=np.int8),
+        np.array(all_input_mask, dtype=np.bool),
+        np.array(all_subtokens_mask, dtype=np.bool),
+        np.array(all_loss_mask, dtype=np.bool),
+        np.array(punct_all_labels, dtype=np.int8),
+        np.array(capit_all_labels, dtype=np.int8),
+        np.array(punct_label_ids),
+        np.array(capit_label_ids),
     )
 
 
@@ -497,13 +497,13 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
     def __getitem__(self, idx):
         return (
-            np.array(self.all_input_ids[idx]),
-            np.array(self.all_segment_ids[idx]),
-            np.array(self.all_input_mask[idx], dtype=np.long),
-            np.array(self.all_subtokens_mask[idx]),
-            np.array(self.all_loss_mask[idx]),
-            np.array(self.punct_all_labels[idx]),
-            np.array(self.capit_all_labels[idx]),
+            self.all_input_ids[idx],
+            self.all_segment_ids[idx],
+            self.all_input_mask[idx],
+            self.all_subtokens_mask[idx],
+            self.all_loss_mask[idx],
+            self.punct_all_labels[idx],
+            self.capit_all_labels[idx],
         )
 
 
