@@ -21,7 +21,7 @@ def get_args():
 
 def main():
     args = get_args()
-    capitalization_re = re.compile(f'[{args.capit_labels}]', flags=re.I)
+    capitalization_re = re.compile(f'[{args.capitalization_labels}]', flags=re.I)
     with args.input.open() as f:
         punctuation = itertools.accumulate(
             f, lambda x, y: x.update(capitalization_re.split(y.strip())), initial=Counter()
