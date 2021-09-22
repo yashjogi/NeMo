@@ -231,7 +231,14 @@ class AudioSegment(object):
     @property
     def rms_db(self):
         mean_square = np.mean(self._samples ** 2)
-        return 10 * np.log10(mean_square)
+       
+        result = np.where(mean_square > 0.0000000001, mean_square, -10)
+        np.log10(result, out=result, where=result > 0)
+
+        # return 10 * np.log10(mean_square)
+        return 10 * np.log10(result, out=result, where=result > 0)
+
+
 
     @property
     def orig_sr(self):
