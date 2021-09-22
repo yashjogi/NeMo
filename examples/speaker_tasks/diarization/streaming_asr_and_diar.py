@@ -108,16 +108,16 @@ def getMergedSpeechLabel(label_list_A, label_list_B):
         return [ [int2fl(x[0]), int2fl(x[1])] for x in combined ]
 
 
-def getSubRangeList(target_range: List[float], source_list: List) -> List:
+def getSubRangeList(target_range: List, source_list: List) -> List:
     if target_range == []:
         return []
-
-    out_range_list = []
-    for s_range in source_list:
-        if isOverlap(s_range, target_range):
-            ovl_range = getOverlapRange(s_range, target_range)
-            out_range_list.append(ovl_range)
-    return out_range_list 
+    else:
+        out_range_list = []
+        for s_range in source_list:
+            if isOverlap(s_range, target_range):
+                ovl_range = getOverlapRange(s_range, target_range)
+                out_range_list.append(ovl_range)
+        return out_range_list 
 
 def getVADfromRTTM(rttm_fullpath):
     out_list = []
@@ -605,7 +605,6 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             est_num_of_spk = oracle_num_speakers
         elif est_num_of_spk_enhanced:
             est_num_of_spk = est_num_of_spk_enhanced
-     s 
 
         spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, cuda=cuda)
         Y = spectral_model.predict(affinity_mat)
@@ -613,7 +612,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         if len(self.history_embedding_buffer_emb) != 0:
             # Online clustering mode with history buffer
             update_point = self._history_buffer_segment_count
-            Y_matched, cost = self.matchNewOldclusterLabels(self.cumulative_cluster_labels, Y)
+            Y_matched = self.matchNewOldclusterLabels(self.cumulative_cluster_labels, Y)
             if add_new:
                 assert Y_matched[update_point:].shape[0] == self._current_buffer_segment_count, "Update point sync is not correct."
                 Y_out = np.hstack((self.cumulative_cluster_labels[:self.history_buffer_seg_end], Y_matched[update_point:]))
@@ -630,16 +629,17 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
     
     def matchNewOldclusterLabels(self, cum_labels, Y):
         """
-        Run Hungarian algorithm to find the best permuation mapping between
-        cumulated labels in history and the new clustering output labels.
+        Run Hungarian algorithm (linear sum assignment) to find the best permuation mapping between
+        the cumulated labels in history and the new clustering output labels.
 
-        cum_labels (np.array):
-            Cumulated diarization labels. This will be concatenated with history embedding speaker label
-            then compared with the predicted label Y.
+        Args:
+            cum_labels (np.array):
+                Cumulated diarization labels. This will be concatenated with history embedding speaker label
+                then compared with the predicted label Y.
 
-        Y (np.array):
-            Contains predicted labels for reduced history embeddings concatenated with the predicted label.
-            Permutation is not matched yet.
+            Y (np.array):
+                Contains predicted labels for reduced history embeddings concatenated with the predicted label.
+                Permutation is not matched yet.
 
         """
         spk_count = max(len(set(cum_labels)), len(set(Y)))
@@ -652,9 +652,14 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         PmQ, QmP =  set(P) - set(Q),  set(Q) - set(P)
 
         if len(PiQ) == 0:
+            # In this case, the label is totally flipped (0<->1)
+            # without any commom labels.
+            # This should be differentiated from the second case.
             pass
         elif len(PmQ) > 0 or len(QmP) > 0:
-            # Only keep common speaker labels.
+            # Keep only the common speaker labels.
+            # This is mainly for the newly added speakers
+            # from the labels in Y.
             keyQ = ~np.zeros_like(Q).astype(bool)
             keyP = ~np.zeros_like(P).astype(bool)
             for spk in list(QmP):
@@ -664,7 +669,6 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
             common_key = keyP*keyQ
             P, Q = P[common_key], Q[common_key]
 
-        all_spks = [ [x] for x in range(len(PuQ))]
 
         if len(PuQ) == 1:
             # When two speaker vectors are exactly the same: No need to encode.
@@ -673,7 +677,8 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         else:
             # Use one-hot encodding to find the best match.
             enc = OneHotEncoder(handle_unknown='ignore') 
-            enc.fit(all_spks)
+            all_spks_labels = [[x] for x in range(len(PuQ))]
+            enc.fit(all_spks_labels)
             enc_P = enc.transform(P.reshape(-1, 1)).toarray()
             enc_Q = enc.transform(Q.reshape(-1, 1)).toarray()
             stacked = np.hstack((enc_P, enc_Q))
@@ -691,7 +696,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         else:
             mapping_array = col_ind
 
-        return mapping_array[Y], cost
+        return mapping_array[Y]
 
 # simple data layer to pass audio signal
 class AudioDataLayer(IterableDataset):
@@ -997,7 +1002,7 @@ class Frame_ASR_DIAR:
         speech_labels_from_logits = self._get_ASR_based_VAD_timestamps(logits)
        
         if self.debug_mode:
-            self.buffer_start, audio_signal, audio_lengths, speech_labels_used = self._get_diar_offline_segments(self.uniq_id)
+            self.buffer_start, audio_signal, audio_lengths, speech_labels_used = self._get_diar_offline_segments()
         else:
             self.buffer_start, audio_signal, audio_lengths = self._get_diar_segments(speech_labels_from_logits)
 
@@ -1015,17 +1020,11 @@ class Frame_ASR_DIAR:
         unmerged = decoded[:len(decoded)-offset]
         return unmerged, labels
     
-    def _get_diar_offline_segments(self, uniq_id, ROUND=2):
-        use_oracle_VAD = False
+    def _get_diar_offline_segments(self, ROUND=2):
         buffer_start = 0.0
         self.buffer_init_time = buffer_start
         
-        if use_oracle_VAD:
-            user_folder = "/home/taejinp/projects"
-            rttm_file_path = f"{user_folder}/NeMo/scripts/speaker_recognition/asr_based_diar/oracle_vad_saved/{uniq_id}.rttm"
-            speech_labels = getVADfromRTTM(rttm_file_path)
-        else:
-            speech_labels = self._get_ASR_based_VAD_timestamps(self.offline_logits[200:], use_offset_time=False)
+        speech_labels = self._get_ASR_based_VAD_timestamps(self.offline_logits[200:], use_offset_time=False)
 
         speech_labels = [[round(x, ROUND), round(y, ROUND)] for (x, y) in speech_labels ]
         speech_labels[0][0] = 0
@@ -1040,7 +1039,7 @@ class Frame_ASR_DIAR:
         buffer_start = round(float(self.frame_index - 2*self.overlap_frames_count), ROUND)
 
         if buffer_start >= 0:
-            new_start_abs_sec, buffer_end = self._get_update_abs_time(buffer_start)
+            cursor_for_old_segments, buffer_end = self._get_update_abs_time(buffer_start)
             self.frame_start = round(buffer_start + int(self.n_frame_overlap/self.sr), ROUND)
             frame_end = self.frame_start + self.frame_len 
             
@@ -1061,8 +1060,8 @@ class Frame_ASR_DIAR:
             
             else: 
                 # Remove the old segments that overlap with the new frame (self.frame_start)
-                # new_start_abs_sec is set to the onset of the t_range popped lastly.
-                new_start_abs_sec = self.frame_start
+                # cursor_for_old_segments is set to the onset of the t_range popped lastly.
+                cursor_for_old_segments = self.frame_start
                 while True and len(self.diar.segment_raw_audio_list) > 0:
                     t_range = self.diar.segment_abs_time_range_list[-1]
 
@@ -1070,7 +1069,7 @@ class Frame_ASR_DIAR:
                     if self.frame_start <= t_range[1]:
                         self.diar.segment_abs_time_range_list.pop()
                         self.diar.segment_raw_audio_list.pop()
-                        new_start_abs_sec = t_range[0]
+                        cursor_for_old_segments = t_range[0]
                     else:
                         break
 
@@ -1078,7 +1077,7 @@ class Frame_ASR_DIAR:
                                                                               buffer_end, 
                                                                               self.frame_start,
                                                                               speech_labels_from_logits,
-                                                                              new_start_abs_sec)
+                                                                              cursor_for_old_segments)
                 
                 source_buffer = copy.deepcopy(self.buffer)
 
@@ -1101,40 +1100,33 @@ class Frame_ASR_DIAR:
         buffer_end = buffer_start + total_buffer_len_sec
         return (buffer_end - new_bufflen_sec), buffer_end
 
-    def _get_speech_labels_for_update(self, buffer_start, buffer_end, frame_start, speech_labels_from_logits, new_start_abs_sec):
+    def _get_speech_labels_for_update(self, buffer_start, buffer_end, frame_start, speech_labels_from_logits, cursor_for_old_segments):
         """
         Bring the new speech labels from the current buffer. Then
         1. Concatenate the old speech labels from self.cumulative_speech_labels for the overlapped region.
             - This goes to new_speech_labels.
         2. Update the new 1 sec of speech label (speech_label_for_new_segments) to self.cumulative_speech_labels.
-        3. Return the speech label from new_start_abs_sec to buffer end.
+        3. Return the speech label from cursor_for_old_segments to buffer end.
 
         """
-        new_speech_labels = []
-        current_range = [frame_start, frame_start + self.frame_len]
-        new_coming_range = [frame_start, buffer_end]
-        cursor_to_buffer_end_range = [frame_start, buffer_end]
+        frame_start_to_buffer_end = [frame_start, buffer_end]
         
-        if new_start_abs_sec < frame_start:
-            update_overlap_range = [new_start_abs_sec, frame_start]
+        if cursor_for_old_segments < frame_start:
+            update_overlap_range = [cursor_for_old_segments, frame_start]
         else:
             update_overlap_range = []
 
-        new_coming_speech_labels = getSubRangeList(target_range=new_coming_range, 
+        new_incoming_speech_labels = getSubRangeList(target_range=frame_start_to_buffer_end, 
                                                    source_list=speech_labels_from_logits)
 
         update_overlap_speech_labels = getSubRangeList(target_range=update_overlap_range, 
                                                        source_list=self.cumulative_speech_labels)
         
         speech_label_for_new_segments = getMergedSpeechLabel(update_overlap_speech_labels, 
-                                                             new_coming_speech_labels) 
+                                                             new_incoming_speech_labels) 
         
-        # For generating self.cumulative_speech_labels        
-        current_frame_speech_labels = getSubRangeList(target_range=current_range, 
-                                                      source_list=speech_labels_from_logits)
-
         self.cumulative_speech_labels = getMergedSpeechLabel(self.cumulative_speech_labels, 
-                                                             current_frame_speech_labels) 
+                                                             new_incoming_speech_labels) 
         return speech_label_for_new_segments
 
     def _get_segments_from_buffer(self, buffer_start, speech_labels_for_update, source_buffer, ROUND=3):
@@ -1182,6 +1174,7 @@ class Frame_ASR_DIAR:
 
         Returns:
             audio_signal (list): list of sliced input signal
+            audio_lengths (list): list of audio sample lengths
         """
         for slice_id in range(slices):
             start_idx = int(slice_id * shift)
