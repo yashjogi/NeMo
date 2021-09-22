@@ -232,6 +232,11 @@ class AutoTokenizer(TokenizerSpec):
         return text
 
     @property
+    def vocab(self):
+        id2vocab = {v: k for k, v in self.tokenizer.vocab.items()}
+        return [id2vocab[i] for i in range(len(self.tokenizer))]
+
+    @property
     def pad_id(self):
         return self.tokens_to_ids([getattr(self, 'pad_token')])[0]
 
