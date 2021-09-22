@@ -9,6 +9,9 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from nemo.collections.asr.metrics.wer import word_error_rate
 
 
+UNK_LBL = "<UNK>"
+
+
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--hyp", "-H", help="Path to file with predicted hypotheses.", type=Path, required=True)
@@ -61,7 +64,7 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
 
 
 def encode(labels, ids):
-    return [np.array([ids[lbl] if lbl in ids else ids['UNK'] for lbl in label_line]) for label_line in labels]
+    return [np.array([ids[lbl] if lbl in ids else ids[UNK_LBL] for lbl in label_line]) for label_line in labels]
 
 
 def pad_or_clip_hyp(hyp, ref, pad_id):
@@ -84,7 +87,7 @@ def main():
     with args.punctuation_file.open() as f:
         punctuation_labels = list(json.load(f).keys())
     capitalization_labels_to_ids = {'O': 0, 'U': 1, 'u': 2}
-    punctuation_labels_to_ids = {' ': 0, '<UNK>': 1}
+    punctuation_labels_to_ids = {' ': 0, UNK_LBL: 1}
     count = 2
     for lbl in punctuation_labels:
         if lbl not in punctuation_labels_to_ids:
