@@ -112,8 +112,10 @@ def main():
             ),
         },
     }
-    punctuation_ids_present_in_ref = set.union(*ref_punctuation_ids)
-    capitalization_ids_present_in_ref = set.union(*ref_capitalization_ids)
+    punctuation_ids_present_in_ref = set()
+    punctuation_ids_present_in_ref.update(*ref_punctuation_ids)
+    capitalization_ids_present_in_ref = set()
+    capitalization_ids_present_in_ref.update(*ref_capitalization_ids)
     for name, metric in [('precision', precision_score), ('recall', recall_score),  ('F1', f1_score)]:
         result['capitalization'][name] = {
             lbl: metric(ref_capitalization_ids, hyp_capitalization_ids, pos_label=id_)
