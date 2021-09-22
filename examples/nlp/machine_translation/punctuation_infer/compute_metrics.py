@@ -11,7 +11,7 @@ from nemo.collections.asr.metrics.wer import word_error_rate
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--hyp", "-h", help="Path to file with predicted hypotheses.", type=Path, required=True)
+    parser.add_argument("--hyp", "-H", help="Path to file with predicted hypotheses.", type=Path, required=True)
     parser.add_argument("--ref", "-r", help="Path to file with ground truth references.", type=Path, required=True)
     parser.add_argument(
         "--output", "-o", help="Path to the file where results will be saved.", type=Path, required=True
