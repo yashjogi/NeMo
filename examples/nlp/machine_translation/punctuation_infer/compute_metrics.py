@@ -118,11 +118,21 @@ def main():
     capitalization_ids_present_in_ref.update(*ref_capitalization_ids)
     for name, metric in [('precision', precision_score), ('recall', recall_score),  ('F1', f1_score)]:
         result['capitalization'][name] = {
-            lbl: metric(ref_capitalization_ids, hyp_capitalization_ids, pos_label=id_, average="binary")
+            lbl: metric(
+                np.concatenate(ref_capitalization_ids),
+                np.concatenate(hyp_capitalization_ids),
+                pos_label=id_,
+                average="binary",
+            )
             for lbl, id_ in capitalization_labels_to_ids.items() if id_ > 0 and id_ in capitalization_ids_present_in_ref
         }
         result['punctuation'][name] = {
-            lbl: metric(ref_punctuation_ids, hyp_punctuation_ids, pos_label=id_, average="binary")
+            lbl: metric(
+                np.concatenate(ref_punctuation_ids),
+                np.concatenate(hyp_punctuation_ids),
+                pos_label=id_,
+                average="binary",
+            )
             for lbl, id_ in punctuation_labels_to_ids.items() if id_ > 1 and id_ in punctuation_ids_present_in_ref
         }
     with args.output.open('w') as f:
