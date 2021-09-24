@@ -108,22 +108,22 @@ class TextNormalizationDecoderDataset(Dataset):
                 self.insts, self.inputs, self.examples, self.tn_count, self.itn_count, self.label_ids_semiotic = data
         else:
             if raw_instances is None:
-                raw_instances = read_data_file(fp=input_file, max_insts=max_insts)
+                raw_instances = read_data_file(fp=input_file, lang=self.lang, max_insts=max_insts)
             else:
                 raw_instances = raw_instances[:max_insts]
 
             if initial_shuffle:
                 random.shuffle(raw_instances)
 
-            logging.info(f"Converting raw instances to DecoderDataInstance for {input_file}...")
+            logging.debug(f"Converting raw instances to DecoderDataInstance for {input_file}...")
             self.insts, all_semiotic_classes = self.__process_raw_entries(
                 raw_instances, decoder_data_augmentation=decoder_data_augmentation, do_basic_tokenize=do_basic_tokenize
             )
-            logging.info(
+            logging.debug(
                 f"Extracted {len(self.insts)} DecoderDateInstances out of {len(raw_instances)} raw instances."
             )
             self.label_ids_semiotic = OrderedDict({l: idx for idx, l in enumerate(all_semiotic_classes)})
-            logging.info(f'Label_ids: {self.label_ids_semiotic}')
+            logging.debug(f'Label_ids: {self.label_ids_semiotic}')
             # save labels list from the training file to the input_file to the file
             dir_name, file_name = os.path.split(input_file)
             if 'train' in file_name:
@@ -131,7 +131,7 @@ class TextNormalizationDecoderDataset(Dataset):
                     f.write('\n'.join(self.label_ids_semiotic.keys()))
 
             if do_tokenize:
-                logging.info(f'Processing samples, total number: {len(self.insts)}')
+                logging.debug(f'Processing samples, total number: {len(self.insts)}')
                 self.__tokenize_samples(use_cache=use_cache, cached_data_file=cached_data_file)
 
     def __process_raw_entries(self, raw_instances: List[Tuple[str]], decoder_data_augmentation, do_basic_tokenize):
@@ -401,9 +401,10 @@ class DecoderDataInstance:
                 s_right[jx] = w_right[jx]
         for jx in range(len(c_s_words)):
             if c_s_words[jx] == constants.SIL_WORD:
-                c_s_words[jx] = ''
+                c_s_words[jx] = c_w_words[jx]
                 if inst_dir == constants.INST_BACKWARD:
                     c_w_words[jx] = ''
+                    c_s_words[jx] = ''
             if c_s_words[jx] == constants.SELF_WORD:
                 c_s_words[jx] = c_w_words[jx]
 
