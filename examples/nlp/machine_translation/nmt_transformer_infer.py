@@ -151,19 +151,6 @@ def main():
                 max_delta_length=args.max_delta_length,
             )
         else:
-            model.beam_search = BeamSearchSequenceGenerator(
-                embedding=model.decoder.embedding,
-                decoder=model.decoder.decoder,
-                log_softmax=model.log_softmax,
-                bos=model.decoder_tokenizer.bos_id,
-                pad=model.decoder_tokenizer.pad_id,
-                eos=model.decoder_tokenizer.eos_id,
-                max_sequence_length=model.decoder.max_sequence_length,
-                beam_size=args.beam_size,
-                len_pen=args.len_pen,
-                max_delta_length=args.max_delta_length,
-                decoder_word_ids=model.decoder_tokenizer.word_ids,
-            )
             if args.word_tokens is not None:
                 model.decoder_tokenizer = get_nmt_tokenizer(
                     library=model._cfg.decoder_tokenizer.get('library', 'yttm'),
@@ -181,6 +168,19 @@ def main():
                 test_cfg = model._cfg.model.test_ds
                 test_cfg['add_src_num_words_to_batch'] = args.add_src_num_words_to_batch
                 model.setup_test_data(test_cfg)
+            model.beam_search = BeamSearchSequenceGenerator(
+                embedding=model.decoder.embedding,
+                decoder=model.decoder.decoder,
+                log_softmax=model.log_softmax,
+                bos=model.decoder_tokenizer.bos_id,
+                pad=model.decoder_tokenizer.pad_id,
+                eos=model.decoder_tokenizer.eos_id,
+                max_sequence_length=model.decoder.max_sequence_length,
+                beam_size=args.beam_size,
+                len_pen=args.len_pen,
+                max_delta_length=args.max_delta_length,
+                decoder_word_ids=model.decoder_tokenizer.word_ids,
+            )
 
     logging.info(f"Translating: {args.srctext}")
 
