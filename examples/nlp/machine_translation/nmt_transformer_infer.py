@@ -154,6 +154,8 @@ def main():
             if args.word_tokens is not None:
                 model.decoder_tokenizer.word_ids = model.decoder_tokenizer.tokens_to_ids(args.word_tokens)
                 test_cfg = model._cfg.test_ds
+                test_cfg.src_file_name = "/home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_all_punctuation/test/input.txt"
+                test_cfg.tgt_file_name = "/home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_all_punctuation/test/autoregressive_labels.txt"
                 test_cfg['add_src_num_words_to_batch'] = args.add_src_num_words_to_batch
                 model.setup_test_data(test_cfg)
             model.beam_search = BeamSearchSequenceGenerator(
