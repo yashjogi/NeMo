@@ -154,9 +154,7 @@ def main():
             if args.word_tokens is not None:
                 model.decoder_tokenizer = get_nmt_tokenizer(
                     library=model._cfg.decoder_tokenizer.get('library', 'yttm'),
-                    tokenizer_model=model.register_artifact(
-                        "decoder_tokenizer.tokenizer_model", model._cfg.decoder_tokenizer.tokenizer_model
-                    ),
+                    tokenizer_model=model._cfg.decoder_tokenizer.tokenizer_model,
                     bpe_dropout=model._cfg.decoder_tokenizer.get('bpe_dropout', 0.0),
                     model_name=model._cfg.decoder.get('model_name'),
                     vocab_file=None,
