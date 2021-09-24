@@ -161,7 +161,7 @@ def main():
                     special_tokens=None,
                     use_fast=False,
                     r2l=model._cfg.decoder_tokenizer.get('r2l', False),
-                    word_tokens=args.word_tokens
+                    word_tokens=args.word_tokens,
                 )
                 test_cfg = model._cfg.model.test_ds
                 test_cfg['add_src_num_words_to_batch'] = args.add_src_num_words_to_batch
