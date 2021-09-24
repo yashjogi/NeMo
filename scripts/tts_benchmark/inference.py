@@ -1,3 +1,4 @@
+"""Mixer-TTS Inference Benchmark"""
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -26,10 +27,10 @@
 # *****************************************************************************
 
 import argparse
+import contextlib
 import json
-import pprint
 from collections import UserList
-
+from typing import Optional
 
 import torch
 import tqdm
@@ -45,28 +46,46 @@ def parse_args() -> argparse.Namespace:
     """Parses args from CLI."""
     parser = argparse.ArgumentParser(description='Mixer-TTS Benchmark')
     parser.add_argument('--manifest-path', type=str, required=True)
-    parser.add_argument('--mixer-ckpt-path', type=str, required=True)
+    parser.add_argument('--model-ckpt-path', type=str, required=True)
     parser.add_argument('--without-matching', action='store_true', default=False)
     parser.add_argument('--torchscript', action='store_true', default=False)
+    parser.add_argument('--amp-half', action='store_true', default=False)
+    parser.add_argument('--amp-autocast', action='store_true', default=False)
+    parser.add_argument('--n-chars', type=int, default=128)
     parser.add_argument('--n-samples', type=int, default=128)
     parser.add_argument('--batch-size', type=int, default=32)
-    parser.add_argument('--warmup-steps', type=int, default=100)
-    parser.add_argument('--n-repeats', type=int, default=100)
+    parser.add_argument('--warmup-repeats', type=int, default=3)
+    parser.add_argument('--n-repeats', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--cudnn-benchmark', action='store_true', default=False)
     return parser.parse_args()
 
 
-def make_data(manifest_path, n_samples=None):
+def make_data(manifest_path: str, n_chars: Optional[int] = None, n_samples: Optional[int] = None):
     """Makes data source and returns batching functor and total number of samples."""
 
     data = []
+    current_text = ''
     with open(manifest_path, 'r') as f:
         for line in f.readlines():
             line_data = json.loads(line)
-            data.append(dict(raw_text=line_data['text']))
 
-    data = data[:n_samples] if n_samples is not None else data
+            raw_text = line_data['text']
+            if n_chars is not None:
+                current_text = current_text + raw_text
+                if len(current_text) >= n_chars:
+                    data.append(dict(raw_text=current_text[:n_chars]))
+                    current_text = ''
+            else:
+                data.append(dict(raw_text=raw_text))
+
+    if n_samples is not None:
+        data0, data = data, []
+        while len(data) < n_samples:
+            data.extend(data0)
+
+        data = data[:n_samples]
+
     data.sort(key=lambda d: len(d['raw_text']), reverse=True)  # Bigger samples are more important.
 
     data = {k: [s[k] for s in data] for k in data[0]}
@@ -76,16 +95,22 @@ def make_data(manifest_path, n_samples=None):
     def batching(batch_size):
         """<batch size> => <batch generator>"""
         for i in range(0, len(raw_text_data), batch_size):
-            yield raw_text_data[i : i + batch_size]
+            yield dict(raw_text=raw_text_data[i : i + batch_size])
 
     return batching, total_samples
 
 
-def load_and_setup_model(ckpt_path: str, torchscript: bool = False) -> nn.Module:
+def load_and_setup_model(
+    ckpt_path: str,
+    amp: bool = False,
+    torchscript: bool = False,
+) -> nn.Module:
     """Loads and setup Mixer-TTS model."""
 
     model = MixerTTSModel.load_from_checkpoint(ckpt_path)
-    # model = FastPitchModel.load_from_checkpoint(ckpt_path)
+
+    if amp:
+        model = model.half()
 
     if torchscript:
         model = torch.jit.script(model)
@@ -118,18 +143,38 @@ def main():
 
     args = parse_args()
 
-    batching, total_samples = make_data(args.manifest_path, args.n_samples)
+    batching, total_samples = make_data(args.manifest_path, args.n_chars, args.n_samples)
 
-    model = load_and_setup_model(args.mixer_ckpt_path, args.torchscript)
+    model = load_and_setup_model(args.model_ckpt_path, args.amp_half, args.torchscript)
     model.to(args.device)
 
     torch.backends.cudnn.benchmark = args.cudnn_benchmark  # noqa
-    for _ in tqdm.tqdm(range(args.warmup_steps), desc='warmup'):
-        with torch.no_grad():
-            _ = model.generate_spectrogram(
-                raw_texts=next(batching(args.batch_size)),
-                without_matching=args.without_matching,
-            )
+
+    def switch_amp_on():
+        """Switches AMP on."""
+        return (
+            torch.cuda.amp.autocast(enabled=True)
+            if args.amp_autocast
+            else contextlib.nullcontext()
+        )
+
+    def batches(batch_size):
+        """Batches generator."""
+        for b in tqdm.tqdm(
+            iterable=batching(batch_size),
+            total=(total_samples // batch_size) + int(total_samples % batch_size),
+            desc='batches',
+        ):
+            yield b
+
+    # Warmup
+    for _ in tqdm.trange(args.warmup_repeats, desc='warmup'):
+        with torch.no_grad(), switch_amp_on():
+            for batch in batches(args.batch_size):
+                _ = model.generate_spectrogram(
+                    raw_texts=batch['raw_text'],
+                    without_matching=args.without_matching,
+                )
 
     sample_rate = model.cfg.train_ds.dataset.sample_rate
     hop_length = model.cfg.train_ds.dataset.hop_length
@@ -137,22 +182,18 @@ def main():
     all_letters, all_frames = 0, 0
     all_utterances, all_samples = 0, 0
     for _ in tqdm.trange(args.n_repeats, desc='repeats'):
-        for raw_text in tqdm.tqdm(
-            iterable=batching(args.batch_size),
-            total=(total_samples // args.batch_size) + int(total_samples % args.batch_size),
-            desc='batches',
-        ):
-            with torch.no_grad(), gen_measures:
+        for batch in batches(args.batch_size):
+            with torch.no_grad(), switch_amp_on(), gen_measures:
                 mel = model.generate_spectrogram(
-                    raw_texts=raw_text,
+                    raw_texts=batch['raw_text'],
                     without_matching=args.without_matching,
                 )
 
-            all_letters += sum(len(t) for t in raw_text)  # <raw text length>
+            all_letters += sum(len(t) for t in batch['raw_text'])  # <raw text length>
             # TODO(stasbel): Actually, this need to be more precise as samples are of different length?
             all_frames += mel.size(0) * mel.size(1)  # <batch size> * <mel length>
 
-            all_utterances += len(raw_text)  # <batch size>
+            all_utterances += len(batch['raw_text'])  # <batch size>
             # TODO(stasbel): Same problem as above?
             # <batch size> * <mel length> * <hop length> = <batch size> * <audio length>
             all_samples += mel.size(0) * mel.size(1) * hop_length
@@ -170,7 +211,8 @@ def main():
         '95%_latency': gm.mean() + norm.ppf((1.0 + 0.95) / 2) * gm.std(),
         '99%_latency': gm.mean() + norm.ppf((1.0 + 0.99) / 2) * gm.std(),
     }
-    pprint.pprint(results)
+    for k, v in results.items():
+        print(f'{k}: {v}')
 
 
 if __name__ == '__main__':
