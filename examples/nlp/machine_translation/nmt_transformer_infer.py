@@ -247,6 +247,7 @@ def main():
                     source_lang=args.source_lang,
                     target_lang=args.target_lang,
                     return_beam_scores=args.write_scores,
+                    add_src_num_words_to_batch=args.add_src_num_words_to_batch,
                 )
                 if args.write_scores:
                     all_results, scores, best_translations = (
