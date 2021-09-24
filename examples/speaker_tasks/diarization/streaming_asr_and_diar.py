@@ -68,6 +68,12 @@ import math
 from collections import Counter
 from functools import reduce
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel
+
+# For streaming ASR
+from nemo.core.classes import IterableDataset
+from torch.utils.data import DataLoader
+import math
+
 seed_everything(42)
 
 def isOverlap(rangeA, rangeB):
@@ -188,19 +194,272 @@ def load_ASR_model(ASR_model_name):
     asr_model = asr_model.to(asr_model.device)
 
     return cfg, asr_model
+from nemo.core.classes import IterableDataset
 
+def speech_collate_fn(batch):
+    """collate batch of audio sig, audio len
+    Args:
+        batch (FloatTensor, LongTensor):  A tuple of tuples of signal, signal lengths.
+        This collate func assumes the signals are 1d torch tensors (i.e. mono audio).
+    """
+
+    _, audio_lengths = zip(*batch)
+
+    max_audio_len = 0
+    has_audio = audio_lengths[0] is not None
+    if has_audio:
+        max_audio_len = max(audio_lengths).item()
+   
+    
+    audio_signal= []
+    for sig, sig_len in batch:
+        if has_audio:
+            sig_len = sig_len.item()
+            if sig_len < max_audio_len:
+                pad = (0, max_audio_len - sig_len)
+                sig = torch.nn.functional.pad(sig, pad)
+            audio_signal.append(sig)
+        
+    if has_audio:
+        audio_signal = torch.stack(audio_signal)
+        audio_lengths = torch.stack(audio_lengths)
+    else:
+        audio_signal, audio_lengths = None, None
+
+    return audio_signal, audio_lengths
+
+# simple data layer to pass audio signal
+class AudioBuffersDataLayer(IterableDataset):
+    
+
+    def __init__(self):
+        super().__init__()
+
+        
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self._buf_count == len(self.signal) :
+            raise StopIteration
+        self._buf_count +=1
+        return torch.as_tensor(self.signal[self._buf_count-1], dtype=torch.float32), \
+               torch.as_tensor(self.signal_shape[0], dtype=torch.int64)
+        
+    def set_signal(self, signals):
+        self.signal = signals
+        self.signal_shape = self.signal[0].shape
+        self._buf_count = 0
+
+    def __len__(self):
+        return 1
+
+class AudioChunkIterator():
+    def __init__(self, samples, chunk_len_in_secs, sample_rate):
+        self._samples = samples
+        self._chunk_len = chunk_len_in_secs*sample_rate
+        self._start = 0
+        self.output=True
+   
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if not self.output:
+            raise StopIteration
+        last = int(self._start + self._chunk_len)
+        if last <= len(self._samples):
+            chunk = self._samples[self._start: last]
+            self._start = last
+        else:
+            chunk = np.zeros([int(self._chunk_len)], dtype='float32')
+            samp_len = len(self._samples) - self._start
+            chunk[0:samp_len] = self._samples[self._start:len(self._samples)]
+            self.output = False
+   
+        return chunk
+
+class ChunkBufferDecoder:
+
+    def __init__(self,asr_model, stride, chunk_len_in_secs=1, buffer_len_in_secs=3):
+        self.asr_model = asr_model
+        self.asr_model.eval()
+        self.data_layer = AudioBuffersDataLayer()
+        self.data_loader = DataLoader(self.data_layer, batch_size=1, collate_fn=speech_collate_fn)
+        self.buffers = []
+        self.all_preds = []
+        self.chunk_len = chunk_len_in_secs
+        self.buffer_len = buffer_len_in_secs
+        assert(chunk_len_in_secs<=buffer_len_in_secs)
+        
+        feature_stride = asr_model._cfg.preprocessor['window_stride']
+        self.model_stride_in_secs = feature_stride * stride
+        self.n_tokens_per_chunk = math.ceil(self.chunk_len / self.model_stride_in_secs)
+        self.blank_id = len(asr_model.decoder.vocabulary)
+        self.plot=False
+
+        self.stride = stride
+        
+    @torch.no_grad()    
+    def transcribe_buffers(self, buffer_start, buffers, merge=True, plot=False):
+        self.plot = plot
+        self.buffers = buffers
+        self.buffer_start = buffer_start
+        self.data_layer.set_signal(buffers[:])
+        self._get_batch_preds()      
+        return self.decode_final(merge)
+    
+    def _get_batch_preds(self):
+        device = self.asr_model.device
+        for batch in iter(self.data_loader):
+
+            audio_signal, audio_signal_len = batch
+
+            audio_signal, audio_signal_len = audio_signal.to(device), audio_signal_len.to(device)
+            log_probs, encoded_len, predictions = self.asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
+            preds = torch.unbind(predictions)
+            for pred in preds:
+                self.all_preds.append(pred.cpu().numpy())
+    
+    def decode_final(self, merge=True, extra=0):
+        self.unmerged = []
+        self.toks_unmerged = []
+        # index for the first token corresponding to a chunk of audio would be len(decoded) - 1 - delay
+        delay = math.ceil((self.chunk_len + (self.buffer_len - self.chunk_len) / 2) / self.model_stride_in_secs)
+
+        decoded_frames = []
+        all_toks = []
+        for pred in self.all_preds:
+            ids, toks = self._greedy_decoder(pred, self.asr_model.tokenizer)
+            decoded_frames.append(ids)
+            all_toks.append(toks)
+
+        for decoded in decoded_frames:
+            self.unmerged += decoded[len(decoded) - 1 - delay:len(decoded) - 1 - delay + self.n_tokens_per_chunk]
+
+        if not merge:
+            return self.unmerged
+        # return self.greedy_merge(self.unmerged)
+        return self._greedy_merge_with_ts(self.unmerged, self.buffer_start)
+    
+    
+    def _greedy_decoder(self, preds, tokenizer):
+        s = []
+        ids = []
+        for i in range(preds.shape[0]):
+            if preds[i] == self.blank_id:
+                s.append("_")
+            else:
+                pred = preds[i]
+                s.append(tokenizer.ids_to_tokens([pred.item()])[0])
+            ids.append(preds[i])
+        return ids, s
+    
+    def __greedy_merge_with_ts(self, s, buffer_start, ROUND=2):
+        s_merged = ''
+        char_ts = [] 
+        for i in range(len(s)):
+            if s[i] != self.prev_char:
+                self.prev_char = s[i]
+                if self.prev_char != '_':
+                    s_merged += self.prev_char
+                    char_ts.append(round(buffer_start + i*self.time_stride, 2))
+        end_stamp = buffer_start + len(s)*self.time_stride
+        return s_merged, char_ts, end_stamp
+    
+    def _greedy_merge_with_ts(self, preds, buffer_start, ROUND=4):
+        char_ts = [] 
+        self.time_stride = self.stride*0.01
+        decoded_prediction = []
+        previous = self.blank_id
+        for idx, p in enumerate(preds):
+            ppp = p
+            if (p != previous or previous == self.blank_id) and p != self.blank_id:
+                decoded_prediction.append(p.item())
+                char_ts.append(round(buffer_start + idx*self.time_stride, ROUND))
+            previous = p
+        hypothesis = self.asr_model.tokenizer.ids_to_text(decoded_prediction)
+        word_ts = self.get_ts_from_decoded_prediction(decoded_prediction, hypothesis, char_ts)
+        decoded_list = self.asr_model.tokenizer.ids_to_tokens(decoded_prediction)
+        return hypothesis, word_ts
+        
+    def get_ts_from_decoded_prediction(self, decoded_prediction, hypothesis, char_ts):
+        decoded_char_list = self.asr_model.tokenizer.ids_to_tokens(decoded_prediction)
+        stt_idx, end_idx = 0, len(decoded_char_list)-1 
+        space = '▁'
+        word_ts = []
+        word_open_flag = False
+        for idx, ch in enumerate(decoded_char_list):
+            if idx != end_idx and (space == ch and space in decoded_char_list[idx+1]):
+                continue
+
+            if idx == stt_idx or space == decoded_char_list[idx-1] or (space in ch and len(ch) > 1):
+                _stt = char_ts[idx]
+                word_open_flag = True
+                # if len(ch) > 1:
+                    # _end = char_ts[idx] + self.time_stride
+                    # word_open_flag = False
+                    # word_ts.append([_stt, _end])
+
+            if word_open_flag and (idx == end_idx or space in decoded_char_list[idx+1]):
+            # if idx == end_idx or space in decoded_char_list[idx+1]:
+                _end = round(char_ts[idx] + self.time_stride, 2)
+                word_open_flag = False
+                word_ts.append([_stt, _end])
+        # ipdb.set_trace()
+        try:
+            assert len(hypothesis.split()) == len(word_ts), "Hypothesis does not match word time stamp."
+        except:
+            ipdb.set_trace()
+        return word_ts
+
+    def greedy_merge(self, preds):
+        decoded_prediction = []
+        previous = self.blank_id
+        for p in preds:
+            if (p != previous or previous == self.blank_id) and p != self.blank_id:
+                decoded_prediction.append(p.item())
+            previous = p
+        hypothesis = self.asr_model.tokenizer.ids_to_text(decoded_prediction)
+        return hypothesis
+    
+    # def ids_to_text_with_ts(self, ids):
+        # self.tokenizer = self.asr_model.tokenizer.tokenizer
+        # if isinstance(ids, np.ndarray):
+            # ids = ids.tolist()
+
+        # if self.legacy:
+            # text = ""
+            # last_i = 0
+
+            # # for i, id in enumerate(ids):
+                # # if id in self.id_to_special_token:
+                    # # text += self.tokenizer.decode_ids(ids[last_i:i]) + " "
+                    # # text += self.id_to_special_token[id] + " "
+                    # # last_i = i + 1
+
+            # text += self.tokenizer.decode_ids(ids[last_i:])
+            # return text.strip()
+
+        # return self.tokenizer.decode_ids(ids)
+
+
+    
 def callback_sim(asr, uniq_key, buffer_counter, sdata, frame_count, time_info, status):
     start_time = time.time()
     asr.buffer_counter = buffer_counter
     sampled_seg_sig = sdata[asr.CHUNK_SIZE*(asr.buffer_counter):asr.CHUNK_SIZE*(asr.buffer_counter+1)]
     asr.uniq_id = uniq_key
     asr.signal = sdata
-    text, timestamps, end_stamp, diar_labels = asr.transcribe(sampled_seg_sig)
-    if asr.buffer_start >= 0 and (diar_labels != [] and diar_labels != None):
-        asr.get_word_ts(text, timestamps, end_stamp)
-        string_out = asr.get_speaker_label_per_word(uniq_key, asr.word_seq, asr.word_ts_seq, diar_labels)
+    # text, timestamps, end_stamp, pred_diar_labels = asr.transcribe(sampled_seg_sig)
+    words, timestamps, pred_diar_labels = asr.transcribe(sampled_seg_sig)
+    if asr.buffer_start >= 0 and (pred_diar_labels != [] and pred_diar_labels != None):
+        # asr.get_word_ts(text, timestamps, end_stamp)
+        asr._update_word_and_word_ts(words, timestamps)
+        string_out = asr.get_speaker_label_per_word(uniq_key, asr.word_seq, asr.word_ts_seq, pred_diar_labels)
         write_txt(f"{asr.diar._out_dir}/online_trans.txt", string_out.strip())
-    time.sleep(0.97 - time.time() + start_time)
+        # asr.frame_index += 1
+    # time.sleep(1.0 - (time.time()-start_time)*1.0)
 
 class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
     def __init__(self, cfg: DictConfig, params: Dict):
@@ -494,7 +753,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         return merged_emb, cluster_labels, add_new
     
     def online_eval_diarization(self, pred_labels, rttm_file, ROUND=2):
-        diar_labels, ref_labels_list = [], []
+        pred_diar_labels, ref_labels_list = [], []
         all_hypotheses, all_references = [], []
 
         if os.path.exists(rttm_file):
@@ -505,7 +764,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer, ASR_DIAR_OFFLINE):
         else:
             raise ValueError("No reference RTTM file provided.")
 
-        diar_labels.append(pred_labels)
+        pred_diar_labels.append(pred_labels)
 
         est_n_spk = self.get_num_of_spk_from_labels(pred_labels)
         ref_n_spk = self.get_num_of_spk_from_labels(ref_labels)
@@ -749,8 +1008,8 @@ class Frame_ASR_DIAR:
         
         self.sr = model_definition['sample_rate']
         self.frame_len = float(frame_len)
-        self.n_frame_len = int(frame_len * self.sr)
         self.frame_overlap = float(frame_overlap)
+        self.n_frame_len = int(frame_len * self.sr)
         self.n_frame_overlap = int(frame_overlap * self.sr)
         self.timestep_duration = model_definition['AudioToMelSpectrogramPreprocessor']['window_stride']
         for block in model_definition['JasperEncoder']['jasper']:
@@ -779,15 +1038,17 @@ class Frame_ASR_DIAR:
         self.segment_abs_time_range_list = []
         self.cumulative_speech_labels = []
 
+        self.buffer_start = None
         self.frame_start = 0
         self.rttm_file_path = []
         self.word_seq = []
         self.word_ts_seq = []
         self.merged_cluster_labels = []
-        self.use_offline_asr = False
+        # self.use_offline_asr = False
         self.offline_logits = None
         self.debug_mode = False
         self.online_diar_label_update_sec = 30
+        self.streaming_buffer_list = []
         self.reset()
     
         self.wer_ts = WER_TS(
@@ -799,6 +1060,12 @@ class Frame_ASR_DIAR:
             log_prediction= self.asr_model._cfg.get("log_prediction", False),
         )
          
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        # self.new_asr_model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained("stt_en_conformer_ctc_large", map_location=self.device)
+        self.new_asr_model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained("stt_en_citrinet_1024_gamma_0_25", map_location=self.device)
+        # device = 'cpu'  # You can transcribe even longer samples on the CPU, though it will take much longer !
+        self.new_asr_model = self.new_asr_model.to(self.device)
+        self.buffer_list = []
 
     def _convert_to_torch_var(self, audio_signal):
         audio_signal = torch.stack(audio_signal).float().to(self.asr_model.device)
@@ -815,7 +1082,37 @@ class Frame_ASR_DIAR:
         cont_lines = get_contiguous_stamps(lines)
         string_labels = merge_stamps(cont_lines)
         return string_labels
-    
+
+    def _update_word_and_word_ts(self, words, word_timetamps):
+        # framestt, end = self.frame_start, self.frame_start + self.frame_overlap
+        
+        if word_timetamps != []:
+            # Remove
+            if self.word_ts_seq != []:
+
+                bcursor = len(self.word_ts_seq)-1
+                while bcursor:
+                    if self.frame_start > self.word_ts_seq[bcursor][0]:
+                        break 
+                    bcursor -= 1
+                del self.word_seq[bcursor:]
+                del self.word_ts_seq[bcursor:]
+            
+
+            cursor = len(word_timetamps)-1
+            while cursor:
+                if self.frame_start > word_timetamps[cursor][0]:
+                    break 
+                cursor -= 1
+            
+            # Add
+            if self.word_ts_seq == []:
+                self.word_seq.extend(words)
+                self.word_ts_seq.extend(word_timetamps)
+            else:
+                self.word_seq.extend(words[cursor:])
+                self.word_ts_seq.extend(word_timetamps[cursor:])
+
     def get_word_ts(self, text, timestamps, end_stamp):
         if text.strip() == '':
             _trans_words, word_timetamps, _spaces = [], [], []
@@ -961,36 +1258,44 @@ class Frame_ASR_DIAR:
 
         return speech_labels
     
-    def get_speaker_label_per_word(self, uniq_id, words, word_ts_list, diar_labels):
-        der_dict, der_stat_dict = self.diar.online_eval_diarization(diar_labels, self.rttm_file_path)
+    def get_speaker_label_per_word(self, uniq_id, words, word_ts_list, pred_diar_labels):
         params = self.diar.params
-        start_point, end_point, speaker = diar_labels[0].split()
+        start_point, end_point, speaker = pred_diar_labels[0].split()
         word_pos, idx = 0, 0
-        DER, FA, MISS, CER = der_dict['DER'], der_dict['FA'], der_dict['MISS'], der_dict['CER']
-        string_out = f'[Session: {uniq_id}, DER: {DER:.2f}%, FA: {FA:.2f}% MISS: {MISS:.2f}% CER: {CER:.2f}%]'
-        string_out += f"\n[avg. DER: {der_stat_dict['avg_DER']}% avg. CER: {der_stat_dict['avg_CER']}%]"
-        string_out += f"\n[max. DER: {der_stat_dict['max_DER']}% max. CER: {der_stat_dict['max_CER']}%]"
+        string_out = ''
         string_out = self.diar.print_time(string_out, speaker, start_point, end_point, params)
         for j, word_ts_stt_end in enumerate(word_ts_list):
-            word_pos = word_ts_stt_end[0] 
+            word_pos = word_ts_stt_end[1] 
             if word_pos < float(end_point):
                 string_out = self.diar.print_word(string_out, words[j], params)
             else:
                 idx += 1
-                idx = min(idx, len(diar_labels)-1)
-                start_point, end_point, speaker = diar_labels[idx].split()
+                idx = min(idx, len(pred_diar_labels)-1)
+                start_point, end_point, speaker = pred_diar_labels[idx].split()
                 string_out = self.diar.print_time(string_out, speaker, start_point, end_point, params)
                 string_out = self.diar.print_word(string_out, words[j], params)
-
             stt_sec, end_sec = self.diar.get_timestamp_in_sec(word_ts_stt_end, params)
+        string_out = self._print_DER_info(uniq_id, string_out, pred_diar_labels)
         return string_out 
-        
+    
+    def _print_DER_info(self, uniq_id, string_out, pred_diar_labels):
+        der_dict, der_stat_dict = self.diar.online_eval_diarization(pred_diar_labels, self.rttm_file_path)
+        DER, FA, MISS, CER = der_dict['DER'], der_dict['FA'], der_dict['MISS'], der_dict['CER']
+        string_out += f'\n============================================================================='
+        string_out += f'\n[Session: {uniq_id}, DER: {DER:.2f}%, FA: {FA:.2f}% MISS: {MISS:.2f}% CER: {CER:.2f}%]'
+        string_out += f"\n[avg. DER: {der_stat_dict['avg_DER']:.2f}% avg. CER: {der_stat_dict['avg_CER']:.2f}%]"
+        string_out += f"\n[max. DER: {der_stat_dict['max_DER']:.2f}% max. CER: {der_stat_dict['max_CER']:.2f}%]"
+        return string_out
+
     def _decode_and_cluster(self, frame, offset=0):
         torch.manual_seed(0)
         assert len(frame)==self.n_frame_len
+        self.buffer_start = round(float(self.frame_index - 2*self.overlap_frames_count), 2)
         self.buffer[:-self.n_frame_len] = copy.deepcopy(self.buffer[self.n_frame_len:])
         self.buffer[-self.n_frame_len:] = copy.deepcopy(frame)
-    
+   
+        text, word_ts = self.decode_conformer(self.buffer)
+
         self.diar.frame_index = self.frame_index  
         if self.use_offline_asr:
             logits_start = self.frame_index * int(self.frame_len/self.time_stride)
@@ -999,8 +1304,9 @@ class Frame_ASR_DIAR:
         else:
             logits = infer_signal(asr_model, self.buffer).cpu().numpy()[0]
 
-        speech_labels_from_logits = self._get_ASR_based_VAD_timestamps(logits)
-       
+        # speech_labels_from_logits = self._get_ASR_based_VAD_timestamps(logits)
+        speech_labels_from_logits = self._get_speech_labels_from_decoded_prediction(word_ts)
+
         if self.debug_mode:
             self.buffer_start, audio_signal, audio_lengths, speech_labels_used = self._get_diar_offline_segments()
         else:
@@ -1016,11 +1322,78 @@ class Frame_ASR_DIAR:
             logits[self.n_timesteps_overlap:-self.n_timesteps_overlap], 
             self.vocab
         )
-        self.frame_index += 1
         unmerged = decoded[:len(decoded)-offset]
-        return unmerged, labels
+        self.frame_index += 1
+        # return unmerged, labels
+        return unmerged, labels, text, word_ts
     
-    def _get_diar_offline_segments(self, ROUND=2):
+    def _get_speech_labels_from_decoded_prediction(self, input_word_ts):
+        _, buffer_end = self._get_update_abs_time(self.buffer_start)
+        speech_labels = []
+        word_ts = copy.deepcopy(input_word_ts)
+        if word_ts == []:
+            return speech_labels
+        else:
+            count = len(word_ts)-1
+            while count > 0:
+                if len(word_ts) > 1: 
+                    if word_ts[count][0] - word_ts[count-1][1] <= self.nonspeech_threshold:
+                        trangeB = word_ts.pop(count)
+                        trangeA = word_ts.pop(count-1)
+                        word_ts.insert(count-1, [trangeA[0], trangeB[1]])
+                count -= 1
+        return word_ts 
+
+    def chunk_loader(self, samples, chunk_len_in_secs, context_len_in_secs):
+        sample_rate = 16000
+        buffer_list = []
+        buffer_len_in_secs = int(chunk_len_in_secs + 2*context_len_in_secs)
+        buffer_len = sample_rate*buffer_len_in_secs
+        sampbuffer = np.zeros([buffer_len], dtype=np.float32)
+
+        chunk_reader = AudioChunkIterator(samples, chunk_len_in_secs, sample_rate)	
+        chunk_len = int(sample_rate*chunk_len_in_secs)
+        count = 0
+        for chunk in chunk_reader:
+            count +=1
+            sampbuffer[:-chunk_len] = sampbuffer[chunk_len:]
+            sampbuffer[-chunk_len:] = chunk
+            buffer_list.append(np.array(sampbuffer))
+            # if count >= 5:
+                # break
+        if self.streaming_buffer_list == []:
+            self.streaming_buffer_list = buffer_list
+        else:
+            self.streaming_buffer_list.pop(0)
+            self.streaming_buffer_list.append(buffer_list[-1])
+            # ipdb.set_trace()
+            # del self.streaming_buffer_list[:5]
+            # self.streaming_buffer_list.extend(buffer_list[-5:])
+
+        return self.streaming_buffer_list, buffer_len_in_secs
+
+    def decode_conformer(self, buffer):
+        chunk_len_in_secs = 1
+        context_len_in_secs = 2
+        # self.asr_stride = 4
+        # self.asr_delay_sec = 0.06
+        self.asr_stride = 8
+        self.asr_delay_sec = 0.12
+        buffer_delay = self.overlap_frames_count
+        buffer_list, buffer_len_in_secs = self.chunk_loader(buffer, chunk_len_in_secs, context_len_in_secs)
+        asr_decoder = ChunkBufferDecoder(self.new_asr_model, stride=self.asr_stride, chunk_len_in_secs=chunk_len_in_secs, buffer_len_in_secs=buffer_len_in_secs)
+        transcription, word_ts = asr_decoder.transcribe_buffers(self.buffer_start-buffer_delay, buffer_list, plot=False)
+        print("Conformer CTC transcription: \n", transcription)
+        words = transcription.split()
+        assert len(words) == len(word_ts)
+        for k in range(len(word_ts)):
+            word_ts[k] = [round(word_ts[k][0]-self.asr_delay_sec,2), round(word_ts[k][1]-self.asr_delay_sec,2)]
+        # ipdb.set_trace()
+        return words, word_ts
+
+        
+    
+    def _et_diar_offline_segments(self, ROUND=2):
         buffer_start = 0.0
         self.buffer_init_time = buffer_start
         
@@ -1036,8 +1409,7 @@ class Frame_ASR_DIAR:
 
 
     def _get_diar_segments(self, speech_labels_from_logits, ROUND=2):
-        buffer_start = round(float(self.frame_index - 2*self.overlap_frames_count), ROUND)
-
+        buffer_start = self.buffer_start
         if buffer_start >= 0:
             cursor_for_old_segments, buffer_end = self._get_update_abs_time(buffer_start)
             self.frame_start = round(buffer_start + int(self.n_frame_overlap/self.sr), ROUND)
@@ -1194,9 +1566,10 @@ class Frame_ASR_DIAR:
         if len(frame) < self.n_frame_len:
             frame = np.pad(frame, [0, self.n_frame_len - len(frame)], 'constant')
         
-        unmerged, diar_labels = self._decode_and_cluster(frame, offset=self.offset)
-        text, char_ts, end_stamp = self.greedy_merge_with_ts(unmerged, self.frame_start)
-        return text, char_ts, end_stamp, diar_labels
+        unmerged, pred_diar_labels, text, word_ts = self._decode_and_cluster(frame, offset=self.offset)
+        # text, char_ts, end_stamp = self.greedy_merge_with_ts(unmerged, self.frame_start)
+        # return text, char_ts, end_stamp, pred_diar_labels
+        return text, word_ts, pred_diar_labels
     
     def reset(self):
         '''
@@ -1242,7 +1615,7 @@ if __name__ == "__main__":
     # AUDIO_SCP="/disk2/scps/audio_scps/ami_test_audio.scp"
     reco2num='/disk2/datasets/modified_callhome/RTTMS/reco2num.txt'
     SEG_LENGTH=1.5
-    SEG_SHIFT=0.75
+    SEG_SHIFT=0.5
     # SPK_EMBED_MODEL="/home/taejinp/gdrive/model/speaker_net/speakerdiarization_speakernet.nemo"
     # SPK_EMBED_MODEL="/disk2/ejrvs/model_comparision/ecapa_tdnn.nemo"
     # SPK_EMBED_MODEL="/disk2/ejrvs/model_comparision/ecapa_tdnn_v2.nemo"
@@ -1282,7 +1655,7 @@ if __name__ == "__main__":
         "shift_length_in_sec": 0.75,
         "print_transcript": False,
         "lenient_overlap_WDER": True,
-        "threshold": 45,  # minimun width to consider non-speech activity
+        "threshold": 105,  # minimun width to consider non-speech activity
         "external_oracle_vad": False,
         "ASR_model_name": 'QuartzNet15x5Base-En',
     }
@@ -1294,8 +1667,8 @@ if __name__ == "__main__":
     diar = OnlineClusteringDiarizer(cfg=cfg_diar, params=params)
     diar.nonspeech_threshold = params['threshold']
     diar.online_diar_buffer_segment_quantity = 50
-    diar.online_history_buffer_segment_quantity = 150
-    diar.enhanced_count_thres = 0
+    diar.online_history_buffer_segment_quantity = 50
+    diar.enhanced_count_thres = 80
     diar.max_num_speaker = 8
     diar.oracle_num_speakers = None
     diar.prepare_diarization()
