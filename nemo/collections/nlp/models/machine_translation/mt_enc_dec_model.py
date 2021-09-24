@@ -837,7 +837,7 @@ class MTEncDecModel(EncDecNLPModel):
 
         src_mask = torch.FloatTensor((src_ids_ != tokenizer.pad_id)).to(self.device)
         src = torch.LongTensor(src_ids_).to(self.device)
-        return src, src_mask, np.array(num_src_words, dtype=np.int32) if add_src_num_words_to_batch else src, src_mask
+        return src, src_mask, np.array(num_src_words, dtype=np.int32) if add_src_num_words_to_batch else None
 
     # TODO: We should drop source/target_lang arguments in favor of using self.src/tgt_language
     @torch.no_grad()
@@ -877,13 +877,9 @@ class MTEncDecModel(EncDecNLPModel):
 
         try:
             self.eval()
-            if add_src_num_words_to_batch:
-                src, src_mask, num_src_words = self.prepare_inference_batch(
-                    text, prepend_ids, add_src_num_words_to_batch=add_src_num_words_to_batch
-                )
-            else:
-                src, src_mask = self.prepare_inference_batch(text, prepend_ids)
-                num_src_words = None
+            src, src_mask, num_src_words = self.prepare_inference_batch(
+                text, prepend_ids, add_src_num_words_to_batch=add_src_num_words_to_batch
+            )
             if return_beam_scores:
                 _, all_translations, scores, best_translations = self.batch_translate(
                     src, src_mask, return_beam_scores=True, num_tgt_words=num_src_words
