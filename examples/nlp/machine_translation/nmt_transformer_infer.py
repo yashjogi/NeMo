@@ -152,17 +152,7 @@ def main():
             )
         else:
             if args.word_tokens is not None:
-                model.decoder_tokenizer = get_nmt_tokenizer(
-                    library=model._cfg.decoder_tokenizer.get('library', 'yttm'),
-                    tokenizer_model=model._cfg.decoder_tokenizer.tokenizer_model,
-                    bpe_dropout=model._cfg.decoder_tokenizer.get('bpe_dropout', 0.0),
-                    model_name=model._cfg.decoder.get('model_name'),
-                    vocab_file=None,
-                    special_tokens=None,
-                    use_fast=False,
-                    r2l=model._cfg.decoder_tokenizer.get('r2l', False),
-                    word_tokens=args.word_tokens,
-                )
+                model.decoder_tokenizer.word_ids = model.decoder_tokenizer.tokens_to_ids(args.word_tokens)
                 test_cfg = model._cfg.model.test_ds
                 test_cfg['add_src_num_words_to_batch'] = args.add_src_num_words_to_batch
                 model.setup_test_data(test_cfg)
