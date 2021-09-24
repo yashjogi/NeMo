@@ -81,10 +81,11 @@ def make_data(manifest_path, n_samples=None):
     return batching, total_samples
 
 
-def load_and_setup_mixer(ckpt_path: str, torchscript: bool = False) -> nn.Module:
+def load_and_setup_model(ckpt_path: str, torchscript: bool = False) -> nn.Module:
     """Loads and setup Mixer-TTS model."""
 
     model = MixerTTSModel.load_from_checkpoint(ckpt_path)
+    # model = FastPitchModel.load_from_checkpoint(ckpt_path)
 
     if torchscript:
         model = torch.jit.script(model)
@@ -119,19 +120,19 @@ def main():
 
     batching, total_samples = make_data(args.manifest_path, args.n_samples)
 
-    mixer = load_and_setup_mixer(args.mixer_ckpt_path, args.torchscript)
-    mixer.to(args.device)
+    model = load_and_setup_model(args.mixer_ckpt_path, args.torchscript)
+    model.to(args.device)
 
     torch.backends.cudnn.benchmark = args.cudnn_benchmark  # noqa
     for _ in tqdm.tqdm(range(args.warmup_steps), desc='warmup'):
         with torch.no_grad():
-            _ = mixer.generate_spectrogram(
+            _ = model.generate_spectrogram(
                 raw_texts=next(batching(args.batch_size)),
                 without_matching=args.without_matching,
             )
 
-    sample_rate = mixer.cfg.train_ds.dataset.sample_rate
-    hop_length = mixer.cfg.train_ds.dataset.hop_length
+    sample_rate = model.cfg.train_ds.dataset.sample_rate
+    hop_length = model.cfg.train_ds.dataset.hop_length
     gen_measures = MeasureTime(cuda=(args.device != 'cpu'))
     all_letters, all_frames = 0, 0
     all_utterances, all_samples = 0, 0
@@ -142,7 +143,7 @@ def main():
             desc='batches',
         ):
             with torch.no_grad(), gen_measures:
-                mel = mixer.generate_spectrogram(
+                mel = model.generate_spectrogram(
                     raw_texts=raw_text,
                     without_matching=args.without_matching,
                 )
@@ -163,6 +164,7 @@ def main():
         'avg_latency': gm.mean(),
         'all_samples': all_samples,
         'all_utterances': all_utterances,
+        'without_matching': args.without_matching,
         'avg_RTF': all_samples / (all_utterances * gm.mean() * sample_rate),
         '90%_latency': gm.mean() + norm.ppf((1.0 + 0.90) / 2) * gm.std(),
         '95%_latency': gm.mean() + norm.ppf((1.0 + 0.95) / 2) * gm.std(),
