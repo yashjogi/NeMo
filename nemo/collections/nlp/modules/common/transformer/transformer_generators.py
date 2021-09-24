@@ -338,6 +338,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             ready_for_generation_finish, :
         ][is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids)] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
+        result_prefixes[ready_for_generation_finish, :] = prefixes[ready_for_generation_finish, : self.beam_size]
         not_enough_words_scores = scores[not_enough_words, :]
         not_enough_words_prefixes = prefixes[not_enough_words, :]
         wrong_eos_pad_mask = not_enough_words_prefixes.eq(self.eos) | not_enough_words_prefixes.eq(self.pad)
