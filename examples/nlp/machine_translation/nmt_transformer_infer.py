@@ -81,7 +81,18 @@ def main():
     parser.add_argument(
         "--fusion_coef", type=float, default=0.07, help="Weight assigned to LM scores during shallow fusion."
     )
-
+    parser.add_argument(
+        "--word_tokens",
+        nargs="+",
+        help="List of tokens in the decoder output which are considered word tokens. "
+        "Required for fixed length beam search.",
+    )
+    parser.add_argument(
+        "--add_src_num_words_to_batch",
+        help="Required for fixed length beam search.",
+        action="store_true",
+    )
+    parser.add_argument()
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     logging.info("Attempting to initialize from .nemo file")
@@ -151,6 +162,7 @@ def main():
                 beam_size=args.beam_size,
                 len_pen=args.len_pen,
                 max_delta_length=args.max_delta_length,
+                decoder_word_ids=model.decoder_tokenizer.word_ids,
             )
 
     logging.info(f"Translating: {args.srctext}")
@@ -186,6 +198,7 @@ def main():
                         source_lang=args.source_lang,
                         target_lang=args.target_lang,
                         return_beam_scores=args.write_scores,
+                        add_src_num_words_to_batch=args.add_src_num_words_to_batch
                     )
                     if args.write_scores:
                         all_results, scores, best_translations = (

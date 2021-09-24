@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 from nemo.collections.asr.metrics.wer import word_error_rate
 
@@ -101,6 +101,12 @@ def main():
     pad_or_clip_hyp(hyp_capitalization_ids, ref_capitalization_ids, 0)
     result = {
         'CER': cer,
+        "accuracy_punctuation": accuracy_score(
+            np.concatenate(ref_punctuation_ids), np.concatenate(hyp_punctuation_ids)
+        ),
+        "accuracy_capitalization": accuracy_score(
+            np.concatenate(ref_capitalization_ids), np.concatenate(hyp_capitalization_ids)
+        ),
         'punctuation': {
             "F1 micro average": f1_score(
                 np.concatenate(ref_punctuation_ids), np.concatenate(hyp_punctuation_ids), average='micro'

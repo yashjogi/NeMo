@@ -817,10 +817,11 @@ class MTEncDecModel(EncDecNLPModel):
 
         return inputs, best_translations
 
-    def prepare_inference_batch(self, text, prepend_ids=[], target=False):
+    def prepare_inference_batch(self, text, prepend_ids=[], target=False, add_src_num_words_to_batch=False):
         inputs = []
         processor = self.source_processor if not target else self.target_processor
         tokenizer = self.encoder_tokenizer if not target else self.decoder_tokenizer
+        num_src_words = []
         for txt in text:
             if processor is not None:
                 txt = processor.normalize(txt)
@@ -828,6 +829,7 @@ class MTEncDecModel(EncDecNLPModel):
             ids = tokenizer.text_to_ids(txt)
             ids = prepend_ids + [tokenizer.bos_id] + ids + [tokenizer.eos_id]
             inputs.append(ids)
+            num_src_words.append(txt.split())
         max_len = max(len(txt) for txt in inputs)
         src_ids_ = np.ones((len(inputs), max_len)) * tokenizer.pad_id
         for i, txt in enumerate(inputs):
@@ -835,13 +837,17 @@ class MTEncDecModel(EncDecNLPModel):
 
         src_mask = torch.FloatTensor((src_ids_ != tokenizer.pad_id)).to(self.device)
         src = torch.LongTensor(src_ids_).to(self.device)
-
-        return src, src_mask
+        return src, src_mask, np.array(num_src_words, dtype=np.int32) if add_src_num_words_to_batch else src, src_mask
 
     # TODO: We should drop source/target_lang arguments in favor of using self.src/tgt_language
     @torch.no_grad()
     def translate(
-        self, text: List[str], source_lang: str = None, target_lang: str = None, return_beam_scores: bool = False
+        self,
+        text: List[str],
+        source_lang: str = None,
+        target_lang: str = None,
+        return_beam_scores: bool = False,
+        add_src_num_words_to_batch=False,
     ) -> List[str]:
         """
         Translates list of sentences from source language to target language.
@@ -871,14 +877,22 @@ class MTEncDecModel(EncDecNLPModel):
 
         try:
             self.eval()
-            src, src_mask = self.prepare_inference_batch(text, prepend_ids)
+            if add_src_num_words_to_batch:
+                src, src_mask, num_src_words = self.prepare_inference_batch(
+                    text, prepend_ids, add_src_num_words_to_batch=add_src_num_words_to_batch
+                )
+            else:
+                src, src_mask = self.prepare_inference_batch(text, prepend_ids)
+                num_src_words = None
             if return_beam_scores:
                 _, all_translations, scores, best_translations = self.batch_translate(
-                    src, src_mask, return_beam_scores=True
+                    src, src_mask, return_beam_scores=True, num_tgt_words=num_src_words
                 )
                 return all_translations, scores, best_translations
             else:
-                _, translations = self.batch_translate(src, src_mask, return_beam_scores=False)
+                _, translations = self.batch_translate(
+                    src, src_mask, return_beam_scores=False, num_tgt_words=num_src_words
+                )
         finally:
             self.train(mode=mode)
         return translations
