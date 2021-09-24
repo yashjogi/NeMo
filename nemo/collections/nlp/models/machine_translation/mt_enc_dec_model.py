@@ -837,7 +837,7 @@ class MTEncDecModel(EncDecNLPModel):
 
         src_mask = torch.FloatTensor((src_ids_ != tokenizer.pad_id)).to(self.device)
         src = torch.LongTensor(src_ids_).to(self.device)
-        return src, src_mask, np.array(num_src_words, dtype=np.int32) if add_src_num_words_to_batch else None
+        return src, src_mask, torch.IntTensor(num_src_words) if add_src_num_words_to_batch else None
 
     # TODO: We should drop source/target_lang arguments in favor of using self.src/tgt_language
     @torch.no_grad()
