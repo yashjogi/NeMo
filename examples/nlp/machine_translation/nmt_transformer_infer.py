@@ -92,7 +92,6 @@ def main():
         help="Required for fixed length beam search.",
         action="store_true",
     )
-    parser.add_argument()
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     logging.info("Attempting to initialize from .nemo file")
