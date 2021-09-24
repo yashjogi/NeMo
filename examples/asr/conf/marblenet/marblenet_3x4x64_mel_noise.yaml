@@ -1,8 +1,8 @@
-name: &name "MarbleNet-3x2x64"
+name: &name "MarbleNet-3x4x64"
 
 model:
   sample_rate: 16000
-  repeat: 2
+  repeat: 4
   dropout: 0.0
   kernel_size_factor: 1.0
 
