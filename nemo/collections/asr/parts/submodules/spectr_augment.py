@@ -16,6 +16,8 @@ import random
 
 import torch
 import torch.nn as nn
+import librosa
+import numpy as np
 
 from nemo.core.classes import Typing, typecheck
 from nemo.core.neural_types import LengthsType, NeuralType, SpectrogramType
@@ -151,5 +153,37 @@ class SpecCutout(nn.Module, Typing):
                 w_y = self._rng.randint(0, self.rect_time)
 
                 input_spec[idx, rect_x : rect_x + w_x, rect_y : rect_y + w_y] = 0.0
+
+        return input_spec
+
+
+class NarrowbandAugment(nn.Module):
+    """
+    Zeroes out(cuts) higher frequencies with for random signals
+    in the batch based on given probability
+    params:
+    min_freq - frequency above which zeros should be applied
+    prob - probability with which augmentation is applied
+    """
+
+    def __init__(self, sample_rate=16000, n_fft=512, n_mels=80, prob=0.5, rng=None):
+        super(NarrowbandAugment, self).__init__()
+        self._rng = random.Random() if rng is None else rng
+        self._min_freq_index = self._find_min_freq_index(sample_rate, n_fft, n_mels)
+        self._prob = prob
+
+    def _find_min_freq_index(self, sample_rate=16000, n_fft=512, n_mels=80):
+        melfb = librosa.filters.mel(sample_rate, n_fft, n_mels=n_mels)
+        fft_bin_4k = int((4000/sample_rate) * n_fft)
+        #find min index of mel bin that 4k bin goes into
+        melfb_4k = melfb[:, fft_bin_4k]
+        return np.where(melfb_4k > 0)[0][0]
+
+    @torch.no_grad()
+    def forward(self, input_spec):
+        sh = input_spec.shape
+        for idx in range(sh[0]):
+            if self._rng.random() < self._prob:
+                input_spec[idx, self._min_freq_index :, :] = 0.0
 
         return input_spec

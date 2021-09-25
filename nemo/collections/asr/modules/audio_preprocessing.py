@@ -22,7 +22,7 @@ from packaging import version
 
 from nemo.collections.asr.parts.numba.spec_augment import SpecAugmentNumba, spec_augment_launch_heuristics
 from nemo.collections.asr.parts.preprocessing.features import FilterbankFeatures
-from nemo.collections.asr.parts.submodules.spectr_augment import SpecAugment, SpecCutout
+from nemo.collections.asr.parts.submodules.spectr_augment import SpecAugment, SpecCutout, NarrowbandAugment
 from nemo.core.classes import NeuralModule, typecheck
 from nemo.core.neural_types import (
     AudioSignal,
@@ -457,6 +457,11 @@ class SpectrogramAugmentation(NeuralModule):
         rng=None,
         mask_value=0.0,
         use_numba_spec_augment: bool = True,
+        nb_augment=True,
+        nb_aug_prob=0.5,
+        sr=16000,
+        n_fft=512,
+        n_mels=80,
     ):
         super().__init__()
 
@@ -465,7 +470,10 @@ class SpectrogramAugmentation(NeuralModule):
             # self.spec_cutout.to(self._device)
         else:
             self.spec_cutout = lambda input_spec: input_spec
-
+        if nb_augment:
+            self.nb_augment = NarrowbandAugment(sample_rate=sr, n_fft=n_fft, n_mels=n_mels, prob=nb_aug_prob)
+        else:
+            self.nb_augment = lambda input_spec: input_spec
         if freq_masks + time_masks > 0:
             self.spec_augment = SpecAugment(
                 freq_masks=freq_masks,
@@ -493,7 +501,8 @@ class SpectrogramAugmentation(NeuralModule):
 
     @typecheck()
     def forward(self, input_spec, length):
-        augmented_spec = self.spec_cutout(input_spec=input_spec)
+        augmented_spec = self.nb_augment(input_spec=input_spec)
+        augmented_spec = self.spec_cutout(input_spec=augmented_spec)
 
         # To run the Numba kernel, correct numba version is required as well as
         # tensor must be on GPU and length must be provided
