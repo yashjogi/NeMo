@@ -353,6 +353,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, :].gather(1, indices)
         num_generated_words = num_generated_words.unsqueeze(1).repeat(1, self.beam_size)
         num_generated_words += is_in(result_prefixes, self.decoder_word_ids)
+        print("result_prefixes:", result_prefixes)
         return result_scores, result_prefixes, num_generated_words
 
     def _forward(
