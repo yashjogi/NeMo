@@ -830,7 +830,6 @@ class MTEncDecModel(EncDecNLPModel):
             ids = tokenizer.text_to_ids(txt)
             ids = prepend_ids + [tokenizer.bos_id] + ids + [tokenizer.eos_id]
             inputs.append(ids)
-            print("untokenized:", repr(untokenized), untokenized.split())
             num_src_words.append(len(untokenized.split()))
         max_len = max(len(txt) for txt in inputs)
         src_ids_ = np.ones((len(inputs), max_len)) * tokenizer.pad_id
