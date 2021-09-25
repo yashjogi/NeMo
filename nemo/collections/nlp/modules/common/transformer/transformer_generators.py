@@ -313,7 +313,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         """Returns length penalty according to https://arxiv.org/pdf/1609.08144.pdf"""
         return ((5 + lengths) / 6).pow(alpha)
 
-    def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask, beam):
+    def topk_with_tgt(self, log_probs, num_generated_words, tgt_num_words, pad_mask):
         if num_generated_words is None:
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
             return scores, prefixes, None
@@ -334,16 +334,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
         )
         ready_for_generation_finish = enough_words & not_pad_mask
-        print()
-        print("beam:", beam)
-        print("ready_for_generation_finish:", ready_for_generation_finish)
-        print("prefixes:", prefixes)
-        print("pad_mask:", pad_mask)
         is_in_mask = is_in(prefixes, self.decoder_word_ids)
-        print("is_in_mask:", is_in_mask)
-        print("self.eos:", self.eos)
         prefixes[ready_for_generation_finish.unsqueeze(1).repeat(1, 6) & is_in_mask] = self.eos
-        print("prefixes:", prefixes)
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
         result_prefixes[ready_for_generation_finish, :] = prefixes[ready_for_generation_finish, : self.beam_size]
         not_enough_words_scores = scores[not_enough_words, :]
@@ -389,7 +381,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 else num_tgt_words.view(-1, self.beam_size)[:, 0]
             ),
             torch.zeros(log_probs.shape[0], 1, dtype=torch.bool, device=device),
-            None,
         )
         scores, prefixes, num_generated_words = (
             scores.view(-1, 1),
@@ -429,7 +420,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 prefixes[:, -1:], encoder_hidden_states, encoder_input_mask, decoder_mems_list, i + 1
             )
             scores_i, prefixes_i, num_generated_words = self.topk_with_tgt(
-                log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask, prefixes
+                log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask
             )
 
             # for all prefixes ending with <eos> or <pad> replace generated
