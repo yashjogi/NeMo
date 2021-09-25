@@ -334,6 +334,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}",
         )
         ready_for_generation_finish = enough_words & not_pad_mask
+        print("ready_for_generation_finish:", ready_for_generation_finish)
+        print("prefixes:", prefixes)
         prefixes[
             ready_for_generation_finish, :
         ][is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids)] = self.eos
