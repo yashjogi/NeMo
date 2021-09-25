@@ -339,10 +339,10 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         print("ready_for_generation_finish:", ready_for_generation_finish)
         print("prefixes:", prefixes)
         print("pad_mask:", pad_mask)
-        print("is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids):", is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids))
-        prefixes[
-            ready_for_generation_finish, :
-        ][is_in(prefixes[ready_for_generation_finish, :], self.decoder_word_ids)] = self.eos
+        is_in_mask = is_in(prefixes, self.decoder_word_ids)
+        print("is_in_mask:", is_in_mask)
+        print("self.eos:", self.eos)
+        prefixes[ready_for_generation_finish.unsqueeze(1).repeat(1, 6) & is_in_mask] = self.eos
         print("prefixes:", prefixes)
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
         result_prefixes[ready_for_generation_finish, :] = prefixes[ready_for_generation_finish, : self.beam_size]
