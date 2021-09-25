@@ -823,14 +823,15 @@ class MTEncDecModel(EncDecNLPModel):
         tokenizer = self.encoder_tokenizer if not target else self.decoder_tokenizer
         num_src_words = []
         for txt in text:
+            untokenized = txt
             if processor is not None:
                 txt = processor.normalize(txt)
                 txt = processor.tokenize(txt)
             ids = tokenizer.text_to_ids(txt)
             ids = prepend_ids + [tokenizer.bos_id] + ids + [tokenizer.eos_id]
             inputs.append(ids)
-            print("txt:", repr(txt), txt.split())
-            num_src_words.append(len(txt.split()))
+            print("untokenized:", repr(untokenized), untokenized.split())
+            num_src_words.append(len(untokenized.split()))
         max_len = max(len(txt) for txt in inputs)
         src_ids_ = np.ones((len(inputs), max_len)) * tokenizer.pad_id
         for i, txt in enumerate(inputs):
