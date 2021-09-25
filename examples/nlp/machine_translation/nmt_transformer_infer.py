@@ -36,6 +36,9 @@ from nemo.collections.nlp.modules.common.transformer import (
 from nemo.utils import logging
 
 
+torch.set_num_threads(24)
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument(
