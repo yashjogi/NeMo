@@ -6,6 +6,7 @@ python prepare_wmt_data_for_punctuation_capitalization_task.py \
   --input_language en \
   --output_dir prepared_punctuation_data_min_punctuation_26.9.2021_19.00 \
   --corpus_types europarl 'news-commentary' rapid TED \
+  --test_ratio 0.05 \
   --clean_data_dir cleaned_wmt_min_punc \
   --create_model_input \
   --autoregressive_labels \
