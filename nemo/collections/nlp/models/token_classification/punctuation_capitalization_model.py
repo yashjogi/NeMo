@@ -577,7 +577,6 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         mode = self.training
         try:
             self.eval()
-            self = self.to(d)
             infer_datalayer = self._setup_infer_dataloader(queries, batch_size, max_seq_length, step, margin)
             # Predicted labels for queries. List of labels for every query
             all_punct_preds: List[List[int]] = [[] for _ in queries]
