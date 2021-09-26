@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 from nemo.collections.asr.metrics.wer import word_error_rate
+from nemo.utils import logging
 
 
 UNK_LBL = "<UNK>"
@@ -35,6 +36,13 @@ def get_args():
         "file using 'examples/nlp/machine_translation/punctuation_infer/create_punctuation_file.py' script.",
         type=Path,
     )
+    parser.add_argument(
+        "--evelina_format",
+        "-e",
+        help="Hypotheses and references are in format, described in https://docs.nvidia.com/deeplearning/nemo/"
+        "user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.hyp = args.hyp.expanduser()
     args.ref = args.ref.expanduser()
@@ -43,19 +51,34 @@ def get_args():
     return args
 
 
-def read_lines(path, capitalization_labels, include_leading_punctuation_in_metrics):
-    rstrip_re = re.compile(f"^[^{capitalization_labels}]+")
-    lstrip_re = re.compile(f"[^{capitalization_labels}]*$")
+def transform_to_autoregressive_format(line, line_i):
+    pairs = line.split()
+    result = ""
+    for pair in pairs:
+        if len(pair) != 2:
+            logging.warning(f"Pair '{pair}' in line {line_i} '{line}' contains wrong number of characters.")
+        result += pair[1]
+        if pair[0] != 'O':
+            result += pair[0]
+        result += ' '
+    return result
+
+
+def read_lines(path, capitalization_labels, include_leading_punctuation_in_metrics, evelina_data_format):
+    lstrip_re = re.compile(f"^[^{capitalization_labels}]+")
+    rstrip_re = re.compile(f"[^{capitalization_labels}]*$")
     capitalization_re = re.compile(f'[{capitalization_labels}]', flags=re.I)
     punctuation, capitalization, lines = [], [], []
     with path.open() as f:
-        for line in f:
+        for i, line in enumerate(f):
+            if evelina_data_format:
+                line = transform_to_autoregressive_format(line, i)
             if include_leading_punctuation_in_metrics:
                 if line[0] in capitalization_labels:
                     line = ' ' + line
             else:
-                line = rstrip_re.sub('', line)
-            if ' ' not in lstrip_re.search(line).group(0):
+                line = lstrip_re.sub('', line)
+            if ' ' not in rstrip_re.search(line).group(0):
                 line += ' '
             lines.append(line)
             capitalization.append(capitalization_re.findall(line))
@@ -78,10 +101,10 @@ def pad_or_clip_hyp(hyp, ref, pad_id):
 def main():
     args = get_args()
     hyp_punctuation, hyp_capitalization, hyp_lines = read_lines(
-        args.hyp, args.capitalization_labels, args.include_leading_punctuation_in_metrics
+        args.hyp, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
     )
     ref_punctuation, ref_capitalization, ref_lines = read_lines(
-        args.ref, args.capitalization_labels, args.include_leading_punctuation_in_metrics
+        args.ref, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     with args.punctuation_file.open() as f:

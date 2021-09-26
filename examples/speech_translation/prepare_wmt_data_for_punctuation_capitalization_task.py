@@ -190,6 +190,15 @@ def get_args():
         help="Add only first punctuation character after word to autoregressive labels.",
         action="store_true",
     )
+    parser.add_argument(
+        "--no_label_for_all_characters_are_upper_case",
+        "-U",
+        help="If this option is set all words capitalization are labelled as 'U' if the first character is in upper "
+        "case. If this option is not set words which contain only uppercase letters (except one character words) "
+        "are marked as 'U' and words which first character is in upper case but containing not lower case characters "
+        "are marked as 'u'.",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
@@ -705,7 +714,7 @@ def normalize_punctuation(all_docs, lang):
     os.chdir(cwd)
 
 
-def create_bert_labels_re(line, allowed_punctuation):
+def create_bert_labels(line, allowed_punctuation, no_label_for_all_characters_are_upper_case):
     labels = ""
     allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
     for w_i, word in enumerate(line):
@@ -718,10 +727,17 @@ def create_bert_labels_re(line, allowed_punctuation):
                 labels += "O"
             labels += line[w_i + 1][0] if w_i < len(line) - 1 and line[w_i + 1][0] in allowed_punctuation else 'O'
             labels += ' '
+    if no_label_for_all_characters_are_upper_case:
+        labels = labels.replace('u', 'U')
     return labels
 
 
-def create_autoregressive_labels_re(line, allowed_punctuation, only_first_punctuation_character_after_word):
+def create_autoregressive_labels(
+    line,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word,
+    no_label_for_all_characters_are_upper_case,
+):
     labels = ""
     for w_i, word in enumerate(line):
         if WORD.match(word):
@@ -757,10 +773,13 @@ def create_autoregressive_labels_re(line, allowed_punctuation, only_first_punctu
                         num_added += 1
                 if num_added == 0:
                     labels += ' '
-    return SPACE_DUP.sub(' ', labels)
+    labels = SPACE_DUP.sub(' ', labels)
+    if no_label_for_all_characters_are_upper_case:
+        labels = labels.replace('u', 'U')
+    return labels
 
 
-def write_dataset_re(
+def write_dataset(
     data,
     dir_,
     create_model_input,
@@ -768,6 +787,7 @@ def write_dataset_re(
     autoregressive_labels,
     allowed_punctuation,
     only_first_punctuation_character_after_word_in_autoregressive,
+    no_label_for_all_characters_are_upper_case,
 ):
     dir_.mkdir(exist_ok=True, parents=True)
     with (dir_ / Path("text.txt")).open('w') as f:
@@ -781,13 +801,18 @@ def write_dataset_re(
     if bert_labels:
         with (dir_ / Path("bert_labels.txt")).open('w') as f:
             for line in split_data:
-                f.write(create_bert_labels_re(line, allowed_punctuation) + '\n')
+                f.write(
+                    create_bert_labels(line, allowed_punctuation, no_label_for_all_characters_are_upper_case) + '\n'
+                )
     if autoregressive_labels:
         with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
             for line in split_data:
                 f.write(
-                    create_autoregressive_labels_re(
-                        line, allowed_punctuation, only_first_punctuation_character_after_word_in_autoregressive
+                    create_autoregressive_labels(
+                        line,
+                        allowed_punctuation,
+                        only_first_punctuation_character_after_word_in_autoregressive,
+                        no_label_for_all_characters_are_upper_case,
                     ) + '\n'
                 )
 
@@ -853,7 +878,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     test_size = int(args.size * args.test_ratio / 100)
     if test_size > 0:
-        write_dataset_re(
+        write_dataset(
             result[:test_size],
             args.output_dir / Path("test"),
             args.create_model_input,
@@ -861,9 +886,10 @@ def main():
             args.autoregressive_labels,
             args.allowed_punctuation,
             args.only_first_punctuation_character_after_word_in_autoregressive,
+            args.no_label_for_all_characters_are_upper_case,
         )
     if args.dev_size > 0:
-        write_dataset_re(
+        write_dataset(
             result[test_size : test_size + args.dev_size],
             args.output_dir / Path("dev"),
             args.create_model_input,
@@ -871,8 +897,9 @@ def main():
             args.autoregressive_labels,
             args.allowed_punctuation,
             args.only_first_punctuation_character_after_word_in_autoregressive,
+            args.no_label_for_all_characters_are_upper_case,
         )
-    write_dataset_re(
+    write_dataset(
         result[test_size + args.dev_size :],
         args.output_dir / Path("train"),
         args.create_model_input,
@@ -880,6 +907,7 @@ def main():
         args.autoregressive_labels,
         args.allowed_punctuation,
         args.only_first_punctuation_character_after_word_in_autoregressive,
+        args.no_label_for_all_characters_are_upper_case,
     )
     if args.autoregressive_labels:
         with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
