@@ -12,4 +12,5 @@ python prepare_wmt_data_for_punctuation_capitalization_task.py \
   --autoregressive_labels \
   --bert_labels \
   --allowed_punctuation ',.?' \
-  --only_first_punctuation_character_after_word_in_autoregressive
+  --only_first_punctuation_character_after_word_in_autoregressive \
+  --no_label_for_all_characters_are_upper_case
