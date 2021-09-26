@@ -1,4 +1,12 @@
+import sys
+sys.path = ["/home/lab/NeMo"] + sys.path
+
 import argparse
+from pathlib import Path
+
+import torch
+
+from nemo.collections.nlp.models import PunctuationCapitalizationModel
 
 
 def get_args():
@@ -15,7 +23,9 @@ def get_args():
 
 def main():
     args = get_args()
-
+    model = PunctuationCapitalizationModel(args.cfg)
+    model.load_state_dict(torch.load(args.ckpt))
+    model.save_to(args.nemo)
 
 
 if __name__ == "__main__":
