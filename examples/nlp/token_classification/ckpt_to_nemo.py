@@ -32,7 +32,7 @@ def main():
         checkpoint_callback=False,
     )
     model = PunctuationCapitalizationModel(cfg.model, trainer)
-    model.load_from_checkpoint(args.ckpt)
+    model.load_from_checkpoint(args.ckpt, cfg=cfg.model)
     model.save_to(args.nemo)
 
 
