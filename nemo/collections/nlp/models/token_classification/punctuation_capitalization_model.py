@@ -575,7 +575,6 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             logging.info(f'Using batch size {batch_size} for inference')
         result: List[str] = []
         mode = self.training
-        d = 'cuda' if torch.cuda.is_available() else 'cpu'
         try:
             self.eval()
             self = self.to(d)

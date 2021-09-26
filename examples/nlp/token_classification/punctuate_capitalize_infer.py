@@ -16,6 +16,8 @@ import argparse
 import json
 from pathlib import Path
 
+import torch.cuda
+
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 
 
@@ -170,6 +172,10 @@ def main():
         model = PunctuationCapitalizationModel.restore_from(args.model_path)
     else:
         model = PunctuationCapitalizationModel.from_pretrained(args.pretrained_name)
+    if torch.cuda.is_available():
+        model = model.cuda()
+    else:
+        model = model.cpu()
     if args.input_manifest is None:
         texts = []
         with args.input_text.open() as f:
