@@ -28,8 +28,6 @@ def main():
     cfg = OmegaConf.load(args.cfg)
     trainer = pl.Trainer(
         gpus=0,
-        precision=cfg.trainer.precision,
-        amp_level=cfg.trainer.amp_level,
         logger=False,
         checkpoint_callback=False,
     )
