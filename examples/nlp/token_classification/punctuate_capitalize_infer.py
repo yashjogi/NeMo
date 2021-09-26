@@ -137,6 +137,13 @@ def get_args():
     parser.add_argument(
         "--batch_size", "-b", type=int, default=128, help="Number of segments which are processed simultaneously.",
     )
+    parser.add_argument(
+        "--save_only_labels",
+        "-B",
+        action="store_true",
+        help="If this option is set save punctuation and capitalization labels instead text with restored punctuation "
+        "and capitalization.",
+    )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
         parser.error("--output_manifest requires --input_manifest")
@@ -174,7 +181,12 @@ def main():
         for item in manifest:
             texts.append(item[text_key])
     processed_texts = model.add_punctuation_capitalization(
-        texts, batch_size=args.batch_size, max_seq_length=args.max_seq_length, step=args.step, margin=args.margin,
+        texts,
+        batch_size=args.batch_size,
+        max_seq_length=args.max_seq_length,
+        step=args.step,
+        margin=args.margin,
+        return_labels=args.save_only_labels,
     )
     if args.output_manifest is None:
         with args.output_text.open('w') as f:
