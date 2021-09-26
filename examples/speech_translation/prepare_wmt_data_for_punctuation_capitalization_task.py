@@ -184,6 +184,12 @@ def get_args():
         help="Tokenizer used for checking characters for tokenizability.",
         default="bert-base-uncased",
     )
+    parser.add_argument(
+        "--only_first_punctuation_character_after_word_in_autoregressive",
+        "-F",
+        help="Add only first punctuation character after word to autoregressive labels.",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
@@ -699,68 +705,6 @@ def normalize_punctuation(all_docs, lang):
     os.chdir(cwd)
 
 
-def create_bert_labels(line, allowed_punctuation):
-    labels = ""
-    allowed_punctuation = ''.join(allowed_punctuation & SUPPORTED_BERT_PUNCTUATION)
-    for w_i, word in enumerate(line.split()):
-        label = "U" if word[0].isupper() else "O"
-        label += word[-1] if word[-1] in allowed_punctuation else "O"
-        if labels:
-            labels += ' '
-        labels += label
-    return labels
-
-
-def create_autoregressive_labels(line, allowed_punctuation):
-    labels = ""
-    inside_word = False
-    for c_i, c in enumerate(line):
-        if c in allowed_punctuation | {' '}:
-            inside_word = False
-            labels += c
-        elif WORD_CHARACTER.match(c) is not None:
-            if not inside_word:
-                inside_word = True
-                all_upper = not c.islower()
-                j = c_i + 1
-                while j < len(line) and all_upper and WORD_CHARACTER.match(line[j]):
-                    if line[j].islower():
-                        all_upper = False
-                        break
-                    j += 1
-                all_upper = all_upper and j > c_i + 1
-                if all_upper:
-                    labels += "U"
-                elif c.isupper():
-                    labels += "u"
-                else:
-                    labels += "O"
-        else:
-            if not inside_word:
-                inside_word = True
-                labels += "O"
-    return labels
-
-
-def write_dataset(data, dir_, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
-    dir_.mkdir(exist_ok=True, parents=True)
-    with (dir_ / Path("text.txt")).open('w') as f:
-        for line in data:
-            f.write(line + '\n')
-    if create_model_input:
-        with (dir_ / Path("input.txt")).open('w') as f:
-            for line in data:
-                f.write(SPACE_DUP.sub(' ', NOT_WORD_CHARACTERS.sub(' ', line)).lower().strip() + '\n')
-    if bert_labels:
-        with (dir_ / Path("bert_labels.txt")).open('w') as f:
-            for line in data:
-                f.write(create_bert_labels(line, allowed_punctuation) + '\n')
-    if autoregressive_labels:
-        with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
-            for line in data:
-                f.write(create_autoregressive_labels(line, allowed_punctuation) + '\n')
-
-
 def create_bert_labels_re(line, allowed_punctuation):
     labels = ""
     allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
@@ -777,7 +721,7 @@ def create_bert_labels_re(line, allowed_punctuation):
     return labels
 
 
-def create_autoregressive_labels_re(line, allowed_punctuation):
+def create_autoregressive_labels_re(line, allowed_punctuation, only_first_punctuation_character_after_word):
     labels = ""
     for w_i, word in enumerate(line):
         if WORD.match(word):
@@ -788,13 +732,43 @@ def create_autoregressive_labels_re(line, allowed_punctuation):
             else:
                 labels += 'O'
         else:
-            for c in word:
-                if c in allowed_punctuation | {' '}:
-                    labels += c
+            if only_first_punctuation_character_after_word:
+                num_added = 0
+                for c_i, c in enumerate(word):
+                    if (
+                        c in allowed_punctuation | {' '}
+                        and (
+                            num_added == 0
+                            or num_added == 1
+                            and labels
+                            and labels[-1] != ' '
+                            and c == ' '
+                        )
+                    ):
+                        num_added += 1
+                        labels += c
+                if num_added == 0:
+                    labels += ' '
+            else:
+                num_added = 0
+                for c in word:
+                    if c in allowed_punctuation | {' '}:
+                        labels += c
+                        num_added += 1
+                if num_added == 0:
+                    labels += ' '
     return SPACE_DUP.sub(' ', labels)
 
 
-def write_dataset_re(data, dir_, create_model_input, bert_labels, autoregressive_labels, allowed_punctuation):
+def write_dataset_re(
+    data,
+    dir_,
+    create_model_input,
+    bert_labels,
+    autoregressive_labels,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word_in_autoregressive,
+):
     dir_.mkdir(exist_ok=True, parents=True)
     with (dir_ / Path("text.txt")).open('w') as f:
         for line in data:
@@ -811,7 +785,11 @@ def write_dataset_re(data, dir_, create_model_input, bert_labels, autoregressive
     if autoregressive_labels:
         with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
             for line in split_data:
-                f.write(create_autoregressive_labels_re(line, allowed_punctuation) + '\n')
+                f.write(
+                    create_autoregressive_labels_re(
+                        line, allowed_punctuation, only_first_punctuation_character_after_word_in_autoregressive
+                    ) + '\n'
+                )
 
 
 def main():
@@ -882,6 +860,7 @@ def main():
             args.bert_labels,
             args.autoregressive_labels,
             args.allowed_punctuation,
+            args.only_first_punctuation_character_after_word_in_autoregressive,
         )
     if args.dev_size > 0:
         write_dataset_re(
@@ -891,6 +870,7 @@ def main():
             args.bert_labels,
             args.autoregressive_labels,
             args.allowed_punctuation,
+            args.only_first_punctuation_character_after_word_in_autoregressive,
         )
     write_dataset_re(
         result[test_size + args.dev_size :],
@@ -899,6 +879,7 @@ def main():
         args.bert_labels,
         args.autoregressive_labels,
         args.allowed_punctuation,
+        args.only_first_punctuation_character_after_word_in_autoregressive,
     )
     if args.autoregressive_labels:
         with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
