@@ -108,13 +108,13 @@ def main():
             np.concatenate(ref_capitalization_ids), np.concatenate(hyp_capitalization_ids)
         ),
         'punctuation': {
-            "F1 micro average": f1_score(
-                np.concatenate(ref_punctuation_ids), np.concatenate(hyp_punctuation_ids), average='micro'
+            "F1 macro average": f1_score(
+                np.concatenate(ref_punctuation_ids), np.concatenate(hyp_punctuation_ids), average='macro'
             ),
         },
         'capitalization': {
-            "f1_micro": f1_score(
-                np.concatenate(ref_capitalization_ids), np.concatenate(hyp_capitalization_ids), average='micro'
+            "F1 macro average": f1_score(
+                np.concatenate(ref_capitalization_ids), np.concatenate(hyp_capitalization_ids), average='macro'
             ),
         },
     }
