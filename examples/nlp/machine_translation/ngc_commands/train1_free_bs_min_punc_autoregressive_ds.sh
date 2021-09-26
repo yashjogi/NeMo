@@ -22,5 +22,5 @@ ngc batch run \
   --name "ml-model.aayn min_autoreg_punc_free_beam_search_cap_mt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
-  --datasetid 88725:/data \
+  --datasetid 88728:/data \
   --commandline "${command}"
