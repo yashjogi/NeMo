@@ -4,6 +4,7 @@ sys.path = ["/home/lab/NeMo"] + sys.path
 import argparse
 from pathlib import Path
 
+import pytorch_lightning as pl
 import torch
 from omegaconf import OmegaConf
 
@@ -25,7 +26,14 @@ def get_args():
 def main():
     args = get_args()
     cfg = OmegaConf.load(args.cfg)
-    model = PunctuationCapitalizationModel(cfg.model)
+    trainer = pl.Trainer(
+        gpus=0,
+        precision=cfg.trainer.precision,
+        amp_level=cfg.trainer.amp_level,
+        logger=False,
+        checkpoint_callback=False,
+    )
+    model = PunctuationCapitalizationModel(cfg.model, trainer)
     model.load_state_dict(torch.load(args.ckpt))
     model.save_to(args.nemo)
 
