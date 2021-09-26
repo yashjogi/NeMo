@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 import torch
+from omegaconf import OmegaConf
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 
@@ -23,7 +24,8 @@ def get_args():
 
 def main():
     args = get_args()
-    model = PunctuationCapitalizationModel(args.cfg.model)
+    cfg = OmegaConf.load(args.cfg)
+    model = PunctuationCapitalizationModel(cfg.model)
     model.load_state_dict(torch.load(args.ckpt))
     model.save_to(args.nemo)
 
