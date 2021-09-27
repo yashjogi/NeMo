@@ -37,7 +37,7 @@ def get_args():
         type=Path,
     )
     parser.add_argument(
-        "--evelina_format",
+        "--evelina_data_format",
         "-e",
         help="Hypotheses and references are in format, described in https://docs.nvidia.com/deeplearning/nemo/"
         "user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format",
