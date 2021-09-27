@@ -323,8 +323,12 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         scores, prefixes = torch.topk(log_probs, self.beam_size + 2, dim=-1)
         result_scores = torch.zeros(n, self.beam_size, dtype=scores.dtype, device=scores.device)
         result_prefixes = torch.zeros(n, self.beam_size, dtype=prefixes.dtype, device=prefixes.device)
+
+        # Generation already finished. Do not do anything special
         result_scores[pad_mask, :] = scores[pad_mask, : self.beam_size]
         result_prefixes[pad_mask, :] = prefixes[pad_mask, : self.beam_size]
+
+        # Ready to finish generation. Finish generation if word token is encountered.
         not_pad_mask = ~pad_mask
         not_enough_words = num_generated_words.lt(tgt_num_words)
         enough_words = ~not_enough_words
@@ -335,9 +339,11 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         )
         ready_for_generation_finish = enough_words & not_pad_mask
         is_in_mask = is_in(prefixes, self.decoder_word_ids)
-        prefixes[ready_for_generation_finish.unsqueeze(1).repeat(1, 6) & is_in_mask] = self.eos
+        prefixes[ready_for_generation_finish.unsqueeze(1).repeat(1, self.beam_size + 2) & is_in_mask] = self.eos
         result_scores[ready_for_generation_finish, :] = scores[ready_for_generation_finish, : self.beam_size]
         result_prefixes[ready_for_generation_finish, :] = prefixes[ready_for_generation_finish, : self.beam_size]
+
+        # Not enough words generated. Predictions of EOS and PAD tokens are discarded.
         not_enough_words_scores = scores[not_enough_words, :]
         not_enough_words_prefixes = prefixes[not_enough_words, :]
         wrong_eos_pad_mask = not_enough_words_prefixes.eq(self.eos) | not_enough_words_prefixes.eq(self.pad)
@@ -345,6 +351,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         resorted_scores, indices = torch.topk(not_enough_words_scores, self.beam_size, dim=-1)
         result_scores[not_enough_words, :] = resorted_scores
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, :].gather(1, indices)
+
         num_generated_words = num_generated_words.unsqueeze(1).repeat(1, self.beam_size)
         num_generated_words += is_in(result_prefixes, self.decoder_word_ids)
         return result_scores, result_prefixes, num_generated_words
