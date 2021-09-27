@@ -123,6 +123,7 @@ def main():
         if lbl not in punctuation_labels_to_ids:
             punctuation_labels_to_ids[lbl] = count
             count += 1
+    print("punctuation_labels_to_ids:", punctuation_labels_to_ids)
     hyp_punctuation_ids = encode(hyp_punctuation, punctuation_labels_to_ids)
     ref_punctuation_ids = encode(ref_punctuation, punctuation_labels_to_ids)
     hyp_capitalization_ids = encode(hyp_capitalization, capitalization_labels_to_ids)
