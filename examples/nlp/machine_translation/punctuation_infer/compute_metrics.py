@@ -107,8 +107,11 @@ def main():
         args.ref, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
-    with args.punctuation_file.open() as f:
-        punctuation_labels = list(json.load(f).keys())
+    if args.punctuation_file is None:
+        punctuation_labels = sorted(set(ref_punctuation), key=lambda x: ref_punctuation.count(x))
+    else:
+        with args.punctuation_file.open() as f:
+            punctuation_labels = list(json.load(f).keys())
     capitalization_labels_to_ids = {'O': 0, 'U': 1, 'u': 2}
     punctuation_labels_to_ids = {' ': 0, UNK_LBL: 1}
     count = 2
