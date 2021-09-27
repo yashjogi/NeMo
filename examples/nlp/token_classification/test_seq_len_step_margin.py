@@ -29,10 +29,28 @@ EMPTY_BEST = {
 
 def get_args():
     parser = ArgumentParser()
+    model = parser.add_mutually_exclusive_group(required=True)
+    model.add_argument(
+        "--pretrained_name",
+        "-n",
+        choices=PunctuationCapitalizationModel.list_available_models(),
+        help="The name of public NGC model.",
+    )
+    model.add_argument(
+        "--model_path",
+        "-p",
+        help="Path to .nemo checkpoint."
+    )
     parser.add_argument("--labels", "-b", type=Path, required=True)
     parser.add_argument("--source_text", "-t", type=Path, required=True)
     parser.add_argument("--output_dir", "-o", type=Path, required=True)
-    parser.add_argument("--continue_from", "-c", type=Path)
+    parser.add_argument(
+        "--continue_from",
+        "-c",
+        type=Path,
+        help="Path to the result file `punctuation_capitalization_scores.json` of unfinished test. Only parameter "
+        "combinations not present in `--continue_from` will be tested.",
+    )
     parser.add_argument("--max_seq_length", "-l", nargs="+", type=int, default=[16, 32, 48, 64, 92, 128, 256, 512])
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
@@ -174,7 +192,10 @@ def main():
         texts = [line.strip() for line in f]
     with args.labels.open() as f:
         labels_text = f.read()
-    model = PunctuationCapitalizationModel.from_pretrained("punctuation_en_bert")
+    if args.model_path is None:
+        model = PunctuationCapitalizationModel.from_pretrained(args.pretrained_name)
+    else:
+        model = PunctuationCapitalizationModel.restore_from(args.model_path)
     if args.continue_from is None:
         result = {"punctuation": {"margin": {}}, "capitalization": {"margin": {}}}
         best = deepcopy(EMPTY_BEST)
