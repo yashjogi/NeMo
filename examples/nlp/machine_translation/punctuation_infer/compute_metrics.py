@@ -117,7 +117,6 @@ def main():
     else:
         with args.punctuation_file.open() as f:
             punctuation_labels = list(json.load(f).keys())
-    print("punctuation_labels:", punctuation_labels)
     for lbl in punctuation_labels:
         print(lbl, )
     capitalization_labels_to_ids = {'O': 0, 'U': 1, 'u': 2}
@@ -127,7 +126,6 @@ def main():
         if lbl not in punctuation_labels_to_ids:
             punctuation_labels_to_ids[lbl] = count
             count += 1
-    print("punctuation_labels_to_ids:", punctuation_labels_to_ids)
     hyp_punctuation_ids = encode(hyp_punctuation, punctuation_labels_to_ids)
     ref_punctuation_ids = encode(ref_punctuation, punctuation_labels_to_ids)
     hyp_capitalization_ids = encode(hyp_capitalization, capitalization_labels_to_ids)
