@@ -2,6 +2,7 @@
 
 N_REPEATS=${N_REPEATS:-10}  # More is unnecessary.
 BATCH_SIZE=${BATCH_SIZE:-1}
+N_CHARS=${N_SAMPLES:-128}
 N_SAMPLES=${N_SAMPLES:-1024}
 
 model_name=$1
@@ -30,6 +31,6 @@ fi
 python scripts/tts_benchmark/inference.py \
   --model-ckpt-path=$model_ckpt_path \
   --manifest-path=/home/stanislavv/data/sets/ljspeech/local/nvidia-split/test.jsonl \
-  --cudnn-benchmark \
-  --n-repeats="$N_REPEATS" --batch-size="$BATCH_SIZE" --n-samples="$N_SAMPLES" \
+  --cudnn-benchmark --n-repeats="$N_REPEATS" \
+  --batch-size="$BATCH_SIZE" --n-chars="$N_CHARS" --n-samples="$N_SAMPLES" \
   $model_args

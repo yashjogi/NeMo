@@ -28,6 +28,7 @@
 
 import argparse
 import contextlib
+import itertools
 import json
 from collections import UserList
 from typing import Optional
@@ -64,28 +65,28 @@ def parse_args() -> argparse.Namespace:
 def make_data(manifest_path: str, n_chars: Optional[int] = None, n_samples: Optional[int] = None):
     """Makes data source and returns batching functor and total number of samples."""
 
-    data = []
-    current_text = ''
+    if n_chars is None:
+        raise ValueError("Unfixed number of input chars is unsupported for now.")
+
+    raw_text_data = []
     with open(manifest_path, 'r') as f:
         for line in f.readlines():
             line_data = json.loads(line)
+            raw_text_data.append(line_data['text'])
 
-            raw_text = line_data['text']
-            if n_chars is not None:
-                current_text = current_text + raw_text
-                if len(current_text) >= n_chars:
-                    data.append(dict(raw_text=current_text[:n_chars]))
-                    current_text = ''
-            else:
-                data.append(dict(raw_text=raw_text))
+    if n_samples is None:
+        n_samples = len(raw_text_data)
 
-    if n_samples is not None:
-        data0, data = data, []
-        while len(data) < n_samples:
-            data.extend(data0)
+    raw_text_stream = itertools.cycle(raw_text_data)
+    data, raw_text_buffer = [], []
+    while len(data) < n_samples:
+        raw_text_buffer.append(next(raw_text_stream))
+        raw_text_from_buffer = ' '.join(raw_text_buffer)
+        if len(raw_text_from_buffer) >= n_chars:
+            data.append(dict(raw_text=raw_text_from_buffer[:n_chars]))
+            raw_text_buffer.clear()
 
-        data = data[:n_samples]
-
+    # This is probably redundant as all samples are of the same length.
     data.sort(key=lambda d: len(d['raw_text']), reverse=True)  # Bigger samples are more important.
 
     data = {k: [s[k] for s in data] for k in data[0]}
