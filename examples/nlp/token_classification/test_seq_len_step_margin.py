@@ -50,6 +50,7 @@ def get_args():
     parser.add_argument("--max_seq_length", "-l", nargs="+", type=int, default=[16, 32, 48, 64, 92, 128, 256, 512])
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
+    parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -196,6 +197,10 @@ def main():
         model = PunctuationCapitalizationModel.from_pretrained(args.pretrained_name)
     else:
         model = PunctuationCapitalizationModel.restore_from(args.model_path)
+    if args.cpu:
+        model = model.cpu()
+    else:
+        model = model.cuda()
     if args.continue_from is None:
         result = {"punctuation": {"margin": {}}, "capitalization": {"margin": {}}}
         best = deepcopy(EMPTY_BEST)
