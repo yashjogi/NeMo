@@ -239,7 +239,7 @@ class MTEncDecModel(EncDecNLPModel):
         return not invalid_ids
 
     @typecheck()
-    def forward(self, src, src_mask, tgt, tgt_mask):
+    def forward(self, src, src_mask, tgt, tgt_mask, src_first_token_in_word_mask=None):
         if self.validate_input_ids:
             # test src/tgt for id range (i.e., hellp in catching wrong tokenizer)
             self.test_encoder_ids(src, raise_error=True)
@@ -247,7 +247,12 @@ class MTEncDecModel(EncDecNLPModel):
 
         src_hiddens = self.encoder(input_ids=src, encoder_mask=src_mask)
         tgt_hiddens = self.decoder(
-            input_ids=tgt, decoder_mask=tgt_mask, encoder_embeddings=src_hiddens, encoder_mask=src_mask
+            input_ids=tgt,
+            decoder_mask=tgt_mask,
+            encoder_embeddings=src_hiddens,
+            encoder_mask=src_mask,
+            src=src,
+            src_first_token_in_word_mask=src_first_token_in_word_mask,
         )
         log_probs = self.log_softmax(hidden_states=tgt_hiddens)
         return log_probs

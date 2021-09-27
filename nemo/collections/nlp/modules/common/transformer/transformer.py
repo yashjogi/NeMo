@@ -177,12 +177,15 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         hidden_act: str = 'relu',
         pre_ln: bool = False,
         pre_ln_final_layer_norm: bool = True,
+        encoder_embedding: Optional[TransformerEmbedding] = None,
     ):
         super().__init__()
 
         self._vocab_size = vocab_size
         self._hidden_size = hidden_size
         self._max_sequence_length = max_sequence_length
+
+        self._encoder_embedding = encoder_embedding
 
         self._embedding = TransformerEmbedding(
             vocab_size=self.vocab_size,
@@ -207,8 +210,17 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         )
 
     @typecheck()
-    def forward(self, input_ids, decoder_mask, encoder_embeddings, encoder_mask):
+    def forward(
+        self, input_ids, decoder_mask, encoder_embeddings, encoder_mask, src=None, src_first_token_in_word_mask=None
+    ):
         decoder_embeddings = self._embedding(input_ids=input_ids)
+        if self._encoder_embedding is not None:
+            if src is None or src_first_token_in_word_mask is None:
+                raise ValueError(
+                    "If decoder constructor is provided with encoder embeddings, then you should pass "
+                    "`src_first_token_in_word_mask` adn `src` parameters to decoder `forward` method."
+                )
+
         decoder_hidden_states = self._decoder(
             decoder_states=decoder_embeddings,
             decoder_mask=decoder_mask,
