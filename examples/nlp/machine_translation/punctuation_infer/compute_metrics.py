@@ -47,7 +47,8 @@ def get_args():
     args.hyp = args.hyp.expanduser()
     args.ref = args.ref.expanduser()
     args.output = args.output.expanduser()
-    args.punctuation_file = args.punctuation_file.expanduser()
+    if args.punctuation_file is not None:
+        args.punctuation_file = args.punctuation_file.expanduser()
     return args
 
 
