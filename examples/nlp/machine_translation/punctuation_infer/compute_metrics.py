@@ -73,8 +73,10 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
     punctuation, capitalization, lines = [], [], []
     with path.open() as f:
         for i, line in enumerate(f):
+            print("before:", line)
             if evelina_data_format:
                 line = transform_to_autoregressive_format(line, i)
+            print("after:", line)
             if include_leading_punctuation_in_metrics:
                 if line[0] in capitalization_labels:
                     line = ' ' + line
