@@ -58,6 +58,10 @@ def get_args():
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
     args.output_dir = args.output_dir.expanduser()
+    if args.model_path is not None:
+        args.model_path = args.model_path.expanduser()
+    if args.continue_from is not None:
+        args.continue_from = args.continue_from.expanduser()
     return args
 
 
