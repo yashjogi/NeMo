@@ -1,4 +1,5 @@
 import argparse
+import itertools
 import json
 import re
 from pathlib import Path
@@ -109,7 +110,7 @@ def main():
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
-        punctuation_labels = sorted(set(ref_punctuation), key=lambda x: ref_punctuation.count(x))
+        punctuation_labels = sorted(set(itertools.chain(*ref_punctuation)), key=lambda x: ref_punctuation.count(x))
     else:
         with args.punctuation_file.open() as f:
             punctuation_labels = list(json.load(f).keys())
