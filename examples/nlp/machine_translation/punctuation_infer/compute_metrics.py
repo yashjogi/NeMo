@@ -73,10 +73,9 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
     punctuation, capitalization, lines = [], [], []
     with path.open() as f:
         for i, line in enumerate(f):
-            print("before:", line)
+
             if evelina_data_format:
                 line = transform_to_autoregressive_format(line, i)
-            print("after:", line)
             if include_leading_punctuation_in_metrics:
                 if line[0] in capitalization_labels:
                     line = ' ' + line
@@ -86,8 +85,7 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
                 line += ' '
             lines.append(line)
             capitalization.append(capitalization_re.findall(line))
-            print("punctuation:", capitalization_re.split(line))
-            punctuation.append(capitalization_re.split(line))
+            punctuation.append(capitalization_re.split(line).remove(''))
     return punctuation, capitalization, lines
 
 
@@ -113,7 +111,7 @@ def main():
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
-        punctuation_labels = sorted(set(itertools.chain(*ref_punctuation)), key=lambda x: ref_punctuation.count(x))
+        punctuation_labels = sorted(set(itertools.chain(*ref_punctuation)), key=lambda x: -ref_punctuation.count(x))
     else:
         with args.punctuation_file.open() as f:
             punctuation_labels = list(json.load(f).keys())
