@@ -58,7 +58,7 @@ def transform_to_autoregressive_format(line, line_i):
     for pair in pairs:
         if len(pair) != 2:
             logging.warning(f"Pair '{pair}' in line {line_i} '{line}' contains wrong number of characters.")
-        result += pair[1]
+        result += pair[1] if len(pair) > 1 else 'O'
         if pair[0] != 'O':
             result += pair[0]
         result += ' '
