@@ -2,7 +2,7 @@
 
 N_REPEATS=${N_REPEATS:-10}  # More is unnecessary.
 BATCH_SIZE=${BATCH_SIZE:-1}
-N_CHARS=${N_SAMPLES:-128}
+N_CHARS=${N_CHARS:-128}
 N_SAMPLES=${N_SAMPLES:-1024}
 
 model_name=$1
