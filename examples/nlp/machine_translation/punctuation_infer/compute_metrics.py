@@ -2,6 +2,7 @@ import argparse
 import itertools
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -111,11 +112,14 @@ def main():
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
-        punctuation_labels = sorted(set(itertools.chain(*ref_punctuation)), key=lambda x: -ref_punctuation.count(x))
+        punctuation_counter = Counter(itertools.chain(*ref_punctuation))
+        punctuation_labels = sorted(punctuation_counter.items(), key=lambda x: -x[1])
     else:
         with args.punctuation_file.open() as f:
             punctuation_labels = list(json.load(f).keys())
     print("punctuation_labels:", punctuation_labels)
+    for lbl in punctuation_labels:
+        print(lbl, )
     capitalization_labels_to_ids = {'O': 0, 'U': 1, 'u': 2}
     punctuation_labels_to_ids = {' ': 0, UNK_LBL: 1}
     count = 2
