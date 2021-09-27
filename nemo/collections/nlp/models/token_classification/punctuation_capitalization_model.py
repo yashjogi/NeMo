@@ -592,10 +592,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             acc_punct_probs: List[Optional[np.ndarray]] = [None for _ in queries]
             acc_capit_probs: List[Optional[np.ndarray]] = [None for _ in queries]
             d = self.device
-            print("device:", d)
             for batch_i, batch in enumerate(infer_datalayer):
                 inp_ids, inp_type_ids, inp_mask, subtokens_mask, start_word_ids, query_ids, is_first, is_last = batch
-                print("self.bert_model.device:", self.bert_model.device)
                 punct_logits, capit_logits = self.forward(
                     input_ids=inp_ids.to(d), token_type_ids=inp_type_ids.to(d), attention_mask=inp_mask.to(d),
                 )
