@@ -115,6 +115,7 @@ def main():
     else:
         with args.punctuation_file.open() as f:
             punctuation_labels = list(json.load(f).keys())
+    print("punctuation_labels:", punctuation_labels)
     capitalization_labels_to_ids = {'O': 0, 'U': 1, 'u': 2}
     punctuation_labels_to_ids = {' ': 0, UNK_LBL: 1}
     count = 2
