@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-#MODELS="mixer-tts-1 mixer-tts-2 mixer-tts-3 fastpitch"
-MODELS="fastpitch"
-#BATCH_SIZES="1 2 4 8 16 32 64 128 256 512 1024"
-BATCH_SIZES="1024"
+MODELS="mixer-tts-1 mixer-tts-2 mixer-tts-3 fastpitch"
+BATCH_SIZES="1 2 4 8 16 32 64 128 256 512 1024"
 #N_CHARSS="64 128 256 512 1024 2048 4096"
-N_CHARSS="4096"
+N_CHARSS="128"
 OUTPUT=${1:-"output.csv"}
 
 # Header
