@@ -85,7 +85,7 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
                 line += ' '
             lines.append(line)
             capitalization.append(capitalization_re.findall(line))
-            punctuation.append(capitalization_re.split(line).remove(''))
+            punctuation.append(list(filter(lambda x: x, capitalization_re.split(line))))
     return punctuation, capitalization, lines
 
 
