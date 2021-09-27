@@ -36,11 +36,7 @@ def get_args():
         choices=PunctuationCapitalizationModel.list_available_models(),
         help="The name of public NGC model.",
     )
-    model.add_argument(
-        "--model_path",
-        "-p",
-        help="Path to .nemo checkpoint."
-    )
+    model.add_argument("--model_path", "-p", type=Path, help="Path to .nemo checkpoint.")
     parser.add_argument("--labels", "-b", type=Path, required=True)
     parser.add_argument("--source_text", "-t", type=Path, required=True)
     parser.add_argument("--output_dir", "-o", type=Path, required=True)
