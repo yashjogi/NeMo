@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
+sys.path = ["/home/lab/NeMo"] + sys.path
 
 import argparse
 import json
@@ -176,16 +178,19 @@ def main():
         model = model.cuda()
     else:
         model = model.cpu()
+    model = model.cpu()
     if args.input_manifest is None:
         texts = []
         with args.input_text.open() as f:
-            texts.append(f.readline().strip())
+            for line in f:
+                texts.append(line.strip())
     else:
         manifest = load_manifest(args.input_manifest)
         text_key = "pred_text" if "pred_text" in manifest[0] else "text"
         texts = []
         for item in manifest:
             texts.append(item[text_key])
+    print("len(texts):", len(texts))
     processed_texts = model.add_punctuation_capitalization(
         texts,
         batch_size=args.batch_size,
@@ -195,10 +200,12 @@ def main():
         return_labels=args.save_only_labels,
     )
     if args.output_manifest is None:
+        args.output_text.parent.mkdir(exist_ok=True, parents=True)
         with args.output_text.open('w') as f:
             for t in processed_texts:
                 f.write(t + '\n')
     else:
+        args.output_manifest.parent.mkdir(exist_ok=True, parents=True)
         with args.output_manifest.open('w') as f:
             for item, t in zip(manifest, processed_texts):
                 item[text_key] = t
