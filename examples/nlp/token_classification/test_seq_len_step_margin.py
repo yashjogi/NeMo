@@ -50,7 +50,8 @@ def get_args():
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
     parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
-    parser.add_argument("--max_num_subtokens_in_input", "-N", default=16384, type=int)
+    parser.add_argument("--num_subtokens_in_input", "-N", default=16384, type=int)
+    parser.add_argument("--num_subtokens_step", "-s", default=1000, type=int)
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -216,13 +217,20 @@ def main():
             print(f"SKIPPING because parameter set {dscr} is impossible")
             continue
         try:
-            processed = model.add_punctuation_capitalization(
-                texts,
-                batch_size=args.max_num_subtokens_in_input // max_seq_length,
-                max_seq_length=max_seq_length,
-                margin=margin,
-                step=step,
-            )
+            success = False
+            num_subtokens_in_input = args.num_subtokens_in_input
+            while not success:
+                try:
+                    processed = model.add_punctuation_capitalization(
+                        texts,
+                        batch_size=num_subtokens_in_input / max_seq_length,
+                        max_seq_length=max_seq_length,
+                        margin=margin,
+                        step=step,
+                    )
+                    success = True
+                except RuntimeError:
+                    num_subtokens_in_input -= args.num_subtokens_step
         except ValueError:
             print(f"SKIPPING because parameter set {dscr} is impossible")
             continue
