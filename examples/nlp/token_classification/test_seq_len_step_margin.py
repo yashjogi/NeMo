@@ -16,7 +16,6 @@ from nemo.collections.nlp.models import PunctuationCapitalizationModel
 from score_punctuation_evaluation import PUNCT_LABELS_TO_NUMBERS, compute_scores
 
 
-MAX_NUM_SUBTOKENS_IN_INPUT = 8184
 MAX_SEQ_LENGTH_KEY = "max_seq_length"
 
 
@@ -51,6 +50,7 @@ def get_args():
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
     parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
+    parser.add_argument("--max_num_subtokens_to_input", "-n", default=16384, type=int)
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -218,7 +218,7 @@ def main():
         try:
             processed = model.add_punctuation_capitalization(
                 texts,
-                batch_size=MAX_NUM_SUBTOKENS_IN_INPUT // max_seq_length,
+                batch_size=args.max_num_subtokens_in_input // max_seq_length,
                 max_seq_length=max_seq_length,
                 margin=margin,
                 step=step,

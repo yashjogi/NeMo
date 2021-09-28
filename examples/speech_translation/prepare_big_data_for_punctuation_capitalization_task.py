@@ -27,15 +27,29 @@ random.seed(42)
 
 SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
+PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$')
+PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
+
 
 def preprocess_wikipedia(file_path):
     with file_path.open() as f:
         page = ""
         page_in_progress = False
-        for line in f:
+        for i, line in enumerate(f):
             if '<page' in line:
-                if '<page>' not in line:
-                    logging.warning('Encountered an unusual')
+                if PAGE_OPENING_NORMAL_TAG.match(line) is None:
+                    logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
+                page_in_progress = True
+            if '</page' in line:
+                if PAGE_CLOSING_NORMAL_TAG.match(line) is None:
+                    logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
+                if not page_in_progress:
+                    logging.warning(f'Encountered closing page tag without opening tag. Line: {i}')
+                elif not page:
+                    logging.warning(f"Encountered a page which takes only one line. Line: {i}")
+            if page_in_progress:
+                page += line
+
 
 
 
