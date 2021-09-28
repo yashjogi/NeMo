@@ -66,7 +66,7 @@ HTTP = re.compile(r'https?://', flags=re.I)
 BRACKETS_AND_CONTENT = re.compile(r'\(.*\)')
 
 
-def get_args():
+def get_args(supported_corpus_types):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
         "input_files",
@@ -97,7 +97,7 @@ def get_args():
         help="List of names of WMT corpuses which is used as raw material for creating punctuation capitalization "
         "dataset. Number and order of elements in this list should be equal to the number of elements in `input_files` "
         "list.",
-        choices=SUPPORTED_CORPUS_TYPES,
+        choices=supported_corpus_types,
         nargs="+",
         required=True,
     )
@@ -191,7 +191,7 @@ def get_args():
         action="store_true",
     )
     parser.add_argument(
-        "--no_label_for_all_characters_are_upper_case",
+        "--no_label_if_all_characters_are_upper_case",
         "-U",
         help="If this option is set all words capitalization are labelled as 'U' if the first character is in upper "
         "case. If this option is not set words which contain only uppercase letters (except one character words) "
@@ -714,7 +714,7 @@ def normalize_punctuation(all_docs, lang):
     os.chdir(cwd)
 
 
-def create_bert_labels(line, allowed_punctuation, no_label_for_all_characters_are_upper_case):
+def create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are_upper_case):
     labels = ""
     allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
     for w_i, word in enumerate(line):
@@ -727,7 +727,7 @@ def create_bert_labels(line, allowed_punctuation, no_label_for_all_characters_ar
                 labels += "O"
             labels += line[w_i + 1][0] if w_i < len(line) - 1 and line[w_i + 1][0] in allowed_punctuation else 'O'
             labels += ' '
-    if no_label_for_all_characters_are_upper_case:
+    if no_label_if_all_characters_are_upper_case:
         labels = labels.replace('u', 'U')
     return labels
 
@@ -736,7 +736,7 @@ def create_autoregressive_labels(
     line,
     allowed_punctuation,
     only_first_punctuation_character_after_word,
-    no_label_for_all_characters_are_upper_case,
+    no_label_if_all_characters_are_upper_case,
 ):
     labels = ""
     for w_i, word in enumerate(line):
@@ -774,7 +774,7 @@ def create_autoregressive_labels(
                 if num_added == 0:
                     labels += ' '
     labels = SPACE_DUP.sub(' ', labels)
-    if no_label_for_all_characters_are_upper_case:
+    if no_label_if_all_characters_are_upper_case:
         labels = labels.replace('u', 'U')
     return labels
 
@@ -787,7 +787,7 @@ def write_dataset(
     autoregressive_labels,
     allowed_punctuation,
     only_first_punctuation_character_after_word_in_autoregressive,
-    no_label_for_all_characters_are_upper_case,
+    no_label_if_all_characters_are_upper_case,
 ):
     dir_.mkdir(exist_ok=True, parents=True)
     with (dir_ / Path("text.txt")).open('w') as f:
@@ -802,7 +802,7 @@ def write_dataset(
         with (dir_ / Path("bert_labels.txt")).open('w') as f:
             for line in split_data:
                 f.write(
-                    create_bert_labels(line, allowed_punctuation, no_label_for_all_characters_are_upper_case) + '\n'
+                    create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are_upper_case) + '\n'
                 )
     if autoregressive_labels:
         with (dir_ / Path("autoregressive_labels.txt")).open('w') as f:
@@ -812,13 +812,13 @@ def write_dataset(
                         line,
                         allowed_punctuation,
                         only_first_punctuation_character_after_word_in_autoregressive,
-                        no_label_for_all_characters_are_upper_case,
+                        no_label_if_all_characters_are_upper_case,
                     ) + '\n'
                 )
 
 
 def main():
-    args = get_args()
+    args = get_args(SUPPORTED_CORPUS_TYPES)
     tokenizer = get_tokenizer(args.tokenizer)
     all_docs = {}
     number_of_sentences_in_input = 0
@@ -886,7 +886,7 @@ def main():
             args.autoregressive_labels,
             args.allowed_punctuation,
             args.only_first_punctuation_character_after_word_in_autoregressive,
-            args.no_label_for_all_characters_are_upper_case,
+            args.no_label_if_all_characters_are_upper_case,
         )
     if args.dev_size > 0:
         write_dataset(
@@ -897,7 +897,7 @@ def main():
             args.autoregressive_labels,
             args.allowed_punctuation,
             args.only_first_punctuation_character_after_word_in_autoregressive,
-            args.no_label_for_all_characters_are_upper_case,
+            args.no_label_if_all_characters_are_upper_case,
         )
     write_dataset(
         result[test_size + args.dev_size :],
@@ -907,7 +907,7 @@ def main():
         args.autoregressive_labels,
         args.allowed_punctuation,
         args.only_first_punctuation_character_after_word_in_autoregressive,
-        args.no_label_for_all_characters_are_upper_case,
+        args.no_label_if_all_characters_are_upper_case,
     )
     if args.autoregressive_labels:
         with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
