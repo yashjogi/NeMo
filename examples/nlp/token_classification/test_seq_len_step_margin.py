@@ -50,8 +50,8 @@ def get_args():
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
     parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
-    parser.add_argument("--num_subtokens_in_input", "-N", default=20000, type=int)
-    parser.add_argument("--num_subtokens_step", "-S", default=1000, type=int)
+    parser.add_argument("--num_subtokens_in_input", "-N", default=17000, type=int)
+    parser.add_argument("--num_subtokens_step", "-S", default=500, type=int)
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -210,6 +210,7 @@ def main():
             result = json.load(f)
             result = make_margins_and_steps_integers(result)
         best = get_best_metrics_and_parameters(result)
+    num_subtokens_in_input = args.num_subtokens_in_input
     for max_seq_length, margin, step in product(args.max_seq_length, args.margin, args.step):
         dscr = f"max_seq_length={max_seq_length}, margin={margin}, step={step}"
         print(dscr)
@@ -218,12 +219,11 @@ def main():
             continue
         try:
             success = False
-            num_subtokens_in_input = args.num_subtokens_in_input
             while not success:
                 try:
                     processed = model.add_punctuation_capitalization(
                         texts,
-                        batch_size=num_subtokens_in_input / max_seq_length,
+                        batch_size=num_subtokens_in_input // max_seq_length,
                         max_seq_length=max_seq_length,
                         margin=margin,
                         step=step,
