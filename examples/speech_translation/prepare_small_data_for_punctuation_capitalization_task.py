@@ -554,20 +554,39 @@ def remove_wrong_lang_docs(docs, lang, model_path, max_fraction, max_length):
     )
 
 
+def arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, values_to_prepend):
+    result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
+    for start_sentence_i, sentence in enumerate(doc):
+        for end_sentence_i in range(start_sentence_i + 1, len(doc)):
+            n_words = sum(
+                [
+                    len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
+                    for i in range(start_sentence_i, end_sentence_i)
+                ]
+            )
+            if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
+                break
+            result[n_words].append(values_to_prepend + [start_sentence_i, end_sentence_i])
+    return result
+
+
 def arrange_sentences_by_number_of_words(docs, sequence_length_range):
     result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     for doc_id, doc in docs.items():
-        for start_sentence_i, sentence in enumerate(doc):
-            for end_sentence_i in range(start_sentence_i + 1, len(doc)):
-                n_words = sum(
-                    [
-                        len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
-                        for i in range(start_sentence_i, end_sentence_i)
-                    ]
-                )
-                if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
-                    break
-                result[n_words].append((doc_id, start_sentence_i, end_sentence_i))
+        doc_arrangement = arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, [doc_id])
+        for k, v in doc_arrangement.items():
+            result[k] += v
+        # for start_sentence_i, sentence in enumerate(doc):
+        #     for end_sentence_i in range(start_sentence_i + 1, len(doc)):
+        #         n_words = sum(
+        #             [
+        #                 len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
+        #                 for i in range(start_sentence_i, end_sentence_i)
+        #             ]
+        #         )
+        #         if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
+        #             break
+        #         result[n_words].append((doc_id, start_sentence_i, end_sentence_i))
     return result
 
 

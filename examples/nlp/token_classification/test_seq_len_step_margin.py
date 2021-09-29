@@ -11,6 +11,7 @@ from itertools import product
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import torch
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 
 from score_punctuation_evaluation import PUNCT_LABELS_TO_NUMBERS, compute_scores
@@ -221,6 +222,7 @@ def main():
             success = False
             while not success:
                 try:
+                    torch.cuda.empty_cache()
                     processed = model.add_punctuation_capitalization(
                         texts,
                         batch_size=num_subtokens_in_input // max_seq_length,
