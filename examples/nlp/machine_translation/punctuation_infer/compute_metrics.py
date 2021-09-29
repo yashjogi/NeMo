@@ -56,7 +56,7 @@ def get_args():
         action="store_true",
     )
     parser.add_argument(
-        "--normalize_punctuation",
+        "--normalize_punctuation_in_hyp",
         "-n",
         help="If 2 or punctuation characters were inserted replace them with the first one and a space. If punctuation "
         "after space is inserted replace it with space.",
@@ -130,12 +130,14 @@ def main():
         args.capitalization_labels,
         args.include_leading_punctuation_in_metrics,
         args.evelina_data_format or args.hypothesis_evelina_data_format,
+        args.normalize_punctuation_in_hyp,
     )
     ref_punctuation, ref_capitalization, ref_lines = read_lines(
         args.ref,
         args.capitalization_labels,
         args.include_leading_punctuation_in_metrics,
         args.evelina_data_format or args.reference_evelina_data_format,
+        False,
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
