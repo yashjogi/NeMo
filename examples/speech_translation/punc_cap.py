@@ -18,6 +18,9 @@ MAX_NUM_SUBTOKENS_IN_INPUT = 8184
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest-to-align-with", "-a", required=True, type=Path)
+    parser.add_argument(
+        "--model", "-m", default="punctuation_en_bert", help="Path to .nemo file or name of pretrained model."
+    )
     parser.add_argument("--manifest-pred", "-p", required=True, type=Path)
     parser.add_argument("--output", "-o", required=True, type=Path)
     args = parser.parse_args()
@@ -77,7 +80,10 @@ def decimal_repl(match):
 
 def main():
     args = get_args()
-    model = PunctuationCapitalizationModel.from_pretrained("punctuation_en_bert")
+    if args.model in PunctuationCapitalizationModel.list_available_models():
+        model = PunctuationCapitalizationModel.from_pretrained(args.model)
+    else:
+        model = PunctuationCapitalizationModel.restore_from(args.model)
     order = get_talk_id_order(args.manifest_to_align_with)
     texts_to_process = load_manifest_text(args.manifest_pred, "pred_text")
     texts = [texts_to_process[talk_id] for talk_id in order]

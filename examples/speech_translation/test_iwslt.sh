@@ -12,6 +12,7 @@ git clone https://github.com/PeganovAnton/mwerSegmenter
 Parameters of the script are
   dataset_dir: path to directory with year dataset. Obtained when archive IWSLT-SLT.tst2019.en-de.tgz is unpacked
   asr_model: pretrained NGC name or path to NeMo ASR checkpoint
+  punctuation_model: pretrained NGC name of PunctuationCapitalizationModel or path to .nemo file
   translation_model: pretrained NGC name or path to NeMo NMT checkpoint
   output_dir: path to directory where results will be stored
   segmented: whether segment input audio before transcription using markup provided in dataset. 1 - segment,
@@ -21,6 +22,7 @@ Parameters of the script are
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
+  punctuation_en_bert \
   ~/checkpoints/wmt21_en_de_backtranslated_24x6_averaged.nemo \
   ~/iwslt_2019_test_result \
   0 \
@@ -32,10 +34,11 @@ set -e
 
 dataset_dir="$(realpath "$1")"
 asr_model="$2"  # Path to checkpoint or NGC pretrained name
-translation_model="$3"
-output_dir="$(realpath "$4")"
-segmented="$5"  # 1 or 0
-mwerSegmenter="$6"  # 1 or 0
+punctuation_model="$3"  # Path to checkpoint or NGC pretrained name
+translation_model="$4"
+output_dir="$(realpath "$5")"
+segmented="$6"  # 1 or 0
+mwerSegmenter="$7"  # 1 or 0
 
 
 audio_dir="${dataset_dir}/wavs"
@@ -128,6 +131,7 @@ else
   punc_dir="${output_dir}/punc_transcripts_not_segmented_input"
 fi
 python punc_cap.py -a "${en_ground_truth_manifest}" \
+  -m "${punctuation_model}" \
   -p "${transcript}" \
   -o "${punc_dir}/${asr_model_name}.txt"
 
