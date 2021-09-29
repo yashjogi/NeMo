@@ -80,7 +80,7 @@ def decimal_repl(match):
 
 def main():
     args = get_args()
-    if args.model in PunctuationCapitalizationModel.list_available_models():
+    if args.model in [x.pretrained_model_name for x in PunctuationCapitalizationModel.list_available_models()]:
         model = PunctuationCapitalizationModel.from_pretrained(args.model)
     else:
         model = PunctuationCapitalizationModel.restore_from(args.model)
