@@ -6,7 +6,7 @@ import prepare_small_data_for_punctuation_capitalization_task as small
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--input_text", "-i", type=Path, required=True)
+    parser.add_argument("--input_text", "-t", type=Path, required=True)
     parser.add_argument("--output_dir", "-o", type=Path, required=True)
     parser.add_argument(
         "--only_first_punctuation_character_after_word_in_autoregressive",
