@@ -55,6 +55,13 @@ def get_args():
         "-E",
         action="store_true",
     )
+    parser.add_argument(
+        "--normalize_punctuation",
+        "-n",
+        help="If 2 or punctuation characters were inserted replace them with the first one and a space. If punctuation "
+        "after space is inserted replace it with space.",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.hyp = args.hyp.expanduser()
     args.ref = args.ref.expanduser()
@@ -77,7 +84,9 @@ def transform_to_autoregressive_format(line, line_i):
     return result
 
 
-def read_lines(path, capitalization_labels, include_leading_punctuation_in_metrics, evelina_data_format):
+def read_lines(
+    path, capitalization_labels, include_leading_punctuation_in_metrics, evelina_data_format, normalize_punctuation_
+):
     lstrip_re = re.compile(f"^[^{capitalization_labels}]+")
     rstrip_re = re.compile(f"[^{capitalization_labels}]*$")
     capitalization_re = re.compile(f'[{capitalization_labels}]', flags=re.I)
@@ -96,7 +105,9 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
                 line += ' '
             lines.append(line)
             capitalization.append(capitalization_re.findall(line))
-            punctuation.append(list(filter(lambda x: x, capitalization_re.split(line))))
+            punctuation.append(
+                [x[0] + ' ' if x[0] != ' ' else ' ' for x in filter(lambda x: x, capitalization_re.split(line))]
+            )
     return punctuation, capitalization, lines
 
 
