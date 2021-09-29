@@ -93,7 +93,7 @@ def read_lines(
     punctuation, capitalization, lines = [], [], []
     with path.open() as f:
         for i, line in enumerate(f):
-
+            line = line.strip('\n')
             if evelina_data_format:
                 line = transform_to_autoregressive_format(line, i)
             if include_leading_punctuation_in_metrics:
