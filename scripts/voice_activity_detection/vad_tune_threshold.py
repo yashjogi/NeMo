@@ -33,6 +33,7 @@ python vad_tune_threshold.py \
 """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--threshold_range", help="range of single threshold in list 'START,END,STEP' to be tuned on", type=str)
     parser.add_argument("--onset_range", help="range of onset in list 'START,END,STEP' to be tuned on", type=str)
     parser.add_argument("--offset_range", help="range of offset in list 'START,END,STEP' to be tuned on", type=str)
     parser.add_argument(
@@ -86,6 +87,11 @@ if __name__ == "__main__":
     params = {}
     try:
         # if not input range for values of parameters, use default value defined in function binarization and filtering in nemo/collections/asr/parts/utils/vad_utils.py
+        if args.threshold_range:
+            start, stop, step = [float(i) for i in args.threshold_range.split(",")]
+            threshold = np.arange(start, stop, step)
+            params['threshold'] = threshold
+
         if args.onset_range:
             start, stop, step = [float(i) for i in args.onset_range.split(",")]
             onset = np.arange(start, stop, step)

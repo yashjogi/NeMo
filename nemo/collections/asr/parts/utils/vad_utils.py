@@ -27,7 +27,7 @@ from pyannote.metrics import detection
 from sklearn.model_selection import ParameterGrid
 
 from nemo.utils import logging
-
+import IPython.display as ipd
 
 """
 This file contains all the utility functions required for voice activity detection. 
@@ -375,7 +375,7 @@ def binarization(sequence, per_args):
 
     onset = per_args.get('onset', 0.5)
     offset = per_args.get('offset', 0.5)
-    pad_onset = per_args.get('pad_onset', 0)  # 0.0
+    pad_onset = per_args.get('pad_onset', 0)  
     pad_offset = per_args.get('pad_offset', 0)
 
     onset, offset = cal_vad_onset_offset(per_args.get('scale', 'absolute'), onset, offset, sequence)
@@ -387,27 +387,21 @@ def binarization(sequence, per_args):
         if speech:
             # Switch from speech to non-speech
             if sequence[i] < offset:
-                if start - pad_onset >= 0:
-                    speech_segments.add((start - pad_onset, i * shift_len + pad_offset))
-                else:
-                    speech_segments.add((0, i * shift_len + pad_offset))
+                if  i * shift_len + pad_offset > max(0, start - pad_onset):
+                    speech_segments.add((max(0, start - pad_onset), i * shift_len + pad_offset))
                 start = i * shift_len
                 speech = False
-
         # Current frame is non-speech
         else:
             # Switch from non-speech to speech
             if sequence[i] > onset:
                 start = i * shift_len
                 speech = True
-
     # if it's speech at the end, add final segment
     if speech:
-        speech_segments.add((start - pad_onset, i * shift_len + pad_offset))
-
+        speech_segments.add((max(0, start - pad_onset), i * shift_len + pad_offset))
     # Merge the overlapped speech segments due to padding
     speech_segments = merge_overlap_segment(speech_segments)  # not sorted
-
     return speech_segments
 
 
@@ -462,6 +456,7 @@ def filtering(speech_segments, per_args):
             speech_segments = merge_overlap_segment(speech_segments)
         if min_duration_on > 0.0:
             speech_segments = filter_short_segments(speech_segments, min_duration_on)
+
     return speech_segments
 
 
@@ -555,6 +550,12 @@ def get_parameter_grid(params):
     """
     Get the parameter grid given a dictionary of parameters.
     """
+    if "threshold" in params:
+        params_grid = []
+        for t in params["threshold"]:
+            params_grid.append({'onset': t, 'offset': t})
+        return params_grid
+
     has_filter_speech_first = False
     if 'filter_speech_first' in params:
         filter_speech_first = params['filter_speech_first']
@@ -594,7 +595,9 @@ def vad_tune_threshold_on_dev(
     metric = detection.DetectionErrorRate()
     params_grid = get_parameter_grid(params)
 
+    
     for param in params_grid:
+
         # perform binarization, filtering accoring to param and write to rttm-like table
         vad_table_dir = generate_vad_segment_table(vad_pred, param, shift_len=0.01, num_workers=20)
 
@@ -654,9 +657,15 @@ def check_if_param_valid(params):
                     raise ValueError(
                         "Invalid inputs! All float parameters excpet pad_onset and pad_offset should be larger than 0!"
                     )
+    if "onset" and "offset" in params:
+        if not (all(i <= 1 for i in params['onset']) and all(i <= 1 for i in params['offset'])):
+            raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
+    elif "threshold" in params:
+        print("using threshold!! ")
+        if not (all(i <= 1 for i in params['threshold'])):
+            raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
 
-    if not (all(i <= 1 for i in params['onset']) and all(i <= 1 for i in params['offset'])):
-        raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
+
 
     return True
 
@@ -756,7 +765,8 @@ def plot(
     ax2.legend(loc='lower right', shadow=True)
     ax2.set_ylabel('Preds and Probas')
     ax2.set_ylim([-0.1, 1.1])
-    return None
+    # return None
+    return ipd.Audio(audio, rate=16000)
 
 
 def gen_pred_from_speech_segments(speech_segments, prob, shift_len=0.01):
