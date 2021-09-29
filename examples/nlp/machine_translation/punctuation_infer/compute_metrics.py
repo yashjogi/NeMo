@@ -45,6 +45,16 @@ def get_args():
         "user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format",
         action="store_true",
     )
+    parser.add_argument(
+        "--reference_evelina_data_format",
+        "-R",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--hypothesis_evelina_data_format",
+        "-E",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.hyp = args.hyp.expanduser()
     args.ref = args.ref.expanduser()
@@ -105,10 +115,16 @@ def pad_or_clip_hyp(hyp, ref, pad_id):
 def main():
     args = get_args()
     hyp_punctuation, hyp_capitalization, hyp_lines = read_lines(
-        args.hyp, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
+        args.hyp,
+        args.capitalization_labels,
+        args.include_leading_punctuation_in_metrics,
+        args.evelina_data_format or args.hypothesis_evelina_data_format,
     )
     ref_punctuation, ref_capitalization, ref_lines = read_lines(
-        args.ref, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
+        args.ref,
+        args.capitalization_labels,
+        args.include_leading_punctuation_in_metrics,
+        args.evelina_data_format or args.reference_evelina_data_format,
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
