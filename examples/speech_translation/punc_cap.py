@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 
@@ -83,7 +84,7 @@ def main():
     if args.model in [x.pretrained_model_name for x in PunctuationCapitalizationModel.list_available_models()]:
         model = PunctuationCapitalizationModel.from_pretrained(args.model)
     else:
-        model = PunctuationCapitalizationModel.restore_from(args.model.expanduser())
+        model = PunctuationCapitalizationModel.restore_from(os.path.expanduser(args.model))
     order = get_talk_id_order(args.manifest_to_align_with)
     texts_to_process = load_manifest_text(args.manifest_pred, "pred_text")
     texts = [texts_to_process[talk_id] for talk_id in order]
