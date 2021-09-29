@@ -154,6 +154,8 @@ def main():
                 max_delta_length=args.max_delta_length,
             )
         else:
+            if args.word_tokens is not None:
+                model.decoder_tokenizer.word_ids = model.decoder_tokenizer.tokens_to_ids(args.word_tokens)
             model.beam_search = BeamSearchSequenceGenerator(
                 embedding=model.decoder.embedding,
                 decoder=model.decoder.decoder,
