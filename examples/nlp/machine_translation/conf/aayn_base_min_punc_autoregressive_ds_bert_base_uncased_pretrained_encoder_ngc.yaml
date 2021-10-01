@@ -90,7 +90,7 @@ model:
     num_token_types: 0
     embedding_dropout: 0.1
     learn_positional_encodings: false
-    hidden_size: 512
+    hidden_size: 768
     inner_size: 2048
     num_layers: 6
     num_attention_heads: 8
