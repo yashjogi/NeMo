@@ -14,7 +14,7 @@ pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="\$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
-sleep 36000
+sleep 72000
 set +e +x
 EOF
 
