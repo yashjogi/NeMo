@@ -170,7 +170,6 @@ class MTEncDecModel(EncDecNLPModel):
         library = decoder_cfg_dict.pop('library', 'nemo')
         model_name = decoder_cfg_dict.pop('model_name', None)
         pretrained = decoder_cfg_dict.pop('pretrained', False)
-        decoder_cfg_dict['hidden_size'] = self.encoder.hidden_size
         self.decoder = get_transformer(
             library=library,
             model_name=model_name,
@@ -179,6 +178,9 @@ class MTEncDecModel(EncDecNLPModel):
             encoder=False,
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
         )
+
+        # validate hidden_size of encoder and decoder
+        self._validate_encoder_decoder_hidden_size()
 
         self.log_softmax = TokenClassifier(
             hidden_size=self.decoder.hidden_size,
@@ -228,6 +230,17 @@ class MTEncDecModel(EncDecNLPModel):
         self.add_src_num_words_to_batch_test = cfg.get(
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
+
+    def _validate_encoder_decoder_hidden_size(self):
+        """
+        Validate encoder and decoder hidden sizes, and enforce same size.
+        Can be overridden by child classes to support encoder/decoder different
+        hidden_size.
+        """
+        if self.encoder.hidden_size != self.decoder.hidden_size:
+            raise ValueError(
+                f"Class does not support encoder.hidden_size ({self.encoder.hidden_size}) != decoder.hidden_size ({self.decoder.hidden_size}). Please use bottleneck architecture instead (i.e., model.encoder.arch = 'seq2seq' in conf/aayn_bottleneck.yaml)"
+            )
 
     def filter_predicted_ids(self, ids):
         ids[ids >= self.decoder_tokenizer.vocab_size] = self.decoder_tokenizer.unk_id

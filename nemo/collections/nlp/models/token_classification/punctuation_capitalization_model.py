@@ -563,8 +563,14 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                 computation, margins are removed. In the next list, subtokens which logits are not used for final
                 predictions computation are marked with asterisk: ``[['[CLS]'*, 'h', 'e', 'l'*, '[SEP]'*],
                 ['[CLS]'*, 'e'*, 'l', 'l'*, '[SEP]'*], ['[CLS]'*, 'l'*, 'l', 'o', '[SEP]'*]]``.
+<<<<<<< HEAD
             return_labels: whether to return labels in NeMo format instead of queries with restored punctuation and
                 capitalization.
+=======
+            return_labels: whether to return labels in NeMo format (see https://docs.nvidia.com/deeplearning/nemo/
+                user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format) instead of queries
+                with restored punctuation and capitalization.
+>>>>>>> main
         Returns:
             result: text with added capitalization and punctuation or punctuation and capitalization labels
         """
@@ -621,7 +627,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                         all_preds[q_i], acc_probs[q_i] = self._move_acc_probs_to_token_preds(pred, prob, len(prob))
             for i, query in enumerate(queries):
                 result.append(
-                    self.get_labels(all_punct_preds[i], all_capit_preds[i]) if return_labels
+                    self.get_labels(all_punct_preds[i], all_capit_preds[i])
+                    if return_labels
                     else self.apply_punct_capit_predictions(query, all_punct_preds[i], all_capit_preds[i])
                 )
         finally:
