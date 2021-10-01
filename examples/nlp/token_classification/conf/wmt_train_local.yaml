@@ -57,7 +57,7 @@ model:
     use_cache: true
     # shared among dataloaders
     num_workers:  2
-    pin_memory: false
+    pin_memory: true
     drop_last: false
 
     # required for inference
@@ -69,6 +69,8 @@ model:
     # `margin` subtokens predictions at the start or the end of a segment (if it is not the start or the end of entire
     # input sequence) are not used for punctuation and capitalization prediction.
     margin: 8
+    persistent_workers: true
+
 
   train_ds:
     text_file: text_train.txt
@@ -76,6 +78,7 @@ model:
     shuffle: true
     num_samples: -1
     batch_size: 64
+    persistent_workers: true
 
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
@@ -86,6 +89,7 @@ model:
     shuffle: false
     num_samples: -1
     batch_size: 64
+    persistent_workers: true
 
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for

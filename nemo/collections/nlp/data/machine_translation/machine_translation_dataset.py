@@ -64,7 +64,8 @@ class TranslationDataConfig:
     concat_sampling_technique: Optional[str] = 'temperature'
     concat_sampling_temperature: Optional[int] = 5
     concat_sampling_probabilities: Optional[List[float]] = None
-    add_src_num_words_to_batch: Optional[bool] = False
+    add_src_num_words_to_batch: bool = False
+    persistent_workers: bool = False
 
 
 def get_number_of_words(ids, tokenizer):

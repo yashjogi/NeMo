@@ -22,8 +22,9 @@ model:
     tar_file_prefix: parallel # prefix for tar file names
     shuffle: true
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   validation_ds:
     src_file_name: /data/dev/input.txt
@@ -34,8 +35,9 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   test_ds:
     src_file_name: /data/test/input.txt
@@ -46,8 +48,9 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   optim:
     name: adam

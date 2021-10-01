@@ -15,6 +15,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer
 
@@ -88,6 +89,9 @@ Usage:
       +exp_manager.exp_dir=nmt_base \
       +exp_manager.checkpoint_callback_params.mode=max 
 """
+
+
+torch.manual_seed(42)
 
 
 @dataclass

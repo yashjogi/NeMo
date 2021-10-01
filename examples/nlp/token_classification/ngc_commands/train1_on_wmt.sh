@@ -2,6 +2,7 @@ WANDB_API_KEY="$1"
 
 read -r -d '' command << EOF
 set -e -x
+OMP_NUM_THREADS=8
 git clone https://github.com/NVIDIA/NeMo
 mkdir -p /result/nemo_experiments
 cd NeMo

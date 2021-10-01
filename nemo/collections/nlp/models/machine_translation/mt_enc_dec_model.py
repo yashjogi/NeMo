@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ctypes
 import itertools
 import json
 import os
 import random
-from multiprocessing import Value
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -49,6 +49,16 @@ from nemo.core.classes.common import PretrainedModelInfo, typecheck
 from nemo.utils import logging, model_utils
 
 __all__ = ['MTEncDecModel']
+
+
+def increase_l2_fetch_granularity():
+    _libcudart = ctypes.CDLL('libcudart.so')
+    # Set device limit on the current device
+    # cudaLimitMaxL2FetchGranularity = 0x05
+    pValue = ctypes.cast((ctypes.c_int * 1)(), ctypes.POINTER(ctypes.c_int))
+    _libcudart.cudaDeviceSetLimit(ctypes.c_int(0x05), ctypes.c_int(128))
+    _libcudart.cudaDeviceGetLimit(pValue, ctypes.c_int(0x05))
+    assert pValue.contents.value == 128
 
 
 class MTEncDecModel(EncDecNLPModel):
@@ -135,6 +145,7 @@ class MTEncDecModel(EncDecNLPModel):
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
+        increase_l2_fetch_granularity()
 
         # encoder from NeMo, Megatron-LM, or HuggingFace
         encoder_cfg_dict = OmegaConf.to_container(cfg.get('encoder'))
@@ -652,6 +663,7 @@ class MTEncDecModel(EncDecNLPModel):
             num_workers=cfg.get("num_workers", 2),
             pin_memory=cfg.get("pin_memory", False),
             drop_last=cfg.get("drop_last", False),
+            persistent_workers=cfg.get("persistent_workers", False),
         )
 
     def replace_beam_with_sampling(self, topk=500):

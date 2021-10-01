@@ -57,7 +57,7 @@ model:
     use_cache: true
     # shared among dataloaders
     num_workers:  2
-    pin_memory: false
+    pin_memory: true
     drop_last: false
 
     # required for inference
@@ -76,6 +76,8 @@ model:
     shuffle: true
     num_samples: -1
     batch_size: 64
+    persistent_workers: true
+    pin_memory: true
 
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
@@ -86,6 +88,8 @@ model:
     shuffle: false
     num_samples: -1
     batch_size: 64
+    persistent_workers: true
+    pin_memory: true
 
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
