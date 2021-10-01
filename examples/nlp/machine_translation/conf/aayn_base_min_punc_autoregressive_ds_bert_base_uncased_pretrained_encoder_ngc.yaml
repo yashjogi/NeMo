@@ -14,13 +14,13 @@ model:
   tgt_language: 'en'
 
   train_ds:
-    src_file_name: null
-    tgt_file_name: null
-    use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
-    # config for preprocessing training data and creating a tarred datset automatically
-    metadata_file: /data/train_autoregressive_tarred/metadata.tokens.16384.json
-    tar_file_prefix: parallel # prefix for tar file names
+    src_file_name: /data/train/input.txt
+    tgt_file_name: /data/train/autoregressive_labels.txt
+    tokens_in_batch: 12288
+    clean: true
+    max_seq_length: 512
     shuffle: true
+    num_samples: -1
     drop_last: false
     pin_memory: true
     num_workers: 8
@@ -29,7 +29,7 @@ model:
   validation_ds:
     src_file_name: /data/dev/input.txt
     tgt_file_name: /data/dev/autoregressive_labels.txt
-    tokens_in_batch: 16384
+    tokens_in_batch: 12288
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -42,7 +42,7 @@ model:
   test_ds:
     src_file_name: /data/test/input.txt
     tgt_file_name: /data/test/autoregressive_labels.txt
-    tokens_in_batch: 16384
+    tokens_in_batch: 12288
     clean: false
     max_seq_length: 512
     shuffle: false
