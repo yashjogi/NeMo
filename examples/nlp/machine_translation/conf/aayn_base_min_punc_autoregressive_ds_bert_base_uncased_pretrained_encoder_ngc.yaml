@@ -16,7 +16,7 @@ model:
   train_ds:
     src_file_name: /data/train/input.txt
     tgt_file_name: /data/train/autoregressive_labels.txt
-    tokens_in_batch: 12288
+    tokens_in_batch: 10240
     clean: true
     max_seq_length: 512
     shuffle: true
@@ -29,7 +29,7 @@ model:
   validation_ds:
     src_file_name: /data/dev/input.txt
     tgt_file_name: /data/dev/autoregressive_labels.txt
-    tokens_in_batch: 12288
+    tokens_in_batch: 10240
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -42,7 +42,7 @@ model:
   test_ds:
     src_file_name: /data/test/input.txt
     tgt_file_name: /data/test/autoregressive_labels.txt
-    tokens_in_batch: 12288
+    tokens_in_batch: 10240
     clean: false
     max_seq_length: 512
     shuffle: false
