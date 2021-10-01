@@ -3,17 +3,11 @@ import logging
 import os
 import random
 import re
-import string
 import subprocess
-from copy import deepcopy
-from io import StringIO
-from math import ceil
 from pathlib import Path
 
-import fasttext
 import numpy as np
-import requests
-from bs4 import BeautifulSoup, NavigableString
+from tqdm import tqdm
 
 import nltk
 from nemo.collections.nlp.modules import get_tokenizer
@@ -86,6 +80,8 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
+    text = text.replace('<doc doc_id"', '')
+    text = text.replace('</doc>', '')
     outs, errs = normalize_process.communicate(text.encode('utf-8'))
     text = outs.decode('utf-8')
     if tokenizer is not None:
@@ -103,20 +99,21 @@ def start_normalize_process(lang):
     return normalize_process
 
 
-def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length_range):
+def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0):
     normalize_process = start_normalize_process(lang)
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
+    sentence_len_by_docs = {}
+    doc_id_to_file_i = {}
     page = ""
     page_i = 0
-    output_dir = output_dir / Path(file_path.name)
     page_in_progress = False
     total_number_of_characters_in_current_file = 0
     file_i = 0
-    doc_id = 0
+    doc_id = start_doc_id
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     with file_path.open() as in_f:
-        for i, line in enumerate(in_f):
+        for i, line in tqdm(enumerate(in_f)):
             if '<page' in line:
                 if PAGE_OPENING_NORMAL_TAG.match(line) is None:
                     logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
@@ -149,9 +146,9 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
                 else:
                     text = get_wiki_text_lines(text.group(1), normalize_process, tokenizer)
                     if text:
-                        opening_doc_tag = f'<doc docid="{doc_id}"'
+                        opening_doc_tag = f'<doc docid="{doc_id}" source="{file_path}"'
                         if title is not None:
-                            opening_doc_tag += f'title="{QUOTES.sub("", title)}">'
+                            opening_doc_tag += f' title="{QUOTES.sub("", title)}">'
                         else:
                             opening_doc_tag += '>'
                         file_text = '\n'.join([opening_doc_tag] + text + ['</doc>']) + '\n'
@@ -160,6 +157,10 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
                                 text, sequence_length_range, [file_i, doc_id]
                         ):
                             sentences_by_number_of_words[k] += v
+                        sentence_len_by_docs[doc_id] = np.array(
+                            [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(line)) for line in text]
+                        )
+                        doc_id_to_file_i[doc_id] = file_i
                         doc_id += 1
                         total_number_of_characters_in_current_file += len(file_text)
                         if total_number_of_characters_in_current_file > MAX_NUM_CHARACTERS_IN_1_FILE:
@@ -176,26 +177,142 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
     if total_number_of_characters_in_current_file:
         out_f.close()
         logging.info(f"Finished filling file {current_file_path}")
-    return sentences_by_number_of_words
+    return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
+
+
+def prepend_file_i(not_whole_segments, doc_id_to_file_i):
+    return np.concatenate([np.vectorize(doc_id_to_file_i.get)(not_whole_segments[:, 0]), not_whole_segments], 1)
+
+
+def is_int(s):
+    try:
+        int(s)
+    except ValueError:
+        return False
+    return True
+
+
+def write_dataset(
+    segments,
+    sorted_file,
+    line_start_pos,
+    output_dir,
+    create_model_input,
+    bert_labels,
+    autoregressive_labels,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word_in_autoregressive,
+    no_label_if_all_characters_are_upper_case,
+):
+    text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
+    bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
+    with sorted_file.open() as in_f, \
+            text_fn.open('w') as tf, \
+            input_fn.open('w') as inp_f, \
+            bert_fn.open('w') as bf, \
+            ar_fn.open('w') as af:
+        for i in tqdm(segments):
+            in_f.seek(line_start_pos[i])
+            line = in_f.readline().strip()
+            tf.write(line + '\n')
+            line = [s for s in small.WORD.split(line) if s]
+            if create_model_input:
+                inp_f.write(' '.join([s.lower() for s in line if small.WORD.match(s)]) + '\n')
+            if bert_labels:
+                bf.write(
+                    small.create_bert_labels(
+                        line, allowed_punctuation, no_label_if_all_characters_are_upper_case
+                    ) + '\n'
+                )
+            if autoregressive_labels:
+                af.write(
+                    small.create_autoregressive_labels(
+                        line,
+                        allowed_punctuation,
+                        only_first_punctuation_character_after_word_in_autoregressive,
+                        no_label_if_all_characters_are_upper_case,
+                    ) + '\n'
+                )
+
+
+def read_doc(fd):
+    text = []
+    line = fd.readline()
+    while line and not line.startswith('</doc>'):
+        text.append(line.strip())
+        line = fd.readline()
+    return text
+
+
+def cut_and_save(segments, doc_dir, output_file):
+    line_start_pos = []
+    current_pos = 0
+    current_file_i = -1
+    current_fd = None
+    current_doc = None
+    current_doc_id = -1
+    line_i = 0
+    with output_file.open('w') as f:
+        for segment in tqdm(segments):
+            file_i = segment[0]
+            doc_id = segment[1]
+            if current_doc_id + 1 != doc_id:
+                logging.warning(f"Documents are not in order: current_doc_id={current_doc_id}, doc_id={doc_id}")
+            if current_file_i != file_i:
+                current_file_i = file_i
+                if current_fd is not None:
+                    current_fd.close()
+                current_fd = (doc_dir / Path(str(current_file_i) + '.xml')).open()
+                current_doc_id = -1
+                line_i = 0
+            if current_doc_id != doc_id:
+                line = 'FILLER'
+                count = 0
+                while line and not line.startswith(f'<doc doc_id="{doc_id}"'):
+                    line = current_fd.readline()
+                    count += 1
+                    line_i += 1
+                if count != 1:
+                    logging.warning(
+                        f"The next document is supposed to start right after previous document: "
+                        f"file_i={file_i} current_doc_id={current_doc_id} doc_id={doc_id} count={count} line_i={line_i}"
+                    )
+                current_doc = read_doc(current_fd)
+                line_i += len(current_doc)
+            text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
+            line_start_pos.append(current_pos)
+            f.write(text_seg)
+            current_pos += len(text_seg)
+    return np.array(line_start_pos)
 
 
 def main():
     args = small.get_args(SUPPORTED_CORPUS_TYPES)
     tokenizer = get_tokenizer(args.tokenizer)
-    all_docs = {}
     number_of_sentences_in_input = 0
     sentences_by_number_of_words = {n: [] for n in range(args.sequence_length_range[0], args.sequence_length_range[1])}
+    sentence_len_by_docs = {}
+    doc_id_to_file_i = {}
+    document_dir = args.output_dir / Path("documents")
     for corpus_type, file_path in zip(args.corpus_types, args.input_files):
         logging.info(f"Processing file {file_path}..")
         if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-            for k, v in preprocess_wikipedia(
-                file_path, args.output_dir, args.lang, tokenizer, args.sequence_length_range
-            ):
+            logging.info(f"Preprocessing wikipedia file {file_path}...")
+            res = preprocess_wikipedia(file_path, document_dir, args.lang, tokenizer, args.sequence_length_range, 0)
+            corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
+            for k, v in corpus_sentences_by_number_of_words.items():
                 sentences_by_number_of_words[k] += v
+            sentence_len_by_docs.update(corpus_sentence_len_by_docs)
+            doc_id_to_file_i.update(corpus_doc_id_to_file_i)
         else:
             raise ValueError(
                 f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
             )
+        number_of_corpus_sentences = sum([len(v) for v in corpus_sentences_by_number_of_words.values()])
+        logging.info(
+            f"Finished preprocessing corpus {file_path}. Number of sentences the corpus: "
+            f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
+        )
     if args.size is None:
         args.size = number_of_sentences_in_input
     if (
@@ -207,23 +324,56 @@ def main():
             f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole sentences. "
             f"Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
         )
-    result, number_of_words_stats, selected_by_docs = select_close_to_uniform_distribution(
-        sentences_by_number_of_words, args.size, args.percentage_segments_with_intact_sentences, all_docs
+    logging.info(f"Selecting segments with intact sentences...")
+    result, number_of_words_stats, remaining_by_docs = small.select_close_to_uniform_distribution(
+        sentences_by_number_of_words,
+        args.size,
+        args.percentage_segments_with_intact_sentences,
+        {k: len(v) for k, v in sentence_len_by_docs.items()}
     )
-    for i in range(len(result)):
-        result[i] = ' '.join(all_docs[result[i][0]][result[i][1] : result[i][2]])
-    result += create_not_whole_sentence_segments(
-        all_docs, selected_by_docs, number_of_words_stats, args.size, args.percentage_segments_with_intact_sentences,
+    result = np.array(result)
+    result = np.concatenate(
+        [
+            result,
+            np.zeros([result.shape[0], 1], dtype=result.dtype),
+            np.full([result.shape[0], 1], -1, dtype=result.dtype),
+        ],
+        1,
     )
-    result = list(set(result))
-    random.shuffle(result)
+    logging.info("Selecting segments with not intact sentences...")
+    result = np.concatenate(
+        [
+            result,
+            prepend_file_i(
+                np.array(
+                    small.create_not_whole_sentence_segments(
+                        sentence_len_by_docs,
+                        remaining_by_docs,
+                        number_of_words_stats,
+                        args.size,
+                        args.percentage_segments_with_intact_sentences,
+                    ),
+                ),
+                doc_id_to_file_i
+            )
+        ]
+    )
+    result = result[np.argsort(result[:, 0])]  # sort by file index
+    result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
+    sorted_text_file = args.output_dir / Path('sorted_text.txt')
+    logging.info("Cutting segments...")
+    line_start_pos = cut_and_save(result, document_dir, sorted_text_file)
+    order = np.random.permutation(result.shape[0])
     if args.dev_size > len(result):
         raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({len(result)})")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     test_size = int(args.size * args.test_ratio / 100)
     if test_size > 0:
+        logging.info("Writing test dataset...")
         write_dataset(
-            result[:test_size],
+            order[:test_size],
+            sorted_text_file,
+            line_start_pos,
             args.output_dir / Path("test"),
             args.create_model_input,
             args.bert_labels,
@@ -233,8 +383,11 @@ def main():
             args.no_label_if_all_characters_are_upper_case,
         )
     if args.dev_size > 0:
+        logging.info("Writing dev dataset...")
         write_dataset(
-            result[test_size : test_size + args.dev_size],
+            order[test_size : test_size + args.dev_size],
+            sorted_text_file,
+            line_start_pos,
             args.output_dir / Path("dev"),
             args.create_model_input,
             args.bert_labels,
@@ -243,8 +396,11 @@ def main():
             args.only_first_punctuation_character_after_word_in_autoregressive,
             args.no_label_if_all_characters_are_upper_case,
         )
+    logging.info("Writing train dataset...")
     write_dataset(
-        result[test_size + args.dev_size :],
+        order[test_size + args.dev_size :],
+        sorted_text_file,
+        line_start_pos,
         args.output_dir / Path("train"),
         args.create_model_input,
         args.bert_labels,
@@ -253,10 +409,6 @@ def main():
         args.only_first_punctuation_character_after_word_in_autoregressive,
         args.no_label_if_all_characters_are_upper_case,
     )
-    if args.autoregressive_labels:
-        with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
-            for c in set(''.join(result)):
-                f.write(c + '\n')
 
 
 if __name__ == "__main__":

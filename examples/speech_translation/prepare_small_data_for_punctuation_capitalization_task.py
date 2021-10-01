@@ -13,6 +13,7 @@ from pathlib import Path
 import fasttext
 import requests
 from bs4 import BeautifulSoup, NavigableString
+from tqdm import tqdm
 
 from nemo.collections.nlp.modules import get_tokenizer
 
@@ -108,7 +109,7 @@ def get_args(supported_corpus_types):
         "datasets. By default it is equal to the total number of sentences in the input data.",
     )
     parser.add_argument("--dev_size", "-d", help="Number of sequences in dev data.", type=int, default=10 ** 4)
-    parser.add_argument("--test_ratio", "-t", help="Percentage of test data.", type=float, default=0.0)
+    parser.add_argument("--test_size", "-t", help="Percentage of test data.", type=int, default=10 ** 4)
     parser.add_argument(
         "--sequence_length_range",
         "-r",
@@ -470,6 +471,15 @@ def cut_words(s, start_word, num_words):
     return s
 
 
+def cut_words_from_all_docs(all_docs, borders):
+    result = []
+    for b in borders:
+        doc = all_docs[b[0]]
+        text = ' '.join(doc[b[1] : b[2]])
+        result.append(cut_words(text, b[3], b[4]))
+    return result
+
+
 def add_docs(all_docs, file_docs, file_name):
     for k, v in file_docs.items():
         duplicate = False
@@ -591,10 +601,13 @@ def arrange_sentences_by_number_of_words(docs, sequence_length_range):
 
 
 def select_close_to_uniform_distribution(
-    sentences_by_number_of_words, planned_number_of_segments, percentage_of_segments_with_intact_sentences, all_docs
+    sentences_by_number_of_words,
+    planned_number_of_segments,
+    percentage_of_segments_with_intact_sentences,
+    number_of_sentences_by_docs
 ):
     result = []
-    remaining_by_docs = {doc_id: set(range(len(s))) for doc_id, s in all_docs.items()}
+    remaining_by_docs = {doc_id: set(range(num)) for doc_id, num in number_of_sentences_by_docs.items()}
     number_of_sentences_by_number_of_words = sorted([(len(v), k) for k, v in sentences_by_number_of_words.items()])
     number_of_words_stats = []
     min_number_of_sentences_for_sentence_len = ceil(
@@ -603,9 +616,11 @@ def select_close_to_uniform_distribution(
         / 100
         * percentage_of_segments_with_intact_sentences
     )
-    for i, (n, len_) in enumerate(number_of_sentences_by_number_of_words):
+    for i, (n, len_) in tqdm(enumerate(number_of_sentences_by_number_of_words)):
         if n < min_number_of_sentences_for_sentence_len:
             tmp = sentences_by_number_of_words[len_]
+            # Readjust planned number of segments for remaining sentences lengths taking into account that for current
+            # length there will be less sentences
             planned_number_of_segments -= len(tmp) * int(100 / percentage_of_segments_with_intact_sentences)
             min_number_of_sentences_for_sentence_len = ceil(
                 planned_number_of_segments
@@ -646,7 +661,7 @@ def calculate_how_many_remain_to_cut(number_of_words_stats, size, percentage_seg
 
 
 def create_not_whole_sentence_segments(
-    all_docs, remaining_by_docs, number_of_words_stats, size, percentage_segments_with_intact_sentences
+    sentence_len_by_docs, remaining_by_docs, number_of_words_stats, size, percentage_segments_with_intact_sentences
 ):
     result = []
     remaining_by_docs = deepcopy(remaining_by_docs)
@@ -665,24 +680,27 @@ def create_not_whole_sentence_segments(
         for doc_id, remaining in remaining_by_docs.items():
             next_sentence_i = -1
             for i in remaining:
-                len_ = len(all_docs[doc_id][i].split())
+                len_ = sentence_len_by_docs[doc_id][i]
                 if i >= next_sentence_i and len_ > 1:
-                    shift = random.randint(0, len_ // 2)
-                    text = all_docs[doc_id][i]
-                    num_words = len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(text))
+                    shift = random.randint(1, len_ // 2)
+                    start_sentence_i = i
+                    num_words = len_
                     next_sentence_i = i + 1
                     number_of_words = list(yet_to_cut_by_number_of_words.keys())
                     nw_i %= len(number_of_words)
-                    while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(all_docs[doc_id]):
-                        text += ' ' + all_docs[doc_id][next_sentence_i]
-                        num_words += len(
-                            WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(all_docs[doc_id][next_sentence_i])
-                        )
+                    while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(sentence_len_by_docs[doc_id]):
+                        num_words += sentence_len_by_docs[doc_id][next_sentence_i]
                         next_sentence_i += 1
                     if shift + number_of_words[nw_i] < num_words:
-                        if shift + number_of_words[nw_i] == num_words and shift == 0:
-                            shift += 1
-                        result.append(cut_words(text, shift, number_of_words[nw_i]))
+                        result.append(
+                            [
+                                doc_id,
+                                start_sentence_i,
+                                next_sentence_i,
+                                shift,
+                                number_of_words[nw_i],
+                            ]
+                        )
                         yet_to_cut_by_number_of_words[number_of_words[nw_i]] -= 1
                         if yet_to_cut_by_number_of_words[number_of_words[nw_i]] == 0:
                             del yet_to_cut_by_number_of_words[number_of_words[nw_i]]
@@ -694,7 +712,7 @@ def create_not_whole_sentence_segments(
                         break
             if done:
                 break
-        remaining_by_docs = {doc_id: set(range(len(doc))) for doc_id, doc in all_docs.items()}
+        remaining_by_docs = {doc_id: set(range(len(doc))) for doc_id, doc in sentence_len_by_docs.items()}
     assert (
         len(result) == size - sum(number_of_words_stats.values()),
         f"len(result)={len(result)}, size={size}, "
@@ -882,23 +900,35 @@ def main():
             f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole sentences. "
             f"Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
         )
-    result, number_of_words_stats, selected_by_docs = select_close_to_uniform_distribution(
-        sentences_by_number_of_words, args.size, args.percentage_segments_with_intact_sentences, all_docs
+    result, number_of_words_stats, remaining_by_docs = select_close_to_uniform_distribution(
+        sentences_by_number_of_words,
+        args.size,
+        args.percentage_segments_with_intact_sentences,
+        {k: len(v) for k, v in all_docs.items()},
     )
     for i in range(len(result)):
         result[i] = ' '.join(all_docs[result[i][0]][result[i][1] : result[i][2]])
-    result += create_not_whole_sentence_segments(
-        all_docs, selected_by_docs, number_of_words_stats, args.size, args.percentage_segments_with_intact_sentences,
+    result += cut_words_from_all_docs(
+        all_docs,
+        create_not_whole_sentence_segments(
+            {
+                k: [len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(x)) for x in v]
+                for k, v in all_docs.items()
+            },
+            remaining_by_docs,
+            number_of_words_stats,
+            args.size,
+            args.percentage_segments_with_intact_sentences,
+        )
     )
     result = list(set(result))
     random.shuffle(result)
     if args.dev_size > len(result):
         raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({len(result)})")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    test_size = int(args.size * args.test_ratio / 100)
-    if test_size > 0:
+    if args.test_size > 0:
         write_dataset(
-            result[:test_size],
+            result[:args.test_size],
             args.output_dir / Path("test"),
             args.create_model_input,
             args.bert_labels,
@@ -909,7 +939,7 @@ def main():
         )
     if args.dev_size > 0:
         write_dataset(
-            result[test_size : test_size + args.dev_size],
+            result[args.test_size : args.test_size + args.dev_size],
             args.output_dir / Path("dev"),
             args.create_model_input,
             args.bert_labels,
@@ -919,7 +949,7 @@ def main():
             args.no_label_if_all_characters_are_upper_case,
         )
     write_dataset(
-        result[test_size + args.dev_size :],
+        result[args.test_size + args.dev_size :],
         args.output_dir / Path("train"),
         args.create_model_input,
         args.bert_labels,
@@ -928,10 +958,6 @@ def main():
         args.only_first_punctuation_character_after_word_in_autoregressive,
         args.no_label_if_all_characters_are_upper_case,
     )
-    if args.autoregressive_labels:
-        with (args.output_dir / Path("autoregressive_labels_vocab.txt")).open('w') as f:
-            for c in set(''.join(result)):
-                f.write(c + '\n')
 
 
 if __name__ == "__main__":
