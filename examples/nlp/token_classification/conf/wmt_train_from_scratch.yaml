@@ -102,7 +102,7 @@ model:
     batch_size: 64
 
   tokenizer:
-    tokenizer_name: ${model.language_model.pretrained_model_name} # or sentencepiece
+    tokenizer_name: pretrained_tokenizer # or sentencepiece
     vocab_file: null # path to vocab file
     tokenizer_model: null # only used if tokenizer is sentencepiece
     special_tokens: null

@@ -15,9 +15,7 @@ export PYTHONPATH="\$(pwd)"
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
 python -c "from transformers import AutoTokenizer; tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased'); tokenizer.save_pretrained('pretrained_tokenizer')"
-python punctuation_capitalization_train.py --config-path=conf \
-    --config-name wmt_train_from_scratch \
-    trainer.gpus=1
+sleep 100000
 set +e +x
 EOF
 
