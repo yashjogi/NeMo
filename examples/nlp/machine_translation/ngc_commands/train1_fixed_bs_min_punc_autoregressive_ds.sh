@@ -20,7 +20,7 @@ EOF
 
 ngc batch run \
   --instance dgx1v.16g.1.norm \
-  --name "ml-model.aayn min_autoreg_punc_fixed_beam_search_cap_mt" \
+  --name "ml-model.aayn min_autoreg_punc_cap_fixed_beam_search_mt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
   --datasetid 88728:/data \
