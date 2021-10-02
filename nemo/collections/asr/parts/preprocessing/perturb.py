@@ -60,7 +60,6 @@ except ModuleNotFoundError:
 
     HAVE_OMEGACONG_WEBDATASET = False
 
-
 try:
     from nemo.collections.asr.parts.utils import numba_utils
 
@@ -70,7 +69,6 @@ except (ImportError, ModuleNotFoundError):
 
 
 def read_one_audiosegment(manifest, target_sr, rng, tarred_audio=False, audio_dataset=None):
-
     if tarred_audio:
         if audio_dataset is None:
             raise TypeError("Expected augmentation dataset but got None")
@@ -388,15 +386,15 @@ class NoisePerturbation(Perturbation):
     """
 
     def __init__(
-        self,
-        manifest_path=None,
-        min_snr_db=10,
-        max_snr_db=50,
-        max_gain_db=300.0,
-        rng=None,
-        audio_tar_filepaths=None,
-        shuffle_n=100,
-        orig_sr=16000,
+            self,
+            manifest_path=None,
+            min_snr_db=10,
+            max_snr_db=50,
+            max_gain_db=300.0,
+            rng=None,
+            audio_tar_filepaths=None,
+            shuffle_n=100,
+            orig_sr=16000,
     ):
         self._manifest = collections.ASRAudioText(manifest_path, parser=parsers.make_parser([]), index_by_file_id=True)
         self._audiodataset = None
@@ -450,13 +448,13 @@ class NoisePerturbation(Perturbation):
 
         if noise._samples.shape[0] < data._samples.shape[0]:
             noise_idx = self._rng.randint(0, data._samples.shape[0] - noise._samples.shape[0])
-            data._samples[noise_idx : noise_idx + noise._samples.shape[0]] += noise._samples
+            data._samples[noise_idx: noise_idx + noise._samples.shape[0]] += noise._samples
 
         else:
             data._samples += noise._samples
 
     def perturb_with_foreground_noise(
-        self, data, noise, data_rms=None, max_noise_dur=2, max_additions=1,
+            self, data, noise, data_rms=None, max_noise_dur=2, max_additions=1,
     ):
         snr_db = self._rng.uniform(self._min_snr_db, self._max_snr_db)
         if not data_rms:
@@ -475,10 +473,10 @@ class NoisePerturbation(Perturbation):
             noise_samples *= 10.0 ** (noise_gain_db / 20.0)
 
             if noise_samples.shape[0] > data._samples.shape[0]:
-                noise_samples = noise_samples[0 : data._samples.shape[0]]
+                noise_samples = noise_samples[0: data._samples.shape[0]]
 
             noise_idx = self._rng.randint(0, data._samples.shape[0] - noise_samples.shape[0])
-            data._samples[noise_idx : noise_idx + noise_samples.shape[0]] += noise_samples
+            data._samples[noise_idx: noise_idx + noise_samples.shape[0]] += noise_samples
 
 
 class WhiteNoisePerturbation(Perturbation):
@@ -534,24 +532,24 @@ class RirAndNoisePerturbation(Perturbation):
     """
 
     def __init__(
-        self,
-        rir_manifest_path=None,
-        rir_prob=0.5,
-        noise_manifest_paths=None,
-        min_snr_db=0,
-        max_snr_db=50,
-        rir_tar_filepaths=None,
-        rir_shuffle_n=100,
-        noise_tar_filepaths=None,
-        apply_noise_rir=False,
-        orig_sample_rate=None,
-        max_additions=5,
-        max_duration=2.0,
-        bg_noise_manifest_paths=None,
-        bg_min_snr_db=10,
-        bg_max_snr_db=50,
-        bg_noise_tar_filepaths=None,
-        bg_orig_sample_rate=None,
+            self,
+            rir_manifest_path=None,
+            rir_prob=0.5,
+            noise_manifest_paths=None,
+            min_snr_db=0,
+            max_snr_db=50,
+            rir_tar_filepaths=None,
+            rir_shuffle_n=100,
+            noise_tar_filepaths=None,
+            apply_noise_rir=False,
+            orig_sample_rate=None,
+            max_additions=5,
+            max_duration=2.0,
+            bg_noise_manifest_paths=None,
+            bg_min_snr_db=10,
+            bg_max_snr_db=50,
+            bg_noise_tar_filepaths=None,
+            bg_orig_sample_rate=None,
     ):
 
         logging.info("Called Rir aug init")
@@ -631,33 +629,41 @@ class TranscodePerturbation(Perturbation):
         Args:
             rng: Random number generator
     """
-
-    def __init__(self, rng=None):
+    def __init__(self, codecs=None, rng=None):
         self._rng = np.random.RandomState() if rng is None else rng
-        self._codecs = ["g711", "amr-nb"]
+        self._codecs = codecs if codecs is not None else ["g711", "amr-nb", "ogg"]
+        self.att_factor = 0.8  # to avoid saturation while writing to wav
 
     def perturb(self, data):
-        att_factor = 0.8
         max_level = np.max(np.abs(data._samples))
-        norm_factor = att_factor / max_level
-        norm_samples = norm_factor * data._samples
+        if max_level > 1.0:
+            norm_factor = self.att_factor / max_level
+            norm_samples = norm_factor * data._samples
+        else:
+            norm_samples = data._samples
         orig_f = NamedTemporaryFile(suffix=".wav")
         sf.write(orig_f.name, norm_samples.transpose(), 16000)
 
         codec_ind = random.randint(0, len(self._codecs) - 1)
         if self._codecs[codec_ind] == "amr-nb":
             transcoded_f = NamedTemporaryFile(suffix="_amr.wav")
-            rates = list(range(0, 8))
+            rates = list(range(0, 4))
             rate = rates[random.randint(0, len(rates) - 1)]
             _ = subprocess.check_output(
                 f"sox {orig_f.name} -V0 -C {rate} -t amr-nb - | sox -t amr-nb - -V0 -b 16 -r 16000 {transcoded_f.name}",
-                shell=True,
-            )
+                shell=True)
+        elif self._codecs[codec_ind] == "ogg":
+            transcoded_f = NamedTemporaryFile(suffix="_ogg.wav")
+            rates = list(range(-1, 8))
+            rate = rates[random.randint(0, len(rates) - 1)]
+            _ = subprocess.check_output(
+                f"sox {orig_f.name} -V0 -C {rate} -t ogg - | sox -t ogg - -V0 -b 16 -r 16000 {transcoded_f.name}",
+                shell=True)
         elif self._codecs[codec_ind] == "g711":
             transcoded_f = NamedTemporaryFile(suffix="_g711.wav")
             _ = subprocess.check_output(
-                f"sox {orig_f.name} -V0  -r 8000 -c 1 -e a-law {transcoded_f.name}", shell=True
-            )
+                f"sox {orig_f.name} -V0  -r 8000 -c 1 -e a-law {transcoded_f.name} lowpass 3400 highpass 300",
+                shell=True)
 
         new_data = AudioSegment.from_file(transcoded_f.name, target_sr=16000)
         data._samples = new_data._samples[0 : data._samples.shape[0]]

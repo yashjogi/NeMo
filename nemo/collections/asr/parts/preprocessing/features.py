@@ -235,7 +235,7 @@ class FilterbankFeatures(nn.Module):
         use_grads=False,
         rng=None,
         nb_augmentation_prob=0.5,
-        nb_max_freq=3700,
+        nb_max_freq=4000,
         nb_min_freq=300,
     ):
         super().__init__()
@@ -415,7 +415,7 @@ class FilterbankFeatures(nn.Module):
                 x = torch.view_as_real(x)
             x = torch.sqrt(x.pow(2).sum(-1) + guard)
 
-        if self.nb_augmentation_prob > 0.0:
+        if self.training and self.nb_augmentation_prob > 0.0:
             for idx in range(x.shape[0]):
                 if self._rng.random() < self.nb_augmentation_prob:
                     # x[idx, 1:self._min_freq_index, :] = 0.0
