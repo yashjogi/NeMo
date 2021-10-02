@@ -20,7 +20,9 @@ python enc_dec_nmt.py --config-path=conf \
   model.encoder.pretrained=false \
   model.train_ds.tokens_in_batch=9196 \
   model.validation_ds.tokens_in_batch=9196 \
-  model.test_ds.tokens_in_batch=9196
+  model.test_ds.tokens_in_batch=9196 \
+  model.optim.sched.warmup_ratio=0.2 \
+  model.optim.lr=0.00008
 set +e +x
 EOF
 
