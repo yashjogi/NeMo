@@ -18,8 +18,8 @@ python enc_dec_nmt.py --config-path=conf \
   --config-name aayn_base_min_punc_autoregressive_ds_bert_base_uncased_pretrained_encoder_ngc \
   trainer.gpus=8 \
   model.train_ds.tokens_in_batch=8172 \
-  model.validation_ds.tokens_in_batch=8172 \
-  model.test_ds.tokens_in_batch=8172
+  model.validation_ds.tokens_in_batch=1024 \
+  model.test_ds.tokens_in_batch=1024
 set +e +x
 EOF
 
