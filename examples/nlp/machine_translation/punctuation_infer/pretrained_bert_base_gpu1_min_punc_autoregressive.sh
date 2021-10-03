@@ -3,7 +3,7 @@ job_results_name="2329536_pretrained_hf_bert_base_uncased_steps300000_gpu1_bs102
 output="${ds_path}/predictions_wmt/test_min_punc/${job_results_name}/pred.txt"
 mkdir -p "$(dirname "${output}")"
 python nmt_transformer_infer.py \
-    --model=/home/apeganov/NeMo/examples/nlp/machine_translation/ngc_results/aayn_base_min_punc_autoregressive/${job_results_name}/nemo_experiments/AAYNBase/2021-09-26_22-57-10/checkpoints/AAYNBase.nemo \
+    --model="~/NeMo/examples/nlp/machine_translation/ngc_results/aayn_base_min_punc_autoregressive/${job_results_name}/nemo_experiments/AAYNBase/best.nemo" \
     --srctext="${ds_path}/wmt/test/text_test.txt" \
     --tgtout="${output}" \
     --target_lang en \
