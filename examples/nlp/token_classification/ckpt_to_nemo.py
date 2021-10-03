@@ -4,8 +4,6 @@ sys.path = ["/home/lab/NeMo"] + sys.path
 import argparse
 from pathlib import Path
 
-import pytorch_lightning as pl
-import torch
 from omegaconf import OmegaConf
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
@@ -26,12 +24,6 @@ def get_args():
 def main():
     args = get_args()
     cfg = OmegaConf.load(args.cfg)
-    trainer = pl.Trainer(
-        gpus=0,
-        logger=False,
-        checkpoint_callback=False,
-    )
-    # model = PunctuationCapitalizationModel(cfg.model, trainer)
     model = PunctuationCapitalizationModel.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
     model.save_to(args.nemo)
 

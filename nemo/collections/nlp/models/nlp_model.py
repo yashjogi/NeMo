@@ -384,6 +384,7 @@ class NLPModel(ModelPT, Exportable):
                 if 'mp_rank' in name:
                     mp_ranks.append(name)
             if mp_ranks:
+                logging.info(f"(NLPModel.restore_from)Setting `app_state.model_parallel_size` to {len(mp_ranks) // 2}")
                 app_state.model_parallel_size = len(mp_ranks) // 2  # directory and file are included in getnames()
 
                 # get checkpoint version

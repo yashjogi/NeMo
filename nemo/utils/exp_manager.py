@@ -688,16 +688,20 @@ class NeMoModelCheckpoint(ModelCheckpoint):
 
     @rank_zero_only
     def on_train_end(self, trainer, pl_module):
+        logging.info("Peforming on_train_end.")
         if trainer.fast_dev_run:
+            logging.info("(on_train_end)fast_dev_run is set.")
             return None
         app_state = AppState()
         if app_state.model_parallel_size is not None:
+            logging.info("(on_train_end)returning because `app_state.model_parallel_size is not None`")
             return None
 
         # TODO: make this work for model parallel, need to call on data parallel rank 0 and update best_model_path
         # Load the best model and then re-save it
         if self.save_best_model:
             trainer.checkpoint_connector.restore(self.best_model_path)
+        logging.info("(on_train_end)performing final save_to")
         pl_module.save_to(save_path=os.path.join(self.dirpath, self.prefix + self.postfix))
 
     def _del_model(self, trainer: "pl.Trainer", filepath: str) -> None:
