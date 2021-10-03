@@ -50,7 +50,7 @@ model:
     punct_labels_file: punct_label_ids.csv
     capit_labels_file: capit_label_ids.csv
   dataset:
-    data_dir: /home/lab/NeMo/examples/nlp/token_classification/data/wmt/train # /path/to/training/data
+    data_dir: /home/apeganov/NeMo/examples/nlp/token_classification/data/wmt/train # /path/to/training/data
     # parameters for dataset preprocessing
     max_seq_length: 512
     pad_label: 'O'
@@ -85,7 +85,7 @@ model:
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /home/lab/NeMo/examples/nlp/token_classification/data/wmt/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    ds_item: /home/apeganov/NeMo/examples/nlp/token_classification/data/wmt/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
     text_file: text_dev.txt
     labels_file: labels_dev.txt
     shuffle: false
@@ -96,7 +96,7 @@ model:
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /home/lab/NeMo/examples/nlp/token_classification/data/wmt/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    ds_item: /home/apeganov/NeMo/examples/nlp/token_classification/data/wmt/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
     text_file: text_test.txt
     labels_file: labels_test.txt
     shuffle: false
