@@ -18,7 +18,7 @@ model:
     tgt_file_name: null
     use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
     # config for preprocessing training data and creating a tarred datset automatically
-    metadata_file: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/train_autoregressive_tarred/metadata.tokens.16384.json
+    metadata_file: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/train_autoregressive_tarred/metadata.tokens.16384.json
     tar_file_prefix: parallel # prefix for tar file names
     shuffle: true
     drop_last: false
@@ -27,8 +27,8 @@ model:
     persistent_workers: true
 
   validation_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/dev/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/dev/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/dev/autoregressive_labels.txt
     tokens_in_batch: 10240
     clean: false
     max_seq_length: 512
@@ -40,8 +40,8 @@ model:
     persistent_workers: true
 
   test_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/test/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/test/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/test/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/test/autoregressive_labels.txt
     tokens_in_batch: 10240
     clean: false
     max_seq_length: 512
