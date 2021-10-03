@@ -125,6 +125,8 @@ exp_manager:
   exp_dir: /result/nemo_experiments
   name: AAYNBase
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: free_bs_min_punc_autoregressive_dataset_aayn_base_bs16384_1gpu_lr1e-4_steps300000_BPEdp0_dp0.1_lblsmoothing0

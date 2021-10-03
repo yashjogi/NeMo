@@ -35,6 +35,8 @@ exp_manager:
   exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
   name: Punctuation_and_Capitalization  # The name of your model
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: evelina_punc_cap_train_on_wmt_lr1e-4_steps300000
