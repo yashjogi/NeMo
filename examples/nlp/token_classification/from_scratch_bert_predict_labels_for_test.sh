@@ -5,4 +5,4 @@ python punctuate_capitalize_infer.py \
   --max_seq_length 512 \
   --step 510 \
   --margin 0 \
-  --save_only_labels
+  --save_labels_instead_of_text
