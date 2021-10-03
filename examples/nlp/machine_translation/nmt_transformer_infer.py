@@ -20,7 +20,8 @@ USAGE Example:
 2. Translate:
     python nmt_transformer_infer.py --model=[Path to .nemo file(s)] --srctext=wmt14-de-en.src --tgtout=wmt14-de-en.pre
 """
-
+import sys
+sys.path = ["/home/apeganov/NeMo"] + sys.path
 
 from argparse import ArgumentParser
 
