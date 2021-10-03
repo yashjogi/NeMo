@@ -4,6 +4,7 @@ sys.path = ["/home/lab/NeMo"] + sys.path
 import argparse
 from pathlib import Path
 
+import torch
 from omegaconf import OmegaConf
 
 from nemo.collections.nlp.models import MTEncDecModel, PunctuationCapitalizationModel
@@ -31,7 +32,10 @@ def main():
     args = get_args()
     cfg = OmegaConf.load(args.cfg)
     cls = MTEncDecModel if args.model_class == "MTEncDecModel" else PunctuationCapitalizationModel
-    model = cls.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
+    model = cls(cfg.model)
+    ckpt = torch.load(args.ckpt)
+    model.load_state_dict(ckpt['state_dict'], strict=False)
+    # model = cls.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
     model.save_to(args.nemo)
 
 
