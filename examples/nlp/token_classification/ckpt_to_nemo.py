@@ -6,7 +6,7 @@ from pathlib import Path
 
 from omegaconf import OmegaConf
 
-from nemo.collections.nlp.models import PunctuationCapitalizationModel
+from nemo.collections.nlp.models import MTEncDecModel, PunctuationCapitalizationModel
 
 
 def get_args():
@@ -14,6 +14,12 @@ def get_args():
     parser.add_argument("--ckpt", "-c", type=Path, help="Path to checkpoint to encapsulate.", required=True)
     parser.add_argument("--nemo", "-n", type=Path, help="Path to output nemo file", required=True)
     parser.add_argument("--cfg", "-f", type=Path, help="Path to config file", required=True)
+    parser.add_argument(
+        "--model_class",
+        "-t",
+        choices=["PunctuationCapitalizationModel", "MTEncDecModel"],
+        default="PunctuationCapitalizationModel",
+    )
     args = parser.parse_args()
     args.ckpt = args.ckpt.expanduser()
     args.nemo = args.nemo.expanduser()
@@ -24,7 +30,8 @@ def get_args():
 def main():
     args = get_args()
     cfg = OmegaConf.load(args.cfg)
-    model = PunctuationCapitalizationModel.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
+    cls = MTEncDecModel if args.model_class == "MTEncDecModel" else "PunctuationCapitalizationModel"
+    model = cls.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
     model.save_to(args.nemo)
 
 
