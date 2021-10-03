@@ -1,5 +1,5 @@
 import sys
-sys.path = ["/home/lab/NeMo"] + sys.path
+sys.path = ["/home/apeganov/NeMo"] + sys.path
 
 import argparse
 from pathlib import Path
