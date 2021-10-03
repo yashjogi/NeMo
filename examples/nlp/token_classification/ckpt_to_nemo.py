@@ -30,7 +30,7 @@ def get_args():
 def main():
     args = get_args()
     cfg = OmegaConf.load(args.cfg)
-    cls = MTEncDecModel if args.model_class == "MTEncDecModel" else "PunctuationCapitalizationModel"
+    cls = MTEncDecModel if args.model_class == "MTEncDecModel" else PunctuationCapitalizationModel
     model = cls.load_from_checkpoint(args.ckpt, cfg=cfg.model, strict=False)
     model.save_to(args.nemo)
 
