@@ -32,8 +32,7 @@ model:
         min_snr_db: 0
         max_snr_db: 30
         max_gain_db: 300.0
-   
-
+        
   validation_ds:
     manifest_filepath: ???
     sample_rate: ${model.sample_rate}
@@ -152,26 +151,24 @@ model:
       last_epoch: -1
 
 trainer:
-  gpus: -1 # number of gpus
-  max_epochs: 200
+  gpus: 0 # number of gpus
+  max_epochs: 150
   max_steps: null # computed at runtime if not set
   num_nodes: 1
   accelerator: ddp
   accumulate_grad_batches: 1
   checkpoint_callback: False  # Provided by exp_manager
   logger: False  # Provided by exp_manager
-  num_sanity_val_steps: 0
-  val_check_interval: 1 # Set to 0.25 to check 4 times per epoch, or an int for number of iterations
-  sync_batchnorm: false
-  benchmark: true
-  
+  log_every_n_steps: 1  # Interval of logging.
+  val_check_interval: 1.0  # Set to 0.25 to check 4 times per epoch, or an int for number of iterations
+
 exp_manager:
   exp_dir: null
-  name: {name}
+  name: *name
   create_tensorboard_logger: False
   create_checkpoint_callback: True
   checkpoint_callback_params: 
-    save_best_model: True
+    save_best_model: False
     always_save_nemo: True
   create_wandb_logger: True
   wandb_logger_kwargs:
