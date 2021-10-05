@@ -270,7 +270,7 @@ class ASR_DIAR_OFFLINE(object):
             _trans, _timestamps = self.clean_trans_and_TS(trans, timestamps)
             _spaces, _trans_words = self._get_spaces(_trans, _timestamps)
 
-            if not self.params['external_oracle_vad']:
+            if self.params['asr_based_vad']:
                 blanks = self._get_silence_timestamps(probs, symbol_idx=28, state_symbol='blank')
                 non_speech = self.threshold_non_speech(blanks, self.params)
 
@@ -323,7 +323,7 @@ class ASR_DIAR_OFFLINE(object):
 
         return spaces
 
-    def run_diarization(self, audio_file_list, oracle_manifest, oracle_num_speakers, pretrained_speaker_model):
+    def run_diarization(self, audio_file_list, oracle_manifest, oracle_num_speakers, pretrained_speaker_model, pretrained_vad_model=None):
         """
         Run diarization process using the given VAD timestamp (oracle_manifest).
 
@@ -351,14 +351,20 @@ class ASR_DIAR_OFFLINE(object):
 
         config = OmegaConf.load(MODEL_CONFIG)
 
+        if not oracle_manifest:
+            logging.info("Use system VAD!")
+            config.diarizer.vad.model_path = pretrained_vad_model
+        else:
+            config.diarizer.speaker_embeddings.oracle_vad_manifest = oracle_manifest
+    
         output_dir = os.path.join(self.root_path, 'oracle_vad')
         config.diarizer.paths2audio_files = audio_file_list
         config.diarizer.out_dir = output_dir  # Directory to store intermediate files and prediction outputs
         config.diarizer.speaker_embeddings.model_path = pretrained_speaker_model
-        config.diarizer.speaker_embeddings.oracle_vad_manifest = oracle_manifest
         config.diarizer.oracle_num_speakers = oracle_num_speakers
         config.diarizer.speaker_embeddings.shift_length_in_sec = self.params['shift_length_in_sec']
         config.diarizer.speaker_embeddings.window_length_in_sec = self.params['window_length_in_sec']
+        print(config)
         oracle_model = ClusteringDiarizer(cfg=config)
         oracle_model.diarize()
 
@@ -713,7 +719,8 @@ class ASR_DIAR_OFFLINE(object):
                 f.write("SPEAKER {} 1 {:.3f} {:.3f} <NA> <NA> speech <NA>\n".format(uniq_id, start, end - start))
 
     @staticmethod
-    def write_VAD_rttm(oracle_vad_dir, audio_file_list):
+    # Maybe we can reduce redundancy here? 
+    def write_VAD_rttm(oracle_vad_dir, audio_file_list, reference_rttmfile_list_path):
         """
         Writes VAD files to the oracle_vad_dir folder.
 
@@ -723,15 +730,15 @@ class ASR_DIAR_OFFLINE(object):
             audio_file_list (list):
                 The list of audio file paths.
         """
-        rttm_file_list = []
-        for path_name in audio_file_list:
-            uniq_id = get_uniq_id_from_audio_path(path_name)
-            rttm_file_list.append(f'{oracle_vad_dir}/{uniq_id}.rttm')
+        # rttm_file_list = []
+        # for path_name in audio_file_list:
+        #     uniq_id = get_uniq_id_from_audio_path(path_name)
+        #     rttm_file_list.append(f'{oracle_vad_dir}/{uniq_id}.rttm')
 
         oracle_manifest = os.path.join(oracle_vad_dir, 'oracle_manifest.json')
 
         write_rttm2manifest(
-            paths2audio_files=audio_file_list, paths2rttm_files=rttm_file_list, manifest_file=oracle_manifest
+            paths2audio_files=audio_file_list, paths2rttm_files=reference_rttmfile_list_path, manifest_file=oracle_manifest
         )
         return oracle_manifest
 
