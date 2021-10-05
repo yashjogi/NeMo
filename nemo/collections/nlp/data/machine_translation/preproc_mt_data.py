@@ -170,6 +170,7 @@ class MTDataPreproc:
                 decoder_tokenizer_model=getattr(self, "decoder_tokenizer_model", None),
                 decoder_bpe_dropout=cfg.decoder_tokenizer.get('bpe_dropout', 0.0),
                 decoder_r2l=cfg.decoder_tokenizer.get('r2l', False),
+                decoder_vocab_file=cfg.decoder_tokenizer.get('vocab_file'),
             )
 
             # If using tarred dataset for training, automatically create it if needed
@@ -297,6 +298,7 @@ class MTDataPreproc:
         decoder_bpe_dropout=0.0,
         decoder_model_name=None,
         decoder_r2l=False,
+        decoder_vocab_file=None,
     ):
 
         # if encoder_tokenizer_name != 'yttm' or decoder_tokenizer_name != 'yttm':
@@ -321,6 +323,7 @@ class MTDataPreproc:
             tokenizer_model=decoder_tokenizer_model,
             bpe_dropout=decoder_bpe_dropout,
             r2l=decoder_r2l,
+            vocab_file=decoder_vocab_file,
         )
 
         return encoder_tokenizer, decoder_tokenizer
