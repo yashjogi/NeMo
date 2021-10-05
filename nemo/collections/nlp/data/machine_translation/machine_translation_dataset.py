@@ -66,6 +66,7 @@ class TranslationDataConfig:
     concat_sampling_probabilities: Optional[List[float]] = None
     add_src_num_words_to_batch: bool = False
     persistent_workers: bool = False
+    prepend_eos_in_tgt: bool = False
 
 
 def get_number_of_words(ids, tokenizer):
@@ -92,6 +93,7 @@ class TranslationDataset(Dataset):
         reverse_lang_direction: bool = False,
         prepend_id: int = None,
         add_src_num_words_to_batch: bool = False,
+        prepend_eos_in_tgt: bool = False
     ):
         self.dataset_src = dataset_src
         self.dataset_tgt = dataset_tgt
@@ -107,6 +109,7 @@ class TranslationDataset(Dataset):
         self.reverse_lang_direction = reverse_lang_direction
         self.prepend_id = prepend_id
         self.add_src_num_words_to_batch = add_src_num_words_to_batch
+        self.prepend_eos_in_tgt = prepend_eos_in_tgt
 
         # deprecation warnings for cache_ids, use_cache, and cache_data_per_node
         if self.cache_ids is True or self.use_cache is True or self.cache_data_per_node is True:
@@ -128,6 +131,7 @@ class TranslationDataset(Dataset):
             cache_ids=self.cache_ids,
             cache_data_per_node=self.cache_data_per_node,
             use_cache=self.use_cache,
+            prepend_eos=self.prepend_eos_in_tgt,
         )
         if self.clean:
             src_ids, tgt_ids = self.clean_src_and_target(
