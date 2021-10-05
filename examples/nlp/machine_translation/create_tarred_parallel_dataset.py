@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--n_preproc_jobs', type=int, default=-2, help='Number of processes to use for creating the tarred dataset.',
     )
-
+    parser.add_argument("--prepend_eos_in_tgt", action='store_true')
     args = parser.parse_args()
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
@@ -149,4 +149,5 @@ if __name__ == '__main__':
         global_rank=0,
         world_size=1,
         n_jobs=args.n_preproc_jobs,
+        prepend_eos_in_tgt=args.prepend_eos_in_tgt,
     )

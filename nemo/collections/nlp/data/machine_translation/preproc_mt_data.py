@@ -371,6 +371,7 @@ class MTDataPreproc:
         world_size,
         n_jobs=-2,
         tar_file_prefix='parallel',
+        prepend_eos_in_tgt=False
     ):
         """Create tarred dataset from large paired translation data.
 
@@ -437,6 +438,7 @@ class MTDataPreproc:
                         fragment_index=fragment_index,
                         encoder_tokenizer_r2l=encoder_tokenizer_r2l,
                         decoder_tokenizer_r2l=decoder_tokenizer_r2l,
+                        prepend_eos_in_tgt=prepend_eos_in_tgt,
                     )
                     for fragment_index, lines_indices in enumerate(lines_partition)
                 )
@@ -552,6 +554,7 @@ class MTDataPreproc:
         decoder_model_name,
         decoder_tokenizer_r2l,
         fragment_index,
+        prepend_eos_in_tgt=False,
     ):
         start = lines_indices[0]
         stop = lines_indices[1]
@@ -590,6 +593,7 @@ class MTDataPreproc:
             decoder_model_name=decoder_model_name,
             decoder_tokenizer_r2l=decoder_tokenizer_r2l,
             fragment_index=fragment_index,
+            prepend_eos_in_tgt=prepend_eos_in_tgt,
         )
 
         os.remove(tmp_f_src.name)
@@ -915,6 +919,7 @@ class MTDataPreproc:
         decoder_model_name,
         decoder_tokenizer_r2l,
         fragment_index,
+        prepend_eos_in_tgt=False,
     ):
         """
         Writes current fragment of the overall parallel corpus to tarfiles by:
@@ -935,6 +940,7 @@ class MTDataPreproc:
             cache_ids=False,
             cache_data_per_node=False,
             use_cache=False,
+            prepend_eos_in_tgt=prepend_eos_in_tgt,
         )
         encoder_tokenizer, decoder_tokenizer = MTDataPreproc.get_enc_dec_tokenizers(
             encoder_tokenizer_name=encoder_tokenizer_name,

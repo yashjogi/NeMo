@@ -413,7 +413,15 @@ def remove_punctuation_from_sentence(sentence):
     return sentence
 
 
-def dataset_to_ids(dataset, tokenizer, cache_ids=False, add_bos_eos=True, cache_data_per_node=False, use_cache=False):
+def dataset_to_ids(
+    dataset,
+    tokenizer,
+    cache_ids=False,
+    add_bos_eos=True,
+    cache_data_per_node=False,
+    use_cache=False,
+    prepend_eos=False,
+):
     """
     Reads dataset from file line by line, tokenizes each line with tokenizer,
     and returns list of lists which corresponds to ids of tokenized strings.
@@ -426,6 +434,7 @@ def dataset_to_ids(dataset, tokenizer, cache_ids=False, add_bos_eos=True, cache_
         add_bos_eos (bool): whether to add <s> and </s> symbols (e.g., for NMT)
         cache_data_per_node (bool): Cache data on local_rank 0. Use when there is not a shared-filesystem.
         use_cache (bool): Use cached ids if they exist.
+        prepend_eos (bool): prepend EOS token instead of BOS.
     Returns:
         ids: list of ids which correspond to tokenized strings of the dataset
     """
@@ -441,7 +450,7 @@ def dataset_to_ids(dataset, tokenizer, cache_ids=False, add_bos_eos=True, cache_
         for sentence in tqdm(data, desc='Tokenizing sentence'):
             sent_ids = tokenizer.text_to_ids(sentence.decode("utf-8"))
             if add_bos_eos:
-                sent_ids = [tokenizer.bos_id] + sent_ids + [tokenizer.eos_id]
+                sent_ids = [tokenizer.eos_id if prepend_eos else tokenizer.bos_id] + sent_ids + [tokenizer.eos_id]
             ids.append(sent_ids)
         if cache_ids and (
             not torch.distributed.is_initialized() or (cache_data_per_node and get_envint("LOCAL_RANK", 0) == 0)
