@@ -107,8 +107,8 @@ class MTEncDecModel(EncDecNLPModel):
             else 0.0,
             decoder_model_name=cfg.decoder.get('model_name') if hasattr(cfg.decoder, 'model_name') else None,
             decoder_r2l=cfg.decoder_tokenizer.get('r2l', False),
-            decoder_word_tokens=cfg.decoder_tokenizer.get('word_tokens', None),
-            decoder_tokenizer_vocab_file=cfg.decoder_tokenizer.get('vocab_file', None),
+            decoder_word_tokens=cfg.decoder_tokenizer.get('word_tokens'),
+            decoder_tokenizer_vocab_file=cfg.decoder_tokenizer.get('vocab_file'),
         )
 
         if self.multilingual:
