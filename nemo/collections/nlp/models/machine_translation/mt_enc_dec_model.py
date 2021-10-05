@@ -101,7 +101,7 @@ class MTEncDecModel(EncDecNLPModel):
             encoder_r2l=cfg.encoder_tokenizer.get('r2l', False),
             decoder_tokenizer_library=self.decoder_tokenizer_library,
             encoder_tokenizer_vocab_file=cfg.encoder_tokenizer.get('vocab_file', None),
-            decoder_tokenizer_model=cfg.decoder_tokenizer.tokenizer_model,
+            decoder_tokenizer_model=cfg.decoder_tokenizer.get('tokenizer_model'),
             decoder_bpe_dropout=cfg.decoder_tokenizer.get('bpe_dropout', 0.0)
             if cfg.decoder_tokenizer.get('bpe_dropout', 0.0) is not None
             else 0.0,
