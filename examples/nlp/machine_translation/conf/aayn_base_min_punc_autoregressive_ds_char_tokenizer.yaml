@@ -67,7 +67,7 @@ model:
 
   encoder_tokenizer:
     library: yttm
-    tokenizer_model: ~/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/input.BPE.8192.model
+    tokenizer_model: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/input.BPE.8192.model
     bpe_dropout: 0.0
     r2l: false
 
