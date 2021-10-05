@@ -25,6 +25,7 @@ model:
     pin_memory: true
     num_workers: 8
     persistent_workers: true
+    prepend_eos_in_tgt: true
 
   validation_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/dev/input.txt
@@ -38,6 +39,7 @@ model:
     pin_memory: true
     num_workers: 8
     persistent_workers: true
+    prepend_eos_in_tgt: true
 
   test_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/test/input.txt
@@ -51,6 +53,7 @@ model:
     pin_memory: true
     num_workers: 8
     persistent_workers: true
+    prepend_eos_in_tgt: true
 
   optim:
     name: adam
