@@ -1,3 +1,6 @@
+import sys
+sys.path = ["/home/apeganov/NeMo"] + sys.path
+
 import argparse
 import json
 import os
