@@ -102,6 +102,7 @@ class CharTokenizer(TokenizerSpec):
         special_token_to_prepend: Optional[SpecialTokenStringType] = None,
         special_token_to_append: Optional[SpecialTokenStringType] = None,
         special_tokens_to_remove_while_decoding: Union[List[SpecialTokenStringType], str] = 'all',
+        word_tokens: Optional[List[str]] = None,
     ):
         vocab_file = Path(vocab_file).expanduser()
         with vocab_file.open(encoding='utf-8') as f:
@@ -148,6 +149,10 @@ class CharTokenizer(TokenizerSpec):
             if special_tokens_to_remove_while_decoding == 'all'
             else [getattr(self, e + '_id') for e in special_tokens_to_remove_while_decoding]
         )
+        if word_tokens is None:
+            self.word_ids = None
+        else:
+            self.word_ids = self.tokens_to_ids(word_tokens)
 
     @staticmethod
     def check_special_tokens_dict_from_file(special_tokens_dict, vocab_file):

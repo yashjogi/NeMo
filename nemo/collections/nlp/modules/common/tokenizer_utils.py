@@ -60,6 +60,7 @@ def get_tokenizer(
     special_tokens: Optional[Dict[str, str]] = None,
     use_fast: Optional[bool] = False,
     bpe_dropout: Optional[float] = 0.0,
+    word_tokens: Optional[List[str]] = None,
 ):
     """
     Args:
@@ -95,7 +96,7 @@ def get_tokenizer(
     elif tokenizer_name == 'word':
         return WordTokenizer(vocab_file=vocab_file, **special_tokens_dict)
     elif tokenizer_name == 'char':
-        return CharTokenizer(vocab_file=vocab_file, **special_tokens_dict)
+        return CharTokenizer(vocab_file=vocab_file, word_tokens=word_tokens, **special_tokens_dict)
 
     logging.info(
         f"Getting HuggingFace AutoTokenizer with pretrained_model_name: {tokenizer_name}, vocab_file: {vocab_file}, special_tokens_dict: {special_tokens_dict}, and use_fast: {use_fast}"
@@ -157,7 +158,9 @@ def get_nmt_tokenizer(
         )
         return get_tokenizer(tokenizer_name=model_name, vocab_file=vocab_file)
     elif library == "char":
-        return get_tokenizer(tokenizer_name="char", vocab_file=vocab_file, special_tokens=special_tokens_dict)
+        return get_tokenizer(
+            tokenizer_name="char", vocab_file=vocab_file, special_tokens=special_tokens_dict, word_tokens=word_tokens
+        )
     else:
         raise NotImplementedError(
             'Currently we only support "yttm", "huggingface", "sentencepiece", "megatron", and "byte-level" tokenizer'
