@@ -77,9 +77,6 @@ model:
   decoder_tokenizer:
     library: char
     vocab_file: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/autoregressive_char_vocab.txt
-    special_tokens:
-      pad_token: true
-      eos_token: true
 
   encoder:
     library: nemo
