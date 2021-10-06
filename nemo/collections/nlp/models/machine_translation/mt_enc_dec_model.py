@@ -739,7 +739,8 @@ class MTEncDecModel(EncDecNLPModel):
                 use_cache=cfg.get("use_cache", False),
                 reverse_lang_direction=cfg.get("reverse_lang_direction", False),
                 prepend_id=self.multilingual_ids[prepend_idx] if self.multilingual else None,
-                add_src_num_words_to_batch=cfg.get("add_src_num_words_to_batch", False)
+                add_src_num_words_to_batch=cfg.get("add_src_num_words_to_batch", False),
+                prepend_eos_in_tgt=cfg.get("prepend_eos_in_tgt", False),
             )
             dataset.batchify(self.encoder_tokenizer, self.decoder_tokenizer)
 
