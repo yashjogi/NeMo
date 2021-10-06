@@ -198,7 +198,11 @@ class MTEncDecModel(EncDecNLPModel):
             log_softmax=self.log_softmax,
             max_sequence_length=self.decoder.max_sequence_length,
             beam_size=cfg.beam_size,
-            bos=self.decoder_tokenizer.bos_id,
+            bos=(
+                self.decoder_tokenizer.eos_id
+                if self.decoder_tokenizer.bos_token is None
+                else self.decoder_tokenizer.bos_id
+            ),
             pad=self.decoder_tokenizer.pad_id,
             eos=self.decoder_tokenizer.eos_id,
             len_pen=cfg.len_pen,
