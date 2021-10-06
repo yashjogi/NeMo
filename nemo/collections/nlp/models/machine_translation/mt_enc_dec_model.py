@@ -235,6 +235,7 @@ class MTEncDecModel(EncDecNLPModel):
         self.add_src_num_words_to_batch_test = cfg.get(
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
+        self.filter_beam_ids = cfg.get("filter_beam_ids", True)
 
     def _validate_encoder_decoder_hidden_size(self):
         """
@@ -834,11 +835,14 @@ class MTEncDecModel(EncDecNLPModel):
                 all_translations, scores, best_translations = best_translations
                 scores = scores.view(-1)
                 all_translations = self.ids_to_postprocessed_text(
-                    all_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=True
+                    all_translations,
+                    self.decoder_tokenizer,
+                    self.target_processor,
+                    filter_beam_ids=self.filter_beam_ids,
                 )
 
             best_translations = self.ids_to_postprocessed_text(
-                best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=True
+                best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=self.filter_beam_ids
             )
             inputs = self.ids_to_postprocessed_text(
                 src, self.encoder_tokenizer, self.source_processor, filter_beam_ids=False

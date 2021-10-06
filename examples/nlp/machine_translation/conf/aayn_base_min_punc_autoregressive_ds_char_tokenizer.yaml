@@ -12,6 +12,7 @@ model:
   preproc_out_dir: /result/preprocessed_data # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
+  filter_beam_ids: false
 
   train_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_min_punctuation_27.9.2021_24.01/train/input.txt
