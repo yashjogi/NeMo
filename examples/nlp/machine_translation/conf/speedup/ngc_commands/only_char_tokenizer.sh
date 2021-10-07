@@ -14,7 +14,7 @@ export PYTHONPATH="\$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 python create_autoregressive_char_vocabulary.py \
-  --input /data/train/input.txt \
+  --input /data/train/autoregressive_labels.txt \
   --output /workspace/autoregressive_char_vocab.txt \
   --characters_to_exclude $'\n' \
   --eos_token EOS \
