@@ -13,6 +13,7 @@ def get_args():
     parser.add_argument("--mask_token", "-m")
     parser.add_argument("--bos_token", "-b")
     parser.add_argument("--eos_token", "-e")
+    parser.add_argument("--pad_token", "-p")
     parser.add_argument("--sep_token", "-s")
     parser.add_argument("--cls_token", "-c")
     parser.add_argument("--unk_token", "-u")
