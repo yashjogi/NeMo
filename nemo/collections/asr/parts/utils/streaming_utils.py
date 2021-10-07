@@ -21,6 +21,7 @@ from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 
 from nemo.collections.asr.models.ctc_bpe_models import EncDecCTCModelBPE
+from nemo.collections.asr.models.classification_models import EncDecClassificationModel
 from nemo.core.classes import IterableDataset
 from nemo.core.neural_types import LengthsType, NeuralType
 
@@ -156,6 +157,7 @@ class FeatureFrameBufferer:
         self.n_frame_len = int(frame_len / timestep_duration)
 
         total_buffer_len = int(total_buffer / timestep_duration)
+        # print("total_buffer_len", total_buffer_len)
         self.n_feat = asr_model._cfg.preprocessor.features
         self.buffer = np.ones([self.n_feat, total_buffer_len], dtype=np.float32) * self.ZERO_LEVEL_SPEC_DB_VAL
 
@@ -231,16 +233,16 @@ class FeatureFrameBufferer:
         for i, frame_buffer in enumerate(frame_buffers):
             frame_buffers[i] = (frame_buffer - norm_consts[i][0]) / (norm_consts[i][1] + CONSTANT)
 
-    def get_buffers_batch(self):
+    def get_buffers_batch(self, normalize=True):
         batch_frames = self.get_batch_frames()
 
         while len(batch_frames) > 0:
-
             frame_buffers = self.get_frame_buffers(batch_frames)
-            norm_consts = self.get_norm_consts_per_frame(batch_frames)
             if len(frame_buffers) == 0:
                 continue
-            self.normalize_frame_buffers(frame_buffers, norm_consts)
+            if normalize:
+                norm_consts = self.get_norm_consts_per_frame(batch_frames)
+                self.normalize_frame_buffers(frame_buffers, norm_consts)
             return frame_buffers
         return []
 
@@ -256,7 +258,7 @@ class FrameBatchASR:
     """
 
     def __init__(
-        self, asr_model, frame_len=1.6, total_buffer=4.0, batch_size=4,
+        self, asr_model, vad_model, frame_len=1.6, total_buffer=4.0, vad_context_window=0.63, batch_size=4,
     ):
         '''
         Args:
@@ -264,15 +266,21 @@ class FrameBatchASR:
           frame_overlap: duration of overlaps before and after current frame, seconds
           offset: number of symbols to drop for smooth streaming
         '''
+
         self.frame_bufferer = FeatureFrameBufferer(
             asr_model=asr_model, frame_len=frame_len, batch_size=batch_size, total_buffer=total_buffer
         )
+        self.vad_frame_bufferer = FeatureFrameBufferer(
+            asr_model=vad_model, frame_len=frame_len, batch_size=batch_size, total_buffer=vad_context_window
+        )
 
         self.asr_model = asr_model
+        self.vad_model = vad_model
 
         self.batch_size = batch_size
         self.all_logits = []
         self.all_preds = []
+        self.all_vad_preds = []
 
         self.unmerged = []
 
@@ -282,8 +290,10 @@ class FrameBatchASR:
         self.frame_buffers = []
         self.reset()
         cfg = copy.deepcopy(asr_model._cfg)
+        vad_cfg = copy.deepcopy(vad_model._cfg)
         self.frame_len = frame_len
         OmegaConf.set_struct(cfg.preprocessor, False)
+        OmegaConf.set_struct(vad_cfg.preprocessor, False)
 
         # some changes for streaming scenario
         cfg.preprocessor.dither = 0.0
@@ -291,6 +301,9 @@ class FrameBatchASR:
         cfg.preprocessor.normalize = "None"
         self.raw_preprocessor = EncDecCTCModelBPE.from_config_dict(cfg.preprocessor)
         self.raw_preprocessor.to(asr_model.device)
+
+        self.vad_preprocessor = EncDecClassificationModel.from_config_dict(vad_cfg.preprocessor)
+        self.vad_preprocessor.to(vad_model.device)
 
     def reset(self):
         """
@@ -300,56 +313,139 @@ class FrameBatchASR:
         self.unmerged = []
         self.data_layer = AudioBuffersDataLayer()
         self.data_loader = DataLoader(self.data_layer, batch_size=self.batch_size, collate_fn=speech_collate_fn)
+
+        self.vad_data_layer = AudioBuffersDataLayer()
+        self.vad_data_loader = DataLoader(self.vad_data_layer, batch_size=self.batch_size, collate_fn=speech_collate_fn)
+
         self.all_logits = []
         self.all_preds = []
         self.toks_unmerged = []
+
+        self.vad_pred_buffer = [0] * 25
+
         self.frame_buffers = []
         self.frame_bufferer.reset()
+
+        self.vad_frame_buffers = []
+        self.vad_frame_bufferer.reset()
+
 
     def read_audio_file(self, audio_filepath: str, delay, model_stride_in_secs):
         samples = get_samples(audio_filepath)
         samples = np.pad(samples, (0, int(delay * model_stride_in_secs * self.asr_model._cfg.sample_rate)))
         frame_reader = AudioFeatureIterator(samples, self.frame_len, self.raw_preprocessor, self.asr_model.device)
-        self.set_frame_reader(frame_reader)
+        vad_frame_reader = AudioFeatureIterator(samples, self.frame_len, self.vad_preprocessor, self.vad_model.device)
+        self.set_frame_reader(frame_reader, None)
+        self.set_frame_reader(None, vad_frame_reader)
 
-    def set_frame_reader(self, frame_reader):
-        self.frame_bufferer.set_frame_reader(frame_reader)
+    def set_frame_reader(self, frame_reader, vad_frame_reader):
+        # Fei todo This is super ugly. change this 
+        if frame_reader:
+            self.frame_bufferer.set_frame_reader(frame_reader)
+        if vad_frame_reader:
+            self.vad_frame_bufferer.set_frame_reader(vad_frame_reader)
 
     @torch.no_grad()
     def infer_logits(self):
         frame_buffers = self.frame_bufferer.get_buffers_batch()
+        vad_frame_buffers = self.vad_frame_bufferer.get_buffers_batch(normalize=False)
 
         while len(frame_buffers) > 0:
             self.frame_buffers += frame_buffers[:]
             self.data_layer.set_signal(frame_buffers[:])
+
+
+            self.vad_frame_buffers += vad_frame_buffers[:]
+            self.vad_data_layer.set_signal(vad_frame_buffers[:])
+
             self._get_batch_preds()
+
             frame_buffers = self.frame_bufferer.get_buffers_batch()
+            vad_frame_buffers = self.vad_frame_bufferer.get_buffers_batch()
 
     @torch.no_grad()
     def _get_batch_preds(self):
         device = self.asr_model.device
-        for batch in iter(self.data_loader):
 
+
+        for (batch, vad_batch) in zip(iter(self.data_loader), iter(self.vad_data_loader)):
+            
             feat_signal, feat_signal_len = batch
+            vad_feat_signal, vad_feat_signal_len = vad_batch
+
             feat_signal, feat_signal_len = feat_signal.to(device), feat_signal_len.to(device)
+            vad_feat_signal, vad_feat_signal_len = vad_feat_signal.to(device), vad_feat_signal_len.to(device)
+            # print("===", feat_signal.shape, vad_feat_signal.shape )
+            
             log_probs, encoded_len, predictions = self.asr_model(
                 processed_signal=feat_signal, processed_signal_length=feat_signal_len
             )
             preds = torch.unbind(predictions)
             for pred in preds:
                 self.all_preds.append(pred.cpu().numpy())
+
+            # VAD batch inference
+            logits = self.vad_model(
+                processed_signal=vad_feat_signal, processed_signal_length=vad_feat_signal_len
+            )
+            vad_probs = torch.softmax(logits, dim=-1)
+            vad_pred = vad_probs[:, 1] 
+            self.all_vad_preds.extend(vad_pred)
+
             del log_probs
             del encoded_len
             del predictions
+            del logits
+
+    def _postprocessing_gate_vad(self, vad_pred, threshold=0.4, min_num_speech=0, last_k=25):
+        """
+        simpliest case. if at least ONE 1 in the buffer, this buffer is speech
+        need to find better decision method, this is just an example here
+        """
+        self.vad_pred_buffer = self.vad_pred_buffer[1:]
+        # print(vad_pred)
+        if vad_pred > threshold:
+            self.vad_pred_buffer.append(1)
+        else:
+            self.vad_pred_buffer.append(0)
+            
+        print(self.vad_pred_buffer)
+
+        if 1 in self.vad_pred_buffer[-last_k:]:
+             buffer_vad_decision = 1
+        else:
+             buffer_vad_decision = 0
+
+        return buffer_vad_decision
+
 
     def transcribe(
-        self, tokens_per_chunk: int, delay: int,
+        self, 
+        tokens_per_chunk: int, 
+        delay: int, 
+        vad_gate=False, 
+        threshold=0.4,
+        last_k=25
     ):
         self.infer_logits()
         self.unmerged = []
-        for pred in self.all_preds:
-            decoded = pred.tolist()
-            self.unmerged += decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
+
+        for i in range(len(self.all_preds)):
+            buffer_vad_decision = self._postprocessing_gate_vad(self.all_vad_preds[i],threshold=threshold, last_k=last_k)
+            if vad_gate:
+                if buffer_vad_decision > 0:
+                    # print("add")
+                    decoded = self.all_preds[i].tolist()
+                    print("decoded", decoded)
+                    self.unmerged += decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
+                    print("unmerged", self.unmerged)
+                else:
+                    # print("filtered out")
+                    continue
+            else:
+                decoded = self.all_preds[i].tolist()
+                self.unmerged += decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
+
         return self.greedy_merge(self.unmerged)
 
     def greedy_merge(self, preds):
