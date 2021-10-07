@@ -1,7 +1,8 @@
 import argparse
 from pathlib import Path
 
-import prepare_small_data_for_punctuation_capitalization_task as small
+from examples.speech_translation.punct_ds_preparation import \
+    prepare_small_data_for_punctuation_capitalization_task as small
 
 
 def get_args():
