@@ -146,7 +146,8 @@ class MTEncDecModel(EncDecNLPModel):
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
-        increase_l2_fetch_granularity()
+        if cfg.get('increase_l2_fetch_granularity', False):
+            increase_l2_fetch_granularity()
 
         # encoder from NeMo, Megatron-LM, or HuggingFace
         encoder_cfg_dict = OmegaConf.to_container(cfg.get('encoder'))
