@@ -107,6 +107,7 @@ class MTEncDecConfig(NemoConfig):
 @hydra_runner(config_path="conf", config_name="aayn_base")
 def main(cfg: MTEncDecConfig) -> None:
     # merge default config with user specified config
+    torch.manual_seed(42)
     default_cfg = MTEncDecConfig()
     cfg = update_model_config(default_cfg, cfg)
     logging.info("\n\n************** Experiment configuration ***********")
