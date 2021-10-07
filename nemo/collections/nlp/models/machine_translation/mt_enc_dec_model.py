@@ -201,7 +201,7 @@ class MTEncDecModel(EncDecNLPModel):
             beam_size=cfg.beam_size,
             bos=(
                 self.decoder_tokenizer.eos_id
-                if self.decoder_tokenizer.bos_token is None
+                if cfg.train_ds.get('prepend_eos_in_tgt', False)
                 else self.decoder_tokenizer.bos_id
             ),
             pad=self.decoder_tokenizer.pad_id,
