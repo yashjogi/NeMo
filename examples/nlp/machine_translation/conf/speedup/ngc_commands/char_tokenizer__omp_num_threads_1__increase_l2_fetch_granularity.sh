@@ -14,6 +14,12 @@ pip install -r requirements/requirements_nlp.txt
 export PYTHONPATH="\$(pwd)"
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
+python create_autoregressive_char_vocabulary.py \
+  --input /data/train/autoregressive_labels.txt \
+  --output /workspace/autoregressive_char_vocab.txt \
+  --characters_to_exclude $'\n' \
+  --eos_token EOS \
+  --pad_token PAD
 python enc_dec_nmt.py \
   --config-path=conf/speedup \
   --config-name only_char_tokenizer \
