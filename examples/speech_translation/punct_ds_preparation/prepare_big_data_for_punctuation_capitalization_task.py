@@ -25,7 +25,7 @@ SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$')
 PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
-TEXT_OF_PAGE = re.compile(r'<text>(.+)</text>', flags=re.DOTALL)
+TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL)
 QUOTES = re.compile('"\'')
 REDIRECT = re.compile('^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile('{{[^}{]*}}')
