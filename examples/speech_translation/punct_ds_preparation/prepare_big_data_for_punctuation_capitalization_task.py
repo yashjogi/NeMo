@@ -155,7 +155,7 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
                         out_f.write(file_text)
                         for k, v in small.arrange_sentences_by_number_of_words_in_1_doc(
                                 text, sequence_length_range, [file_i, doc_id]
-                        ):
+                        ).items():
                             sentences_by_number_of_words[k] += v
                         sentence_len_by_docs[doc_id] = np.array(
                             [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(line)) for line in text]
