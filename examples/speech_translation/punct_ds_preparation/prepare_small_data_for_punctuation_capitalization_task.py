@@ -271,9 +271,7 @@ def too_many_uppercase(text):
     return too_many
 
 
-def remove_untokenizable_characters(docs, tokenizer):
-    names = list(docs.keys())
-    text = '\n\n\n'.join(['\n'.join(doc) for doc in docs.values()])
+def remove_untokenizable_characters_from_text(text, tokenizer):
     tmp_new_line_character = "NEWLINECHARACTER"
     while tmp_new_line_character in text and len(tmp_new_line_character) < 20:
         tmp_new_line_character += 'R'
@@ -303,7 +301,14 @@ def remove_untokenizable_characters(docs, tokenizer):
         untokenizable_characters.append('-')
     uc = '[' + ''.join(untokenizable_characters) + ']'
     text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
-    doc_texts = text.split('\n\n\n')
+    return text
+
+
+def remove_untokenizable_characters(docs, tokenizer):
+    names = list(docs.keys())
+    doc_texts = remove_untokenizable_characters_from_text(
+        '\n\n\n'.join(['\n'.join(doc) for doc in docs.values()]), tokenizer
+    ).split('\n\n\n')
     assert len(doc_texts) == len(names)
     for i, name in enumerate(names):
         docs[name] = doc_texts[i].split('\n')

@@ -84,7 +84,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     outs, errs = normalize_process.communicate(text.encode('utf-8'))
     text = outs.decode('utf-8')
     if tokenizer is not None:
-        text = small.remove_untokenizable_characters(text, tokenizer)
+        text = small.remove_untokenizable_characters_from_text(text, tokenizer)
     return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()]
 
 
@@ -295,7 +295,6 @@ def main():
     doc_id_to_file_i = {}
     document_dir = args.output_dir / Path("documents")
     for corpus_type, file_path in zip(args.corpus_types, args.input_files):
-        logging.info(f"Processing file {file_path}..")
         if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
             logging.info(f"Preprocessing wikipedia file {file_path}...")
             res = preprocess_wikipedia(
