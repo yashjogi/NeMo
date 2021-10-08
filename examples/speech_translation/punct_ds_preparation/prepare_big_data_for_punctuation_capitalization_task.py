@@ -70,13 +70,13 @@ def double_square_brackets_replacement(match):
 
 def normalize(text, normalize_process):
     pattern = NORMALIZE_ENDING_PATTERN
-    ending = pattern.pattern[2:]
+    ending = pattern.pattern[2:].decode('utf-8')
     updated_ending = False
     while ending in text:
         updated_ending = True
         ending += b"EOF"
     if updated_ending:
-        pattern = re.compile(b'.*' + ending, flags=re.DOTALL)
+        pattern = re.compile(b'.*' + ending.encode('utf-8'), flags=re.DOTALL)
     with open('current_text.txt', 'w') as f:
         f.write(text + ending)
     normalize_process.send((text + ending).encode('utf-8'))
