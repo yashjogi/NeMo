@@ -109,6 +109,7 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
     total_number_of_characters_in_current_file = 0
     file_i = 0
     doc_id = start_doc_id
+    output_dir.mkdir(exist_ok=True, parents=True)
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     with file_path.open() as in_f:
