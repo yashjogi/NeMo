@@ -290,17 +290,18 @@ def remove_untokenizable_characters_from_text(text, tokenizer):
     for c in set(text) - {' ', '\n'}:
         if not tokenizer.text_to_ids(c):
             untokenizable_characters.append(c)
-    if '\\' in untokenizable_characters:
-        untokenizable_characters.remove('\\')
-        untokenizable_characters = ['\\\\'] + untokenizable_characters
-    if '^' == untokenizable_characters[0]:
-        untokenizable_characters.remove('^')
-        untokenizable_characters.append('^')
-    if '-' in untokenizable_characters:
-        untokenizable_characters.remove('-')
-        untokenizable_characters.append('-')
-    uc = '[' + ''.join(untokenizable_characters) + ']'
-    text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
+    if untokenizable_characters:
+        if '\\' in untokenizable_characters:
+            untokenizable_characters.remove('\\')
+            untokenizable_characters = ['\\\\'] + untokenizable_characters
+        if '^' == untokenizable_characters[0]:
+            untokenizable_characters.remove('^')
+            untokenizable_characters.append('^')
+        if '-' in untokenizable_characters:
+            untokenizable_characters.remove('-')
+            untokenizable_characters.append('-')
+        uc = '[' + ''.join(untokenizable_characters) + ']'
+        text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
     return text
 
 
