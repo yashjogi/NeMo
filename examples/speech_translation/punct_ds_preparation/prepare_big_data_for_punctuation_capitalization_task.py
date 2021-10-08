@@ -79,7 +79,7 @@ def normalize(text, normalize_process):
         pattern = re.compile('.*' + ending, flags=re.DOTALL)
     normalize_process.send((text + ending).encode('utf-8'))
     normalize_process.expect(pattern)
-    res = normalize_process.match
+    res = normalize_process.match.group(0).decode('utf-8')
     return res[:len(res) - len(ending)].replace('\r\n', '\n')
 
 
