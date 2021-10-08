@@ -297,7 +297,9 @@ def main():
         logging.info(f"Processing file {file_path}..")
         if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
             logging.info(f"Preprocessing wikipedia file {file_path}...")
-            res = preprocess_wikipedia(file_path, document_dir, args.lang, tokenizer, args.sequence_length_range, 0)
+            res = preprocess_wikipedia(
+                file_path, document_dir, args.input_language, tokenizer, args.sequence_length_range, 0
+            )
             corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
             for k, v in corpus_sentences_by_number_of_words.items():
                 sentences_by_number_of_words[k] += v
