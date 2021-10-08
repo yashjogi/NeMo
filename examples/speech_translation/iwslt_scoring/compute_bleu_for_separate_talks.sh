@@ -8,7 +8,7 @@ references="${output_dir}/references"
 doc_translations="${output_dir}/doc_translations"
 translations_after_mwer="${workdir}/mwerSegmented"
 
-python xml_2_separate_files.py -i "${workdir}/IWSLT.TED.tst2019.en-de.de.xml" \
+python iwslt_scoring/xml_2_separate_files.py -i "${workdir}/IWSLT.TED.tst2019.en-de.de.xml" \
   -o "${references}"
 
 > "${scores}"
@@ -23,7 +23,7 @@ for segmentation in $(ls "${translations_after_mwer}"); do
         if [ "${xml_file##*.}" = "xml" ]; then
           asr_model="${xml_file%.*}"
           echo "            ${asr_model}" >> "${scores}"
-          python xml_2_separate_files.py \
+          python iwslt_scoring/xml_2_separate_files.py \
             -i "${translations_after_mwer}/${segmentation}/${inp_length}/${tr_model}/${xml_file}" \
             -o "${doc_translations}/${segmentation}/${inp_length}/${tr_model}/${asr_model}"
           for doc_file in $(ls "${doc_translations}/${segmentation}/${inp_length}/${tr_model}/${asr_model}"); do

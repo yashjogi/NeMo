@@ -4,7 +4,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from punc_cap import get_talk_id_order
+from examples.speech_translation.test_iwslt_and_perform_all_ops_common_scripts.punc_cap import get_talk_id_order
 
 
 TALK_ID_COMPILED_PATTERN = re.compile(r"[1-9][0-9]*(?=\.wav$)")

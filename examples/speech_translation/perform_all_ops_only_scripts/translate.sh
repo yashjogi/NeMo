@@ -38,14 +38,16 @@ for i in {0..1}; do
     model_name=$(basename "${ckpt}")
     mkdir -p "${long_segments_result}/${model_name}"
     for m in "${good_transcript_models[@]}"; do
-      python translate_iwslt.py -p "${ckpt}" \
+      python test_iwslt_and_perform_all_ops_common_scripts/translate_iwslt.py \
+        -p "${ckpt}" \
         -i "${punc_transcripts_dir}/${m}.txt" \
         -o "${long_segments_result}/${model_name}/${m}.txt"
     done
 
     mkdir -p "${one_sentence_segments_result}/${model_name}"
     for m in "${good_transcript_models[@]}"; do
-      python translate_iwslt.py -p "${ckpt}" \
+      python test_iwslt_and_perform_all_ops_common_scripts/translate_iwslt.py \
+        -p "${ckpt}" \
         -i "${punc_transcripts_dir}/${m}.txt" \
         -o "${one_sentence_segments_result}/${model_name}/${m}.txt" \
         -s
@@ -56,14 +58,16 @@ for i in {0..1}; do
     for ngc_model in "${translation_ngc_models[@]}"; do
       mkdir -p "${long_segments_result}/${ngc_model}"
       for m in "${good_transcript_models[@]}"; do
-        python translate_iwslt.py -m "${ngc_model}" \
+        python test_iwslt_and_perform_all_ops_common_scripts/translate_iwslt.py \
+          -m "${ngc_model}" \
           -i "${punc_transcripts_dir}/${m}.txt" \
           -o "${long_segments_result}/${ngc_model}/${m}.txt"
       done
 
       mkdir -p "${one_sentence_segments_result}/${ngc_model}"
       for m in "${good_transcript_models[@]}"; do
-        python translate_iwslt.py -m "${ngc_model}" \
+        python test_iwslt_and_perform_all_ops_common_scripts/translate_iwslt.py \
+          -m "${ngc_model}" \
           -i "${punc_transcripts_dir}/${m}.txt" \
           -o "${one_sentence_segments_result}/${ngc_model}/${m}.txt" \
           -s

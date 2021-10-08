@@ -64,7 +64,7 @@ for pretrained_name in "${pretrained_ngc_only_segmented_data[@]}" "${pretrained_
     fi
   done
 done
-python join_split_wav_manifests.py -s "${split_transcripts}" -o "${output_segmented_no_numbers}" -n "${audio_dir}"
+python test_iwslt_and_perform_all_ops_common_scripts/join_split_wav_manifests.py -s "${split_transcripts}" -o "${output_segmented_no_numbers}" -n "${audio_dir}"
 
 for pretrained_name in "${pretrained_ngc_not_only_segmented_data[@]}"; do
   python ~/NeMo/examples/asr/transcribe_speech.py pretrained_name="${pretrained_name}" \
@@ -81,7 +81,9 @@ for inp_manifest_dir in "${output_segmented_no_numbers}" "${output_not_segmented
     out_manifest_dir="${output_not_segmented}"
   fi
   for inp_manifest_path in "${inp_manifest_dir}"/*; do
-    python text_to_numbers.py -i "${inp_manifest_path}" -o "${out_manifest_dir}/$(basename "${inp_manifest_path}")"
+    python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py \
+      -i "${inp_manifest_path}" \
+      -o "${out_manifest_dir}/$(basename "${inp_manifest_path}")"
   done
 done
 

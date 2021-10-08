@@ -25,8 +25,8 @@ split_translation_dir="$3"
 split_reference_dir="$4"
 bleu_file="$5"
 
-python xml_2_separate_files.py -i "${reference}" -o "${split_reference_dir}"
-python xml_2_separate_files.py -i "${translation}" -o "${split_translation_dir}"
+python iwslt_scoring/xml_2_separate_files.py -i "${reference}" -o "${split_reference_dir}"
+python iwslt_scoring/xml_2_separate_files.py -i "${translation}" -o "${split_translation_dir}"
 
 mkdir -p "$(dirname "${bleu_file}")"
 > "${bleu_file}"

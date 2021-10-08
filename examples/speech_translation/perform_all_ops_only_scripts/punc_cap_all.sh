@@ -23,12 +23,12 @@ punc_segmented_transcripts_dir="${workdir}/punc_transcripts_segmented_input"
 punc_unsegmented_transcripts_dir="${workdir}/punc_transcripts_not_segmented_input"
 
 for m in "${pretrained_ngc_not_only_segmented_data[@]}" "${pretrained_ngc_only_segmented_data[@]}"; do
-  python punc_cap.py -a "${workdir}/manifest.json" \
+  python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${workdir}/manifest.json" \
     -p "${segmented_transcripts_dir}/${m}.manifest" \
     -o "${punc_segmented_transcripts_dir}/${m}.txt"
 done
 for m in "${pretrained_ngc_not_only_segmented_data[@]}"; do
-  python punc_cap.py -a "${workdir}/manifest.json" \
+  python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${workdir}/manifest.json" \
     -p "${unsegmented_transcripts_dir}/${m}.manifest" \
     -o "${punc_unsegmented_transcripts_dir}/${m}.txt"
 done

@@ -4,43 +4,37 @@ if [ -z "${workdir}" ]; then
 fi
 
 printf "Creating IWSLT manifest.."
-python create_iwslt_manifest.py -a "${workdir}/wavs" \
+python test_iwslt_and_perform_all_ops_common_scripts/create_iwslt_manifest.py -a "${workdir}/wavs" \
   -t "${workdir}/IWSLT.TED.tst2019.en-de.en.xml" \
   -o "${workdir}/manifest.json"
 
 printf "\n\nSplitting audio files..\n"
-python iwslt_split_audio.py -a "${workdir}/wavs" \
+python test_iwslt_and_perform_all_ops_common_scripts/iwslt_split_audio.py -a "${workdir}/wavs" \
   -s "${workdir}/IWSLT.TED.tst2019.en-de.yaml" \
   -d "${workdir}/split"
 
 printf "\n\nTranscription..\n"
-workdir="${workdir}" bash transcribe_with_different_models.sh
+workdir="${workdir}" bash perform_all_ops_only_scripts/transcribe_with_different_models.sh
 
 printf "\n\nComputing WER..\n"
-workdir="${workdir}" bash compute_all_wers.sh
+workdir="${workdir}" bash iwslt_scoring/compute_all_wers.sh
 
 printf "\n\nPunctuation and capitalization..\n"
-workdir="${workdir}" bash punc_cap_all.sh
+workdir="${workdir}" bash perform_all_ops_only_scripts/punc_cap_all.sh
 
 printf "\n\nTranslation..\n"
-workdir="${workdir}" bash translate.sh
-
-#printf "\nRemoving sound segments.."
-#python remove_sound_segments.py -s "${workdir}/IWSLT.TED.tst2019.en-de.en.xml" \
-#  -t "${workdir}/IWSLT.TED.tst2019.en-de.de.xml" \
-#  -S "${workdir}/IWSLT.TED.tst2019.en-de.en.no_sounds.xml" \
-#  -T "${workdir}/IWSLT.TED.tst2019.en-de.de.no_sounds.xml"
+workdir="${workdir}" bash perform_all_ops_only_scripts/translate.sh
 
 printf "\n\nCreating de ground truth..\n"
-workdir="${workdir}" bash create_de_ground_truth.sh
+workdir="${workdir}" bash perform_all_ops_only_scripts/create_de_ground_truth.sh
 
 printf "\n\nmwerSegmenting..\n"
-workdir="${workdir}" bash mwerSegmenter.sh
+workdir="${workdir}" bash perform_all_ops_only_scripts/mwerSegmenter.sh
 
 printf "\n\nPreparing mwer segments for BLEU scoring..\n"
-workdir="${workdir}" bash prepare_translations_and_references_for_mwer_scoring.sh
+workdir="${workdir}" bash perform_all_ops_only_scripts/prepare_translations_and_references_for_mwer_scoring.sh
 
 printf "\n\nScoring translations..\n"
-workdir="${workdir}" bash score_translations.sh
+workdir="${workdir}" bash iwslt_scoring/score_translations.sh
 
 set +e
