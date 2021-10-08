@@ -79,9 +79,9 @@ def get_args(supported_corpus_types):
     parser.add_argument(
         "--input_language",
         "-L",
-        help="Used for punctuation normalization. en - English, de - German, cz - Czech, fr - French."
+        help="Used for punctuation normalization. en - English, de - German, cz - Czech, fr - French. "
         "Other options (List of supported languages https://fasttext.cc/docs/en/language-identification.html) are also "
-        "possible but there is not special instructions for punctuation normalization."
+        "possible but there is no special instructions for punctuation normalization. "
         "See https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/normalize-punctuation.perl",
         default="en",
     )
@@ -149,7 +149,7 @@ def get_args(supported_corpus_types):
     parser.add_argument(
         "--allowed_punctuation",
         "-p",
-        help=f"A string containing punctuation marks on which training is performed."
+        help=f"A string containing punctuation marks on which training is performed. Example: '.,?'. "
         f"Do not include single quote and space into it. If single quotes are included they will be ignored. "
         f"BERT labels can include only {SUPPORTED_BERT_PUNCTUATION} punctuation characters.",
         type=set,
