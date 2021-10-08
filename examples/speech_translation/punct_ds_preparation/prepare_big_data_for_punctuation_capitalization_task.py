@@ -2,10 +2,10 @@ import logging
 import os
 import random
 import re
-import subprocess
 from pathlib import Path
 
 import numpy as np
+import pexpect
 from tqdm import tqdm
 
 import nltk
@@ -37,6 +37,7 @@ TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
     r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
 )
+NORMALIZE_ENDING_PATTERN = re.compile(r'.*EOFEOFEOF', flags=re.DOTALL)
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
 
@@ -67,6 +68,21 @@ def double_square_brackets_replacement(match):
         return text[1]
 
 
+def normalize(text, normalize_process):
+    pattern = NORMALIZE_ENDING_PATTERN
+    ending = pattern.pattern[2:]
+    updated_ending = False
+    while ending in text:
+        updated_ending = True
+        ending += "EOF"
+    if updated_ending:
+        pattern = re.compile('.*' + ending, flags=re.DOTALL)
+    normalize_process.send((text + ending).encode('utf-8'))
+    normalize_process.expect(pattern)
+    res = normalize_process.match
+    return res[:len(res) - len(ending)].replace('\r\n', '\n')
+
+
 def get_wiki_text_lines(text, normalize_process, tokenizer):
     print("text:", text)
     text = REDIRECT.sub('', text)
@@ -86,8 +102,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
-    outs, errs = normalize_process.communicate(text.encode('utf-8'))
-    text = outs.decode('utf-8')
+    text = normalize(text, normalize_process)
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
     return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()]
@@ -96,9 +111,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
 def start_normalize_process(lang):
     cwd = os.getcwd()
     os.chdir(Path(__file__).parent)
-    normalize_process = subprocess.Popen(
-        ["./normalize-punctuation.perl", "-l", lang], stdin=subprocess.PIPE, stdout=subprocess.PIPE
-    )
+    normalize_process = pexpect.spawn(["./normalize-punctuation.perl", "-l", lang], maxread=50000)
     os.chdir(cwd)
     return normalize_process
 
