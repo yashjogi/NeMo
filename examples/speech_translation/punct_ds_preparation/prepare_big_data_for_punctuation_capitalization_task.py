@@ -66,6 +66,7 @@ def double_square_brackets_replacement(match):
 
 
 def get_wiki_text_lines(text, normalize_process, tokenizer):
+    print("text:", text)
     text = REDIRECT.sub('', text)
     while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
@@ -73,7 +74,9 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     if not text:
         return []
     end_section = END_SECTION.search(text)
-    text = text[:end_section.span()[0]].strip()
+    print("end_section:", end_section)
+    if end_section is not None:
+        text = text[:end_section.span()[0]].strip()
     text = DOUBLE_EQUALS_SIGN_HEADERS.sub('\n', text)
     text = FILE_DESCRIPTION.sub('', text)
     text = remove_tables(text)
