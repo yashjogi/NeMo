@@ -34,7 +34,9 @@ DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==[^\n]+==\\s*\n')
 FILE_DESCRIPTION = re.compile(r'\[\[File:\w[^]]*]]')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^]]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
-END_SECTION = re.compile(r"==\s*(?:See also|Reference|Notes|Sources|Primary sources|Secondary sources)\s*==")
+END_SECTION = re.compile(
+    r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
+)
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
 
