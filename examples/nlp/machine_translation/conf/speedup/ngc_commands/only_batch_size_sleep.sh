@@ -19,7 +19,7 @@ EOF
 
 ngc batch run \
   --instance dgx1v.16g.1.norm \
-  --name "ml-model.aayn speedup_original" \
+  --name "ml-model.aayn speedup_batch_size_only" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
   --datasetid 88728:/data \
