@@ -37,7 +37,7 @@ TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
     r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
 )
-NORMALIZE_ENDING_PATTERN = re.compile(r'.*EOFEOFEOF', flags=re.DOTALL)
+NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
 
@@ -74,9 +74,11 @@ def normalize(text, normalize_process):
     updated_ending = False
     while ending in text:
         updated_ending = True
-        ending += "EOF"
+        ending += b"EOF"
     if updated_ending:
-        pattern = re.compile('.*' + ending, flags=re.DOTALL)
+        pattern = re.compile(b'.*' + ending, flags=re.DOTALL)
+    with open('current_text.txt', 'w') as f:
+        f.write(text + ending)
     normalize_process.send((text + ending).encode('utf-8'))
     normalize_process.expect(pattern)
     res = normalize_process.match.group(0).decode('utf-8')
