@@ -111,7 +111,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
 def start_normalize_process(lang):
     cwd = os.getcwd()
     os.chdir(Path(__file__).parent)
-    normalize_process = pexpect.spawn(["./normalize-punctuation.perl", "-l", lang], maxread=50000)
+    normalize_process = pexpect.spawn([f"./normalize-punctuation.perl -l {lang}"], maxread=50000)
     os.chdir(cwd)
     return normalize_process
 
