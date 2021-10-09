@@ -16,7 +16,7 @@ wandb login ${WANDB_API_KEY}
 python enc_dec_nmt.py --config-path=conf/speedup \
   --config-name original \
   trainer.gpus=1 \
-  model.train_ds.tokens_in_batch=32000 \
+  model.train_ds.tokens_in_batch=38000 \
   model.validation_ds.tokens_in_batch=512 \
   model.test_ds.tokens_in_batch=512 \
   exp_manager.wandb_logger_kwargs.name=batch_size_only
