@@ -219,7 +219,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                         f"Skipping page.."
                     )
                 else:
-                    print(i, len(text.group(1)))
+                    print(start_line, end_line)
                     text = get_wiki_text_lines(text.group(1), tokenizer)
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, '\n'.join(text))
