@@ -130,7 +130,7 @@ def get_wiki_text_lines(text, tokenizer):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    with open('before_removing_file_descriptions.txt') as f:
+    with open('before_removing_file_descriptions.txt', 'w') as f:
         f.write(text)
     text = FILE_DESCRIPTION.sub('', text)
     text = remove_tables(text)
