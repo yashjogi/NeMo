@@ -102,13 +102,14 @@ def remove_file_descriptions(text):
     files_in_progress = 0
     number_of_opened_double_square_brackets = []
     for i in range(len(text)):
-        if FILE_START.match(text[i : i + FILE_START_LEN]):
+        m = FILE_START.match(text[i : i + FILE_START_LEN])
+        if m is not None:
             files_in_progress += 1
             number_of_opened_double_square_brackets.append(1)
         if files_in_progress == 0:
             result += text[i]
         if files_in_progress:
-            if text[i: i + 2] == "[[":
+            if text[i: i + 2] == "[[" and m is None:
                 number_of_opened_double_square_brackets[-1] += 1
             if text[i - 1: i + 1] == "]]":
                 number_of_opened_double_square_brackets[-1] -= 1
@@ -160,7 +161,7 @@ def get_wiki_text_lines(text, tokenizer):
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
     text = NEW_LINE_DUP.sub('\n', text)
-    if text[-1] != '\n':
+    if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
