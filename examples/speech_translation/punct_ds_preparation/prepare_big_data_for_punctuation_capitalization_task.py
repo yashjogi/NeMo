@@ -31,19 +31,8 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_DESCRIPTION = re.compile(
-    r'\[\[File:\w'
-    r'(?:'
-    r'[^][]*'
-    r'(?:'
-    r'\[\['
-    r'[^][]*'
-    r']]'
-    r')?'
-    r')*'
-    r'[^][]*'
-    r']]'
-)
+FILE_START = re.compile(r'\[\[File:\w', flags=re.I)
+SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
@@ -107,6 +96,29 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
     return result
 
 
+def remove_file_descriptions(text):
+    result = ""
+    files_in_progress = 0
+    number_of_opened_double_square_brackets = []
+    for i in range(len(text)):
+        if FILE_START.match(text[i : i + 4]):
+            files_in_progress += 1
+            number_of_opened_double_square_brackets.append(1)
+        if files_in_progress == 0:
+            result += text[i]
+        if files_in_progress:
+            if text[i: i + 2] == "[[":
+                number_of_opened_double_square_brackets[-1] += 1
+            if text[i - 1: i + 1] == "]]":
+                number_of_opened_double_square_brackets[-1] -= 1
+                if number_of_opened_double_square_brackets[-1] < 1:
+                    assert number_of_opened_double_square_brackets[-1] == 0
+                    number_of_opened_double_square_brackets.pop()
+                    files_in_progress -= 1
+        assert len(number_of_opened_double_square_brackets) == files_in_progress
+    return result
+
+
 def double_square_brackets_replacement(match):
     text = match.group(1)
     text = text.split('|')
@@ -132,7 +144,7 @@ def get_wiki_text_lines(text, tokenizer):
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     with open('before_removing_file_descriptions.txt', 'w') as f:
         f.write(text)
-    text = FILE_DESCRIPTION.sub('', text)
+    text = remove_file_descriptions(text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
@@ -141,10 +153,11 @@ def get_wiki_text_lines(text, tokenizer):
     text = remove_tag_with_content(text, 'math', remove_whole_line=True)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
+    text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
+    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = remove_remarks(text)
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
-    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
     if text[-1] != '\n':
         text += '\n'
