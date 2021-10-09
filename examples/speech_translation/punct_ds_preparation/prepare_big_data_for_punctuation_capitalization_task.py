@@ -30,7 +30,7 @@ QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
-DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==+\\s*[^\n]+\\s*==+\\s*\n')
+EQUALS_SIGN_HEADERS = re.compile('\n\\s*==+[^\n]+==+\\s*\n')
 FILE_DESCRIPTION = re.compile(
     r'\[\[File:\w'
     r'(?:'
@@ -130,7 +130,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     print("end_section:", end_section)
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
-    text = DOUBLE_EQUALS_SIGN_HEADERS.sub('\n', text)
+    text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = FILE_DESCRIPTION.sub('', text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
