@@ -31,7 +31,19 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==[^\n]+==\\s*\n')
-FILE_DESCRIPTION = re.compile(r'\[\[File:\w(?:[^[]*(?:\[\[[^]]*]])?)*]]')
+FILE_DESCRIPTION = re.compile(
+    r'\[\[File:\w'
+    r'(?:'
+    r'[^[]*'
+    r'(?:'
+    r'\[\['
+    r'[^]]*'
+    r']]'
+    r')?'
+    r')*'
+    r'[^[]*'
+    r']]'
+)
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
@@ -122,13 +134,13 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = FILE_DESCRIPTION.sub('', text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
-    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
     text = remove_tag_with_content(text, 'ref')
     text = remove_tag_with_content(text, 'math', remove_whole_line=True)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
+    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = normalize(text, normalize_process)
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
