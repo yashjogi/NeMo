@@ -130,6 +130,8 @@ def get_wiki_text_lines(text, tokenizer):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
+    with open('before_removing_file_descriptions.txt') as f:
+        f.write(text)
     text = FILE_DESCRIPTION.sub('', text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
@@ -154,7 +156,7 @@ def get_wiki_text_lines(text, tokenizer):
 def start_normalize_process(lang):
     cwd = os.getcwd()
     os.chdir(Path(__file__).parent)
-    normalize_process = Popen(['./normalize-punctuation.perl', '-l', 'en'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    normalize_process = Popen(['./normalize-punctuation.perl', '-l', lang], stdout=PIPE, stdin=PIPE, stderr=PIPE)
     os.chdir(cwd)
     return normalize_process
 
