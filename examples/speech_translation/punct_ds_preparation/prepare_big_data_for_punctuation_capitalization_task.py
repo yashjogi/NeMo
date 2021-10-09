@@ -30,18 +30,18 @@ QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
-DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==[^\n]+==\\s*\n')
+DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==+[^\n]+==+\\s*\n')
 FILE_DESCRIPTION = re.compile(
     r'\[\[File:\w'
     r'(?:'
-    r'[^[]*'
+    r'[^][]*'
     r'(?:'
     r'\[\['
-    r'[^]]*'
+    r'[^][]*'
     r']]'
     r')?'
     r')*'
-    r'[^[]*'
+    r'[^][]*'
     r']]'
 )
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
