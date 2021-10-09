@@ -30,7 +30,7 @@ QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
-DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==+[^\n]+==+\\s*\n')
+DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==+\\s*[^\n]+\\s*==+\\s*\n')
 FILE_DESCRIPTION = re.compile(
     r'\[\[File:\w'
     r'(?:'
@@ -140,6 +140,8 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = remove_tag_with_content(text, 'math', remove_whole_line=True)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
+    text = text.replace("''", '"')
+    text = text.replace("&quot;", '"')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = normalize(text, normalize_process)
     if tokenizer is not None:
