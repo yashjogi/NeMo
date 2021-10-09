@@ -81,10 +81,10 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
     while i < len(text):
         if text[i: i + 2 + len(tag)] == f"<{tag}>":
             if tags_in_progress == 0 and remove_whole_line:
-                i = len(result) - 1
-                while i > 0 and result[i] != '\n':
-                    i -= 1
-                result = result[:i]
+                j = len(result) - 1
+                while j > 0 and result[j] != '\n':
+                    j -= 1
+                result = result[:j]
             tags_in_progress += 1
         if tags_in_progress == 0:
             result += text[i]
