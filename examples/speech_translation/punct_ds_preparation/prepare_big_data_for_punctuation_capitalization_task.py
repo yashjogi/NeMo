@@ -31,8 +31,8 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_START = re.compile(r'\[\[File:\w', flags=re.I)
-FILE_START_LEN = 8
+FILE_START = re.compile(r'^\[\[(?:File|Image):\w', flags=re.I)
+FILE_START_LEN = 9
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
@@ -97,7 +97,7 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
     return result
 
 
-def remove_file_descriptions(text):
+def remove_file_and_image_descriptions(text):
     result = ""
     files_in_progress = 0
     number_of_opened_double_square_brackets = []
@@ -146,7 +146,7 @@ def get_wiki_text_lines(text, tokenizer):
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     with open('before_removing_file_descriptions.txt', 'w') as f:
         f.write(text)
-    text = remove_file_descriptions(text)
+    text = remove_file_and_image_descriptions(text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
