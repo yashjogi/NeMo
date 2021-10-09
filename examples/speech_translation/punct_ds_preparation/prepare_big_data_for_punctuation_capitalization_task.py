@@ -207,7 +207,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                 else:
                     text = get_wiki_text_lines(text.group(1), tokenizer)
                     if text:
-                        file_text = doc_to_str(doc_id, file_path, title, text)
+                        file_text = doc_to_str(doc_id, file_path, title, '\n'.join(text))
                         out_f.write(file_text)
                         for k, v in small.arrange_sentences_by_number_of_words_in_1_doc(
                                 text, sequence_length_range, [file_i, doc_id]
@@ -380,7 +380,7 @@ def doc_to_str(docid, source, title, text):
 def write_docs_to_file(docs, file_path):
     with file_path.open('w') as f:
         for k, v in docs.items():
-            f.write(doc_to_str(k, v['source'], v["title"], v["text"]))
+            f.write(doc_to_str(k, v['source'], file_path, v["text"]))
 
 
 def normalize_punctuation_in_all_documents(document_dir, lang):
@@ -393,6 +393,7 @@ def normalize_punctuation_in_all_documents(document_dir, lang):
             )
             for k, text in zip(file_docs, outs.decode('utf-8').split('\n\n\n')):
                 file_docs[k]["text"] = text
+            write_docs_to_file(file_docs, Path(str(p) + '.norm'))
 
 
 def main():
