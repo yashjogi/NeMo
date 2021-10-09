@@ -3,9 +3,9 @@ import os
 import random
 import re
 from pathlib import Path
+from subprocess import PIPE, Popen
 
 import numpy as np
-import pexpect
 from tqdm import tqdm
 
 import nltk
@@ -51,6 +51,9 @@ END_SECTION = re.compile(
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
+DOC_HEAD = re.compile('^<doc docid="({[1-9][0-9]*})" source="(.+)" title="(.+)">$', flags=re.MULTILINE)
+DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}">'
+DOC_END = '</doc>'
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
 
@@ -116,24 +119,7 @@ def double_square_brackets_replacement(match):
         return text[1]
 
 
-def normalize(text, normalize_process):
-    pattern = NORMALIZE_ENDING_PATTERN
-    ending = pattern.pattern[2:].decode('utf-8')
-    updated_ending = False
-    while ending in text:
-        updated_ending = True
-        ending += b"EOF"
-    if updated_ending:
-        pattern = re.compile(b'.*' + ending.encode('utf-8'), flags=re.DOTALL)
-    with open('current_text.txt', 'w') as f:
-        f.write(text + ending)
-    normalize_process.send((text + ending).encode('utf-8'))
-    normalize_process.expect(pattern)
-    res = normalize_process.match.group(0).decode('utf-8')
-    return res[:len(res) - len(ending)].replace('\r\n', '\n')
-
-
-def get_wiki_text_lines(text, normalize_process, tokenizer):
+def get_wiki_text_lines(text, tokenizer):
     text = REDIRECT.sub('', text)
     while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
@@ -161,7 +147,6 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = NEW_LINE_DUP.sub('\n', text)
     if text[-1] != '\n':
         text += '\n'
-    text = normalize(text, normalize_process)
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
     return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()]
@@ -170,16 +155,12 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
 def start_normalize_process(lang):
     cwd = os.getcwd()
     os.chdir(Path(__file__).parent)
-    # normalize_process = pexpect.spawn(f"./normalize-punctuation.perl -l {lang}", maxread=50000)
-    normalize_process = pexpect.spawn(f"/bin/bash", maxread=50000)
-    normalize_process.sendline('stty -icanon')
-    normalize_process.sendline(f"./normalize-punctuation.perl -l {lang}")
+    normalize_process = Popen(['./normalize-punctuation.perl', '-l', 'en'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
     os.chdir(cwd)
     return normalize_process
 
 
-def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0):
-    normalize_process = start_normalize_process(lang)
+def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range, start_doc_id=0):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
@@ -224,14 +205,9 @@ def preprocess_wikipedia(file_path, output_dir, lang, tokenizer, sequence_length
                         f"Skipping page.."
                     )
                 else:
-                    text = get_wiki_text_lines(text.group(1), normalize_process, tokenizer)
+                    text = get_wiki_text_lines(text.group(1), tokenizer)
                     if text:
-                        opening_doc_tag = f'<doc docid="{doc_id}" source="{file_path}"'
-                        if title is not None:
-                            opening_doc_tag += f' title="{QUOTES.sub("", title)}">'
-                        else:
-                            opening_doc_tag += '>'
-                        file_text = '\n'.join([opening_doc_tag] + text + ['</doc>']) + '\n'
+                        file_text = doc_to_str(doc_id, file_path, title, text)
                         out_f.write(file_text)
                         for k, v in small.arrange_sentences_by_number_of_words_in_1_doc(
                                 text, sequence_length_range, [file_i, doc_id]
@@ -366,6 +342,59 @@ def cut_and_save(segments, doc_dir, output_file):
     return np.array(line_start_pos)
 
 
+def read_docs_from_file(file_path):
+    current_doc = ""
+    current_doc_number = None
+    docs = {}
+    with file_path.open() as f:
+        for i, line in enumerate(f):
+            start = DOC_HEAD.match(line)
+            if start is not None:
+                if current_doc_number is not None:
+                    raise ValueError(
+                        f"Encountered start of document number {start.group(1)} on line {i} in file {file_path} while "
+                        f"document number {current_doc_number} is still in progress."
+                    )
+                current_doc_number = int(start.group(1))
+            if line.startswith("</doc>"):
+                if current_doc_number is None:
+                    raise ValueError(
+                        f"Encountered end of document on line {i} in file {file_path} while there is no document in "
+                        f"progress."
+                    )
+                docs[current_doc_number] = {"source": start.group(2), "title": start.group(3), "text": current_doc}
+                current_doc = ""
+                current_doc_number = None
+            if current_doc_number is not None:
+                current_doc += line
+    return docs
+
+
+def doc_to_str(docid, source, title, text):
+    res = DOC_HEAD_TMPL.format(docid, source, title) + '\n' + text
+    if text[-1] != '\n':
+        res += '\n'
+    return res + DOC_END + '\n'
+
+
+def write_docs_to_file(docs, file_path):
+    with file_path.open('w') as f:
+        for k, v in docs.items():
+            f.write(doc_to_str(k, v['source'], v["title"], v["text"]))
+
+
+def normalize_punctuation_in_all_documents(document_dir, lang):
+    normalize_process = start_normalize_process(lang)
+    for p in tqdm(document_dir.iterdir()):
+        if is_int(p.stem) and p.suffixes == ['.xml']:
+            file_docs = read_docs_from_file(p)
+            outs, errs = normalize_process.communicate(
+                '\n\n\n'.join([doc['text'] for doc in file_docs.values()]).encode('utf-8')
+            )
+            for k, text in zip(file_docs, outs.decode('utf-8').split('\n\n\n')):
+                file_docs[k]["text"] = text
+
+
 def main():
     args = small.get_args(SUPPORTED_CORPUS_TYPES)
     tokenizer = get_tokenizer(args.tokenizer)
@@ -377,9 +406,7 @@ def main():
     for corpus_type, file_path in zip(args.corpus_types, args.input_files):
         if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
             logging.info(f"Preprocessing wikipedia file {file_path}...")
-            res = preprocess_wikipedia(
-                file_path, document_dir, args.input_language, tokenizer, args.sequence_length_range, 0
-            )
+            res = preprocess_wikipedia(file_path, document_dir, tokenizer, args.sequence_length_range, 0)
             corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
             for k, v in corpus_sentences_by_number_of_words.items():
                 sentences_by_number_of_words[k] += v
@@ -394,6 +421,8 @@ def main():
             f"Finished preprocessing corpus {file_path}. Number of sentences the corpus: "
             f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
         )
+    logging.info("Normalizing punctuation...")
+    normalize_punctuation_in_all_documents(document_dir, args.input_language)
     if args.size is None:
         args.size = number_of_sentences_in_input
     if (
