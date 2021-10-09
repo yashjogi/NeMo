@@ -67,6 +67,19 @@ def remove_tables(text):
     return result
 
 
+def remove_remarks(text):
+    result = ""
+    remarks_in_progress = 0
+    for i in range(len(text)):
+        if text[i : i + 4] == '<!--':
+            remarks_in_progress += 1
+        if remarks_in_progress == 0:
+            result += text[i]
+        if text[i - 2 : i + 1] == '-->':
+            remarks_in_progress -= 1
+    return result
+
+
 def remove_tag_with_content(text, tag, remove_whole_line=False):
     result = ""
     tags_in_progress = 0
@@ -140,6 +153,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = remove_tag_with_content(text, 'math', remove_whole_line=True)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
+    text = remove_remarks(text)
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
