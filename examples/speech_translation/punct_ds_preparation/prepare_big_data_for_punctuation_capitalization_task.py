@@ -32,6 +32,7 @@ DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
 FILE_START = re.compile(r'\[\[File:\w', flags=re.I)
+FILE_START_LEN = 8
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
@@ -101,7 +102,7 @@ def remove_file_descriptions(text):
     files_in_progress = 0
     number_of_opened_double_square_brackets = []
     for i in range(len(text)):
-        if FILE_START.match(text[i : i + 4]):
+        if FILE_START.match(text[i : i + FILE_START_LEN]):
             files_in_progress += 1
             number_of_opened_double_square_brackets.append(1)
         if files_in_progress == 0:
