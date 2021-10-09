@@ -31,7 +31,7 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_START = re.compile(r'^\[\[(?:File|Image):', flags=re.I)
+FILE_START = re.compile(r'^\[\[(?:File|Image|User):', flags=re.I)
 FILE_START_LEN = 8
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
@@ -97,7 +97,7 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
     return result
 
 
-def remove_file_and_image_descriptions(text):
+def remove_double_square_brackets_specials(text):
     result = ""
     files_in_progress = 0
     number_of_opened_double_square_brackets = []
@@ -132,9 +132,7 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    with open('before_removing_file_descriptions.txt', 'w') as f:
-        f.write(text)
-    text = remove_file_and_image_descriptions(text)
+    text = remove_double_square_brackets_specials(text)
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
@@ -149,15 +147,22 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
         match_text = match.group(1)
         match_text = match_text.split('|')
         if len(match_text) == 1:
-            return match_text[0]
+            res = match_text[0]
         elif len(match_text) == 2:
-            return match_text[1]
+            res = match_text[1]
         else:
             logging.warning(
                 f"Found double square brackets with three sections {repr(match.group(0))} in document from lines "
                 f"between {start_line} and {end_line}."
             )
-            return match_text[1]
+            res = match_text[1]
+        if ':' in res:
+            split_res = res.split(':')
+            if split_res[1]:
+                res = split_res[1]
+            else:
+                res = split_res[0]
+        return res
     
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = remove_remarks(text)
@@ -179,11 +184,17 @@ def start_normalize_process(lang):
     return normalize_process
 
 
+def blocks(files, size=65536):
+    while True:
+        b = files.read(size)
+        if not b:
+            break
+        yield b.count('\n')
+
+
 def count_lines_in_file(file_path):
-    count = 0
     with file_path.open() as f:
-        for _ in f:
-            count += 1
+        count = sum(blocks(f))
     return count
 
 
