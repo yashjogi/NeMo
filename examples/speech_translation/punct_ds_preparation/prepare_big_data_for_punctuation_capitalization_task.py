@@ -50,6 +50,7 @@ END_SECTION = re.compile(
     r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
+NEW_LINE_DUP = re.compile('\n{2,}')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
 
@@ -157,6 +158,7 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
+    text = NEW_LINE_DUP.sub('\n', text)
     text = normalize(text, normalize_process)
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
