@@ -27,11 +27,11 @@ PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
 TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL)
 QUOTES = re.compile('"\'')
-REDIRECT = re.compile('^\s*#REDIRECT +\[\[[^]]*]]')
-DOUBLE_BRACES_WITH_CONTENT = re.compile('{{[^}{]*}}')
+REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
+DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 DOUBLE_EQUALS_SIGN_HEADERS = re.compile('\n\\s*==[^\n]+==\\s*\n')
-FILE_DESCRIPTION = re.compile(r'\[\[File:\w[^]]*]]')
+FILE_DESCRIPTION = re.compile(r'\[\[File:\w(?:[^[]*(?:\[\[[^]]*]])?)*]]')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
@@ -46,13 +46,35 @@ def remove_tables(text):
     result = ""
     tables_in_progress = 0
     for i in range(len(text)):
-        to_inspect = text[i : i + 2]
+        if text[i : i + 2] == '{|':
+            tables_in_progress += 1
         if tables_in_progress == 0:
             result += text[i]
-        if to_inspect == '{|':
-            tables_in_progress += 1
-        if to_inspect == '|}':
+        if text[i - 1 : i + 1] == '|}':
             tables_in_progress -= 1
+    return result
+
+
+def remove_tag_with_content(text, tag, remove_whole_line=False):
+    result = ""
+    tags_in_progress = 0
+    i = 0
+    while i < len(text):
+        if text[i: i + 2 + len(tag)] == f"<{tag}>":
+            if tags_in_progress == 0 and remove_whole_line:
+                i = len(result) - 1
+                while i > 0 and result[i] != '\n':
+                    i -= 1
+                result = result[:i]
+            tags_in_progress += 1
+        if tags_in_progress == 0:
+            result += text[i]
+        if text[i - 2 - len(tag) : i + 1] == f"</{tag}>":
+            tags_in_progress -= 1
+            if tags_in_progress == 0 and remove_whole_line:
+                while i < len(text) and text[i] != '\n':
+                    i += 1
+        i += 1
     return result
 
 
@@ -86,7 +108,6 @@ def normalize(text, normalize_process):
 
 
 def get_wiki_text_lines(text, normalize_process, tokenizer):
-    print("text:", text)
     text = REDIRECT.sub('', text)
     while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
@@ -102,6 +123,10 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = remove_tables(text)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
+    text = text.replace('&lt;', '<')
+    text = text.replace('&gt;', '>')
+    text = remove_tag_with_content(text, 'ref')
+    text = remove_tag_with_content(text, 'math', remove_whole_line=True)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = normalize(text, normalize_process)
