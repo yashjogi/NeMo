@@ -176,6 +176,14 @@ def start_normalize_process(lang):
     return normalize_process
 
 
+def count_lines_in_file(file_path):
+    count = 0
+    with file_path.open() as f:
+        for _ in f:
+            count += 1
+    return count
+
+
 def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range, start_doc_id=0):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
@@ -190,7 +198,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     with file_path.open() as in_f:
-        for i, line in tqdm(enumerate(in_f)):
+        for i, line in tqdm(enumerate(in_f), total=count_lines_in_file(file_path)):
             if '<page' in line:
                 if PAGE_OPENING_NORMAL_TAG.match(line) is None:
                     logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
@@ -401,7 +409,7 @@ def write_docs_to_file(docs, file_path):
 
 def normalize_punctuation_in_all_documents(document_dir, lang):
     normalize_process = start_normalize_process(lang)
-    for p in tqdm(document_dir.iterdir()):
+    for p in tqdm(list(document_dir.iterdir())):
         if is_int(p.stem) and p.suffixes == ['.xml']:
             file_docs = read_docs_from_file(p)
             outs, errs = normalize_process.communicate(
