@@ -159,6 +159,8 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
     text = text.replace("&quot;", '"')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
+    if text[-1] != '\n':
+        text += '\n'
     text = normalize(text, normalize_process)
     if tokenizer is not None:
         text = small.remove_untokenizable_characters_from_text(text, tokenizer)
@@ -168,7 +170,10 @@ def get_wiki_text_lines(text, normalize_process, tokenizer):
 def start_normalize_process(lang):
     cwd = os.getcwd()
     os.chdir(Path(__file__).parent)
-    normalize_process = pexpect.spawn(f"./normalize-punctuation.perl -l {lang}", maxread=50000)
+    # normalize_process = pexpect.spawn(f"./normalize-punctuation.perl -l {lang}", maxread=50000)
+    normalize_process = pexpect.spawn(f"/bin/bash", maxread=50000)
+    normalize_process.sendline('stty -icanon')
+    normalize_process.sendline(f"./normalize-punctuation.perl -l {lang}")
     os.chdir(cwd)
     return normalize_process
 
