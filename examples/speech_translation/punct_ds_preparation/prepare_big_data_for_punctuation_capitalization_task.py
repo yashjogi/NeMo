@@ -127,7 +127,6 @@ def get_wiki_text_lines(text, tokenizer):
     if not text:
         return []
     end_section = END_SECTION.search(text)
-    print("end_section:", end_section)
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
@@ -205,6 +204,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                         f"Skipping page.."
                     )
                 else:
+                    print(i, len(text.group(1)))
                     text = get_wiki_text_lines(text.group(1), tokenizer)
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, '\n'.join(text))
