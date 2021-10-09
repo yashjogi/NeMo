@@ -121,19 +121,7 @@ def remove_file_and_image_descriptions(text):
     return result
 
 
-def double_square_brackets_replacement(match):
-    text = match.group(1)
-    text = text.split('|')
-    if len(text) == 1:
-        return text[0]
-    elif len(text) == 2:
-        return text[1]
-    else:
-        logging.warning(f"Found double square brackets with three sections {repr(match.group(0))}")
-        return text[1]
-
-
-def get_wiki_text_lines(text, tokenizer):
+def get_wiki_text_lines(text, tokenizer, start_line, end_line):
     text = REDIRECT.sub('', text)
     while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
@@ -156,6 +144,21 @@ def get_wiki_text_lines(text, tokenizer):
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
+    
+    def double_square_brackets_replacement(match):
+        match_text = match.group(1)
+        match_text = match_text.split('|')
+        if len(match_text) == 1:
+            return match_text[0]
+        elif len(match_text) == 2:
+            return match_text[1]
+        else:
+            logging.warning(
+                f"Found double square brackets with three sections {repr(match.group(0))} in document from lines "
+                f"between {start_line} and {end_line}."
+            )
+            return match_text[1]
+    
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = remove_remarks(text)
     text = text.replace("''", '"')
@@ -229,7 +232,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                         f"Skipping page.."
                     )
                 else:
-                    text = get_wiki_text_lines(text.group(1), tokenizer)
+                    text = get_wiki_text_lines(text.group(1), tokenizer, start_line, end_line)
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, '\n'.join(text))
                         out_f.write(file_text)
