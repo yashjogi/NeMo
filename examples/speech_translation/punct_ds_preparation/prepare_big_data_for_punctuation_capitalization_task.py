@@ -31,8 +31,8 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_START = re.compile(r'^\[\[(?:File|Image):\w', flags=re.I)
-FILE_START_LEN = 9
+FILE_START = re.compile(r'^\[\[(?:File|Image):', flags=re.I)
+FILE_START_LEN = 8
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
