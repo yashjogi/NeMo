@@ -162,7 +162,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
     text = text.strip()
     if not text:
-        return []
+        return [], tok_chars, untok_chars
     end_section = END_SECTION.search(text)
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
