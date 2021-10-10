@@ -208,7 +208,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_tag_with_content_nested(
-        text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, True, pos_info
+        text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
     )
     text = remove_double_square_brackets_specials(text, pos_info)
 
