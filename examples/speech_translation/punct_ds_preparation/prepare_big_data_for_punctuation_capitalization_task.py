@@ -156,8 +156,9 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
     for m in start_or_end_re.finditer(text):
         if start_re.match(m.group(0)) is not None:
             if num_opened == 0:
-                right = text.rfind('\n', last_end, m.span()[0]) if remove_whole_line else m.span()[0]
-                result += text[last_end: right]
+                if last_end < m.span()[0]:
+                    right = text.rfind('\n', last_end, m.span()[0]) if remove_whole_line else m.span()[0]
+                    result += text[last_end: right]
             num_opened += 1
         else:
             assert end_re.match(m.group(0)) is not None
