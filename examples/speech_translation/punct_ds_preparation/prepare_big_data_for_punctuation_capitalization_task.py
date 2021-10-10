@@ -57,7 +57,7 @@ AMP_DEL = re.compile(r'(\w)&amp;')
 SUP_TAG = re.compile(r'</?sup>')
 SPAN_TAG = re.compile(r'</?span[^>]*>')
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
 
 def remove_tables(text):
