@@ -158,6 +158,7 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
             if num_opened == 0:
                 logging.warning(
                     f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
+                    f"10 characters and 10 characters after: {repr(text[max(m.span()[0] - 10, 0): m.span()[1] + 10])}. "
                     f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
                     f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
                     f"{pos_info[2]}. Discarding the document after {last_end}."
