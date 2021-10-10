@@ -61,8 +61,8 @@ REF_START = re.compile('<ref[^>]*>')
 REF_END = re.compile('</ref>')
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
-TABLE_START = re.compile('^:{,2}{\\|', flags=re.MULTILINE)
-TABLE_END = re.compile('\n\\|}')
+TABLE_START = re.compile('^:{,2}{\\|(?:\n|\n{\\|)?', flags=re.MULTILINE)
+TABLE_END = re.compile('(\n\\|}){1,2}')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
@@ -89,8 +89,8 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
     for start_m, end_m in zip(start_iter, end_iter):
         if start_m.span()[0] >= end_m.span()[0]:
             logging.warning(
-                f"Encountered closing tag '{end_m.group(0)}' in position {end_m.span()[0]} before or simultaneously "
-                f"with opening tag '{start_m.group(0)}' in position {start_m.span()[0]}. start_re={start_re}, "
+                f"Encountered closing tag {repr(end_m.group(0))} in position {end_m.span()[0]} before or simultaneously "
+                f"with opening tag {repr(start_m.group(0))} in position {start_m.span()[0]}. start_re={start_re}, "
                 f"end_re={end_re}. Document is in lines between {start_line} and {end_line}. Discarding the remainder "
                 f"of the document."
             )
@@ -99,7 +99,7 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
             if remove_whole_line:
                 if end_m.span()[0] > last_end:
                     logging.warning(
-                        f"Encountered closing tag '{end_m.group(0)}' in position {end_m.span()[0]} in not parsed text "
+                        f"Encountered closing tag {repr(end_m.group(0))} in position {end_m.span()[0]} in not parsed text "
                         f"(starting with position {last_end}) whereas no starting tag {start_re} was found in not "
                         f"parsed text. Probably tags {start_re} and {end_re} are multiline. Document is in lines between "
                         f"{start_line} and {end_line} in file {file_path}. Discarding the remainder of the document."
