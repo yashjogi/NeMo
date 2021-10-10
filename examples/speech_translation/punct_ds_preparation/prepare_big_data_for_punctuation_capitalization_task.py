@@ -225,7 +225,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         text += '\n'
     if tokenizer is not None:
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
-    return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()], text, tok_chars, untok_chars
+    return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()], tok_chars, untok_chars
 
 
 def start_normalize_process(lang):
