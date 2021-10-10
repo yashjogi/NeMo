@@ -32,11 +32,11 @@ DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
 SPECIAL_SQUARE_BRACKETS_START = re.compile(
-    r'^\[\[(?:(?: ?: ?File| ?:?Image| ?:?User| ?:?User talk| ?:?Special):| ?#footer| ?{{rdconfigarray)',
+    r'\[\[(?:[ :]{,2}File:|[ :]{,2}Image:|[ :]{,2}User:|[ :]{,2}User talk:|[ :]{,2}Special:| ?#footer| '
+    r'?{{rdconfigarray)',
     flags=re.I
 )
 SPECIAL_SQUARE_BRACKETS_BORDER = re.compile(r'\[\[|]]')
-FILE_START_LEN = 14
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
