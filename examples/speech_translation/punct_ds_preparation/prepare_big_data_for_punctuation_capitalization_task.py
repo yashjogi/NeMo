@@ -22,7 +22,7 @@ SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
 
 def create_triplet(tag):
-    start = re.compile(f'<{tag}[^>]*>')
+    start = re.compile(f'<{tag}(?: [^>]*[^>/] *|>)')
     end = re.compile(f'</{tag}>')
     start_or_end = re.compile(start.pattern + '|' + end.pattern)
     return start, end, start_or_end
@@ -160,6 +160,7 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
                 result += text[last_end: right]
             num_opened += 1
         else:
+            assert end_re.match(m.group(0)) is not None
             if num_opened == 0:
                 logging.warning(
                     f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
@@ -215,19 +216,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    # text = remove_tag_with_content_nested(
-    #     text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
-    # )
     text = remove_double_square_brackets_specials(text, pos_info)
-
-    # text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
-    # text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, pos_info)
     text = TRIPLE_QUOTES.sub(r'\1', text)
-    # text = REFERENCE.sub('', text)
-    # text = remove_tag_with_content(text, REF_START, REF_END, True, pos_info)
     text = remove_tag_with_content_nested(text, REF_START, REF_END, REF_START_OR_END, False, pos_info)
     text = REFERENCE_SHORT.sub('', text)
-    # text = remove_tag_with_content(text, MATH_START, MATH_END, True, pos_info)
     text = remove_tag_with_content_nested(text, MATH_START, MATH_END, MATH_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, CODE_START, CODE_END, CODE_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(
@@ -287,7 +279,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
     if '<' in text or '>' in text:
         logging.warning(
-            f"There are still 'greater than' or 'less than' signs in document in file {pos_info[0]} between lines "
+            f"There are still '>' or '<' characters in document in file {pos_info[0]} between lines "
             f"{pos_info[1]} and {pos_info[2]}."
         )
     stripped = [sent.strip() for sent in nltk.sent_tokenize(text)]
