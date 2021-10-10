@@ -27,12 +27,15 @@ PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
 TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL)
 QUOTES = re.compile('"\'')
-REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]')
+REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]', flags=re.I)
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_START = re.compile(r'^\[\[(?:File|Image|User):', flags=re.I)
-FILE_START_LEN = 8
+FILE_START = re.compile(
+    r'^\[\[(?:(?: ?: ?File| ?:?Image| ?:?User| ?:?User talk| ?:?Special):| ?#footer| ?{{rdconfigarray)',
+    flags=re.I
+)
+FILE_START_LEN = 14
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
@@ -41,11 +44,20 @@ END_SECTION = re.compile(
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
-DOC_HEAD = re.compile('^<doc docid="({[1-9][0-9]*})" source="(.+)" title="(.+)">$', flags=re.MULTILINE)
-DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}">'
+DOC_HEAD = re.compile(
+    '^<doc docid="({[1-9][0-9]*})" source="(.+)" title="(.+)" start_line="([0-9]+)" end_line="([0-9]+)">$',
+    flags=re.MULTILINE
+)
+DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
+EM_TAG = re.compile('</?em>')
+BLOCKQUOTE_TAG = re.compile('</?blockquote>')
+DIV_TAG = re.compile('</?div[^>]*>')
+AMP_DEL = re.compile(r'(\w)&amp;')
+SUP_TAG = re.compile(r'</?sup>')
+SPAN_TAG = re.compile(r'</?span[^>]*>')
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10**9
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
 
 
 def remove_tables(text):
@@ -79,13 +91,14 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
     tags_in_progress = 0
     i = 0
     while i < len(text):
-        if text[i: i + 2 + len(tag)] == f"<{tag}>":
+        if text[i: i + 2 + len(tag)] in [f"<{tag} ", f"<{tag}>"]:
             if tags_in_progress == 0 and remove_whole_line:
                 j = len(result) - 1
                 while j > 0 and result[j] != '\n':
                     j -= 1
                 result = result[:j]
             tags_in_progress += 1
+            i += 2 + len(tag)
         if tags_in_progress == 0:
             result += text[i]
         if text[i - 2 - len(tag) : i + 1] == f"</{tag}>":
@@ -93,6 +106,8 @@ def remove_tag_with_content(text, tag, remove_whole_line=False):
             if tags_in_progress == 0 and remove_whole_line:
                 while i < len(text) and text[i] != '\n':
                     i += 1
+            else:
+                i += 1 + len(tag)
         i += 1
     return result
 
@@ -139,6 +154,11 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
     text = text.replace('&gt;', '>')
     text = remove_tag_with_content(text, 'ref')
     text = remove_tag_with_content(text, 'math', remove_whole_line=True)
+    text = EM_TAG.sub('', text)
+    text = BLOCKQUOTE_TAG.sub('', text)
+    text = DIV_TAG.sub('', text)
+    text = SUP_TAG.sub('', text)
+    text = SPAN_TAG.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
@@ -162,12 +182,28 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
                 res = split_res[1]
             else:
                 res = split_res[0]
+        if (
+                "#if:" in res
+                or "&amp;" in res
+                or '\n' in res
+                or "#ifeq:" in res
+                or '{}' in res
+                or "{{" in res
+                or "}}" in res
+                or "lc:" in res
+
+        ):
+            res = ""
         return res
     
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = remove_remarks(text)
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
+    text = text.replace('&nbsp;', ' ')
+    text = AMP_DEL.sub(r'\1', text)
+    text = text.replace('&amp;', 'and')
+
     text = NEW_LINE_DUP.sub('\n', text)
     if text and text[-1] != '\n':
         text += '\n'
@@ -245,7 +281,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                 else:
                     text = get_wiki_text_lines(text.group(1), tokenizer, start_line, end_line)
                     if text:
-                        file_text = doc_to_str(doc_id, file_path, title, '\n'.join(text))
+                        file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
                         out_f.write(file_text)
                         for k, v in small.arrange_sentences_by_number_of_words_in_1_doc(
                                 text, sequence_length_range, [file_i, doc_id]
@@ -400,7 +436,13 @@ def read_docs_from_file(file_path):
                         f"Encountered end of document on line {i} in file {file_path} while there is no document in "
                         f"progress."
                     )
-                docs[current_doc_number] = {"source": start.group(2), "title": start.group(3), "text": current_doc}
+                docs[current_doc_number] = {
+                    "source": start.group(2),
+                    "title": start.group(3),
+                    "start_line": start.group(4),
+                    "end_line": start.group(5),
+                    "text": current_doc
+                }
                 current_doc = ""
                 current_doc_number = None
             if current_doc_number is not None:
@@ -408,8 +450,8 @@ def read_docs_from_file(file_path):
     return docs
 
 
-def doc_to_str(docid, source, title, text):
-    res = DOC_HEAD_TMPL.format(docid, source, title) + '\n' + text
+def doc_to_str(docid, source, title, start_line, end_line, text):
+    res = DOC_HEAD_TMPL.format(docid, source, title, start_line, end_line) + '\n' + text
     if text[-1] != '\n':
         res += '\n'
     return res + DOC_END + '\n'
@@ -418,7 +460,7 @@ def doc_to_str(docid, source, title, text):
 def write_docs_to_file(docs, file_path):
     with file_path.open('w') as f:
         for k, v in docs.items():
-            f.write(doc_to_str(k, v['source'], file_path, v["text"]))
+            f.write(doc_to_str(k, v['source'], v["title"], v["start_line"], v["end_line"], v["text"]))
 
 
 def normalize_punctuation_in_all_documents(document_dir, lang):
