@@ -61,7 +61,7 @@ REF_START = re.compile('<ref[^>]*>')
 REF_END = re.compile('</ref>')
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
-TABLE_START = re.compile('^:{,2}{\\|(?:\n\\|\n{\\|)?', flags=re.MULTILINE)
+TABLE_START = re.compile('^:{,2}{\\|(?:[^\n]*\n\\|\n{\\|)?', flags=re.MULTILINE)
 TABLE_END = re.compile('(\n\\|}){1,2}')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 
