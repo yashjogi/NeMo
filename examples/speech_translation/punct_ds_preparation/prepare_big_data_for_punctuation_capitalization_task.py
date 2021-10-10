@@ -46,7 +46,7 @@ END_SECTION = re.compile(
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
 DOC_HEAD = re.compile(
-    '^<doc docid="({[1-9][0-9]*})" source="(.+)" title="(.+)" start_line="([0-9]+)" end_line="([0-9]+)">$',
+    '^<doc docid="({[0-9]*})" source="(.+)" title="(.+)" start_line="([0-9]+)" end_line="([0-9]+)">$',
     flags=re.MULTILINE
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
@@ -61,7 +61,7 @@ DROP_TAGS = re.compile(r'</?(div|sup|span|blockquote|em)[^>]*>')
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
-TABLE_START = re.compile('^{\\|', flags=re.MULTILINE)
+TABLE_START = re.compile('^:{,2}{\\|', flags=re.MULTILINE)
 TABLE_END = re.compile('\n\\|}')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
@@ -438,25 +438,25 @@ def cut_and_save(segments, doc_dir, output_file):
 
 def read_docs_from_file(file_path):
     current_doc = ""
-    current_doc_number = None
+    current_doc_id = None
     docs = {}
     with file_path.open() as f:
         for i, line in enumerate(f):
             start = DOC_HEAD.match(line)
             if start is not None:
-                if current_doc_number is not None:
+                if current_doc_id is not None:
                     raise ValueError(
                         f"Encountered start of document number {start.group(1)} on line {i} in file {file_path} while "
-                        f"document number {current_doc_number} is still in progress."
+                        f"document number {current_doc_id} is still in progress."
                     )
-                current_doc_number = int(start.group(1))
+                current_doc_id = int(start.group(1))
             if line.startswith("</doc>"):
-                if current_doc_number is None:
+                if current_doc_id is None:
                     raise ValueError(
                         f"Encountered end of document on line {i} in file {file_path} while there is no document in "
                         f"progress."
                     )
-                docs[current_doc_number] = {
+                docs[current_doc_id] = {
                     "source": start.group(2),
                     "title": start.group(3),
                     "start_line": start.group(4),
@@ -464,8 +464,8 @@ def read_docs_from_file(file_path):
                     "text": current_doc
                 }
                 current_doc = ""
-                current_doc_number = None
-            if current_doc_number is not None:
+                current_doc_id = None
+            if current_doc_id is not None:
                 current_doc += line
     return docs
 
