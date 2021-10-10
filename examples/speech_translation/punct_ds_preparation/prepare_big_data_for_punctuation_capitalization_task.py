@@ -209,12 +209,12 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    text = remove_tag_with_content_nested(
-        text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
-    )
+    # text = remove_tag_with_content_nested(
+    #     text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
+    # )
     text = remove_double_square_brackets_specials(text, pos_info)
 
-    text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
+    # text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
     # text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, pos_info)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
@@ -226,6 +226,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     # text = remove_tag_with_content(text, MATH_START, MATH_END, True, pos_info)
     text = remove_tag_with_content_nested(text, MATH_START, MATH_END, MATH_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, CODE_START, CODE_END, CODE_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(
+        text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
+    )
+    text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
