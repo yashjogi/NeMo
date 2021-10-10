@@ -168,7 +168,7 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
                     f"10 characters and 10 characters after: {repr(text[max(m.span()[0] - 10, 0): m.span()[1] + 10])}. "
                     f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
                     f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
-                    f"{pos_info[2]}. Discarding the document after {last_end}."
+                    f"{pos_info[2]}. Discarding the document after position {last_end}."
                 )
                 return result
             else:
@@ -183,6 +183,8 @@ def remove_double_square_brackets_specials(text, pos_info):
     result = ""
     last_end = 0
     for m in SPECIAL_SQUARE_BRACKETS_START.finditer(text):
+        if m.span()[0] < last_end:
+            continue
         start = m.span()[0]
         search_start = m.span()[1]
         result += text[last_end: start]
