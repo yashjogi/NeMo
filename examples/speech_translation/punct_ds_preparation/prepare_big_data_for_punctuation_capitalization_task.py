@@ -59,10 +59,14 @@ REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
 REF_START = re.compile('<ref[^>]*>')
 REF_END = re.compile('</ref>')
+REF_START_OR_END = re.compile(REF_START.pattern + '|' + REF_END.pattern)
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
-TABLE_START = re.compile('^:{,2}{\\|(?:[^\n]*\n\\|\n{\\|)?', flags=re.MULTILINE)
-TABLE_END = re.compile('(\n\\|}){1,2}')
+MATH_START_OR_END = re.compile(MATH_START.pattern + '|' + MATH_END.pattern)
+# TABLE_START = re.compile('^:{,2}{\\|(?:[^\n]*\n\\|\n{\\|)?', flags=re.MULTILINE)
+TABLE_START = re.compile('^:{,2}{\\|', flags=re.MULTILINE)
+TABLE_END = re.compile('\n\\|}')
+TABLE_START_OR_END = re.compile(TABLE_START.pattern + '|' + TABLE_END.pattern, flags=re.MULTILINE)
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
@@ -128,6 +132,34 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
     return result
 
 
+def remove_tag_with_content_nested(
+    text, start_re, end_re, start_or_end_re, remove_whole_line, file_path, start_line, end_line
+):
+    result = ""
+    num_opened = 0
+    last_end = 0
+    for m in start_or_end_re.finditer(text):
+        if start_re.match(m.group(0)) is not None:
+            if num_opened == 0:
+                right = text.rfind('\n', last_end, m.span()[0]) if remove_whole_line else m.span()[0]
+                result += text[last_end: right]
+            num_opened += 1
+        else:
+            if num_opened == 0:
+                logging.warning(
+                    f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
+                    f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
+                    f"end_re={end_re}. Document is in file {file_path} lines between {start_line} and {end_line}. "
+                    f"Discarding the document after {last_end}."
+                )
+            else:
+                num_opened -= 1
+                if num_opened == 0:
+                    last_end = text.find('\n', m.span()[1]) if remove_whole_line else m.span()[1]
+    result += text[last_end:]
+    return result
+
+
 def remove_double_square_brackets_specials(text, file_path, start_line, end_line):
     result = ""
     last_end = 0
@@ -169,14 +201,23 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_double_square_brackets_specials(text, file_path, start_line, end_line)
 
-    text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, file_path, start_line, end_line)
+    text = remove_tag_with_content_nested(
+        text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, file_path, start_line, end_line
+    )
+    # text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, file_path, start_line, end_line)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
     text = REFERENCE.sub('', text)
     text = REFERENCE_SHORT.sub('', text)
-    text = remove_tag_with_content(text, REF_START, REF_END, True, file_path, start_line, end_line)
-    text = remove_tag_with_content(text, MATH_START, MATH_END, True, file_path, start_line, end_line)
+    # text = remove_tag_with_content(text, REF_START, REF_END, True, file_path, start_line, end_line)
+    text = remove_tag_with_content_nested(
+        text, REF_START, REF_END, REF_START_OR_END, True, file_path, start_line, end_line
+    )
+    # text = remove_tag_with_content(text, MATH_START, MATH_END, True, file_path, start_line, end_line)
+    text = remove_tag_with_content_nested(
+        text, MATH_START, MATH_END, MATH_START_OR_END, True, file_path, start_line, end_line
+    )
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
