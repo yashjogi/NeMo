@@ -31,10 +31,11 @@ REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]', flags=re.I)
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
-FILE_START = re.compile(
+SPECIAL_SQUARE_BRACKETS_START = re.compile(
     r'^\[\[(?:(?: ?: ?File| ?:?Image| ?:?User| ?:?User talk| ?:?Special):| ?#footer| ?{{rdconfigarray)',
     flags=re.I
 )
+SPECIAL_SQUARE_BRACKETS_BORDER = re.compile(r'\[\[|]]')
 FILE_START_LEN = 14
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
@@ -50,27 +51,33 @@ DOC_HEAD = re.compile(
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
-EM_TAG = re.compile('</?em>')
-BLOCKQUOTE_TAG = re.compile('</?blockquote>')
-DIV_TAG = re.compile('</?div[^>]*>')
+# EM_TAG = re.compile('</?em>')
+# BLOCKQUOTE_TAG = re.compile('</?blockquote>')
+# DIV_TAG = re.compile('</?div[^>]*>')
 AMP_DEL = re.compile(r'(\w)&amp;')
-SUP_TAG = re.compile(r'</?sup>')
-SPAN_TAG = re.compile(r'</?span[^>]*>')
+# SUP_TAG = re.compile(r'</?sup>')
+# SPAN_TAG = re.compile(r'</?span[^>]*>')
+DROP_TAGS = re.compile(r'</?(div|sup|span|blockquote|em)[^>]*>')
+REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
+MATH_START = re.compile('<math[^>]*>')
+MATH_END = re.compile('</math>')
+TABLE_START = re.compile('{|')
+TABLE_END = re.compile('|}')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
 
-def remove_tables(text):
-    result = ""
-    tables_in_progress = 0
-    for i in range(len(text)):
-        if text[i : i + 2] == '{|':
-            tables_in_progress += 1
-        if tables_in_progress == 0:
-            result += text[i]
-        if text[i - 1 : i + 1] == '|}':
-            tables_in_progress -= 1
-    return result
+# def remove_tables(text):
+#     result = ""
+#     tables_in_progress = 0
+#     for i in range(len(text)):
+#         if text[i : i + 2] == '{|':
+#             tables_in_progress += 1
+#         if tables_in_progress == 0:
+#             result += text[i]
+#         if text[i - 1 : i + 1] == '|}':
+#             tables_in_progress -= 1
+#     return result
 
 
 def remove_remarks(text):
@@ -86,57 +93,70 @@ def remove_remarks(text):
     return result
 
 
-def remove_tag_with_content(text, tag, remove_whole_line=False):
+def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path, start_line, end_line):
     result = ""
-    tags_in_progress = 0
-    i = 0
-    while i < len(text):
-        if text[i: i + 2 + len(tag)] in [f"<{tag} ", f"<{tag}>"]:
-            if tags_in_progress == 0 and remove_whole_line:
-                j = len(result) - 1
-                while j > 0 and result[j] != '\n':
-                    j -= 1
-                result = result[:j]
-            tags_in_progress += 1
-            i += 2 + len(tag)
-        if tags_in_progress == 0:
-            result += text[i]
-        if text[i - 2 - len(tag) : i + 1] == f"</{tag}>":
-            tags_in_progress -= 1
-            if tags_in_progress == 0 and remove_whole_line:
-                while i < len(text) and text[i] != '\n':
-                    i += 1
+    start_iter = start_re.finditer(text)
+    end_iter = end_re.finditer(text)
+    last_end = -1
+    for start_m, end_m in zip(start_iter, end_iter):
+        if start_m.span()[0] >= end_m.span()[0]:
+            logging.warning(
+                f"Encountered closing tag '{end_m.group(0)}' before or simultaneously with opening tag "
+                f"{start_m.group(0)}. start_re={start_re.pattern}, end_re={end_re}. Document is in lines between "
+                f"{start_line} and {end_line}. Discarding the remainder of the document."
+            )
+            return result
+        if start_m.span()[0] < last_end:
+            logging.warning(
+                f"Encountered 2 opening tags with regex '{start_re.pattern}' (the last match '{start_m.group(0)}' in "
+                f"position {start_m.span()[0]}) before closing tag with regex '{end_re.pattern}' in position "
+                f"{last_end}. Probably here nested tags are used. Document is in lines between {start_line} and "
+                f"{end_line} in file {file_path}. Discarding the remainder of the document."
+            )
+            return result
+        if remove_whole_line:
+            ind = text.rfind('\n', last_end, start_m.span()[0])
+            if ind == -1:
+                ind = last_end
+            result += text[last_end: ind]
+            last_end = text.find('\n', )
+        else:
+            result += text[last_end: start_m.span()[0]]
+            last_end = end_m.span()[1]
+    if last_end > 0:
+        result += text[last_end:]
+    return result
+
+
+def remove_double_square_brackets_specials(text, file_path, start_line, end_line):
+    result = ""
+    last_end = 0
+    for m in SPECIAL_SQUARE_BRACKETS_START.finditer(text):
+        start = m.span()[0]
+        search_start = m.span()[1]
+        result += text[last_end: start]
+        num_openings = 1
+        while num_openings > 0:
+            mm = SPECIAL_SQUARE_BRACKETS_BORDER.search(text, search_start)
+            if mm is None:
+                logging.warning(
+                    f"Encountered special square brackets without closing starting in position {start} of document in "
+                    f"file {file_path} located in lines between {start_line} and {end_line}. The part of the document "
+                    f"starting from position {start} will be discarded."
+                )
+                return result
+            if mm.group(0) == ']]':
+                num_openings -= 1
             else:
-                i += 1 + len(tag)
-        i += 1
-    return result
+                num_openings += 1
+            if num_openings > 0:
+                search_start = mm.span()[1]
+        last_end = mm.span()[1]
+    return result + text[last_end:]
 
 
-def remove_double_square_brackets_specials(text):
-    result = ""
-    files_in_progress = 0
-    number_of_opened_double_square_brackets = []
-    for i in range(len(text)):
-        m = FILE_START.match(text[i : i + FILE_START_LEN])
-        if m is not None:
-            files_in_progress += 1
-            number_of_opened_double_square_brackets.append(1)
-        if files_in_progress == 0:
-            result += text[i]
-        if files_in_progress:
-            if text[i: i + 2] == "[[" and m is None:
-                number_of_opened_double_square_brackets[-1] += 1
-            if text[i - 1: i + 1] == "]]":
-                number_of_opened_double_square_brackets[-1] -= 1
-                if number_of_opened_double_square_brackets[-1] < 1:
-                    assert number_of_opened_double_square_brackets[-1] == 0
-                    number_of_opened_double_square_brackets.pop()
-                    files_in_progress -= 1
-        assert len(number_of_opened_double_square_brackets) == files_in_progress
-    return result
-
-
-def get_wiki_text_lines(text, tokenizer, start_line, end_line):
+def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, start_line, end_line):
+    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
     while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
         text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
@@ -147,18 +167,14 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    text = remove_double_square_brackets_specials(text)
-    text = remove_tables(text)
+    text = remove_double_square_brackets_specials(text, file_path, start_line, end_line)
+    text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, file_path, start_line, end_line)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
-    text = remove_tag_with_content(text, 'ref')
-    text = remove_tag_with_content(text, 'math', remove_whole_line=True)
-    text = EM_TAG.sub('', text)
-    text = BLOCKQUOTE_TAG.sub('', text)
-    text = DIV_TAG.sub('', text)
-    text = SUP_TAG.sub('', text)
-    text = SPAN_TAG.sub('', text)
+    text = REFERENCE.sub('', text)
+    text = remove_tag_with_content(text, MATH_START, MATH_END, True, file_path, start_line, end_line)
+    text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
@@ -208,8 +224,8 @@ def get_wiki_text_lines(text, tokenizer, start_line, end_line):
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
-        text = small.remove_untokenizable_characters_from_text(text, tokenizer)
-    return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()]
+        text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
+    return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()], text, tok_chars, untok_chars
 
 
 def start_normalize_process(lang):
@@ -247,6 +263,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
     output_dir.mkdir(exist_ok=True, parents=True)
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
+    tok_chars, untok_chars = {'\n', ' '}, set()
     with file_path.open() as in_f:
         for i, line in tqdm(enumerate(in_f), total=count_lines_in_file(file_path)):
             if '<page' in line:
@@ -279,7 +296,9 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                         f"Skipping page.."
                     )
                 else:
-                    text = get_wiki_text_lines(text.group(1), tokenizer, start_line, end_line)
+                    text = get_wiki_text_lines(
+                        text.group(1), tokenizer, tok_chars, untok_chars, file_path, start_line, end_line
+                    )
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
                         out_f.write(file_text)

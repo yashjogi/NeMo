@@ -65,6 +65,9 @@ ROMAN_NUMERAL = re.compile(
 )
 HTTP = re.compile(r'https?://', flags=re.I)
 BRACKETS_AND_CONTENT = re.compile(r'\(.*\)')
+SPACING_CHARACTERS_TO_REPLACE = re.compile(
+    '[\t\v\r' + r'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff' + ''.join([chr(i) for i in range(0x2000, 0x200c)]) + ']+'
+)
 
 
 def get_args(supported_corpus_types):
@@ -271,38 +274,37 @@ def too_many_uppercase(text):
     return too_many
 
 
-def remove_untokenizable_characters_from_text(text, tokenizer):
-    tmp_new_line_character = "NEWLINECHARACTER"
-    while tmp_new_line_character in text and len(tmp_new_line_character) < 20:
-        tmp_new_line_character += 'R'
-    while tmp_new_line_character in text and len(tmp_new_line_character) < 30:
-        tmp_new_line_character = 'N' + tmp_new_line_character
-    if tmp_new_line_character in text:
-        logging.warning(
-            f'Could not find temporary replacement for new line character. It is possible that a space character will '
-            f'be removed as not tokenizable'
-        )
-    else:
-        text = re.sub('\n', tmp_new_line_character, text)
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(tmp_new_line_character, '\n', text)
-    untokenizable_characters = list()
-    for c in set(text) - {' ', '\n'}:
-        if not tokenizer.text_to_ids(c):
-            untokenizable_characters.append(c)
-    if untokenizable_characters:
-        if '\\' in untokenizable_characters:
-            untokenizable_characters.remove('\\')
-            untokenizable_characters = ['\\\\'] + untokenizable_characters
-        if '^' == untokenizable_characters[0]:
-            untokenizable_characters.remove('^')
-            untokenizable_characters.append('^')
-        if '-' in untokenizable_characters:
-            untokenizable_characters.remove('-')
-            untokenizable_characters.append('-')
-        uc = '[' + ''.join(untokenizable_characters) + ']'
-        text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
-    return text
+def remove_untokenizable_characters_from_text(text, tokenizer, tok_chars=None, untok_chars=None):
+    tok_chars = {' ', '\n'} if tok_chars is None else tok_chars.copy()
+    untok_chars = set() if untok_chars is None else untok_chars.copy()
+    all_chars = set(text)
+    detected_untok_chars = list(all_chars & untok_chars)
+    candidates_for_untok_chars = all_chars - tok_chars - untok_chars
+    if not detected_untok_chars and not candidates_for_untok_chars:
+        return text, tok_chars, untok_chars
+    for c in candidates_for_untok_chars:
+        if tokenizer.text_to_ids(c):
+            tok_chars.add(c)
+        else:
+            untok_chars.add(c)
+            detected_untok_chars.append(c)
+    if not detected_untok_chars:
+        return text, tok_chars, untok_chars
+    if '\\' in detected_untok_chars:
+        detected_untok_chars.remove('\\')
+        detected_untok_chars = ['\\\\'] + detected_untok_chars
+    if '^' == detected_untok_chars[0]:
+        if len(detected_untok_chars) > 1:
+            detected_untok_chars.remove('^')
+            detected_untok_chars.append('^')
+        else:
+            detected_untok_chars = [r'\^']
+    if '-' in detected_untok_chars:
+        detected_untok_chars.remove('-')
+        detected_untok_chars.append('-')
+    uc = '[' + ''.join(detected_untok_chars) + ']'
+    text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
+    return text, tok_chars, untok_chars
 
 
 def remove_untokenizable_characters(docs, tokenizer):
@@ -317,6 +319,7 @@ def remove_untokenizable_characters(docs, tokenizer):
 
 
 def preprocess_europarl(text):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     f = StringIO(text)
     docs = {}
     for i, line in enumerate(f):
@@ -339,6 +342,7 @@ def preprocess_europarl(text):
 
 
 def preprocess_ted(text):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     soup = BeautifulSoup(text)
     result = {}
     for doc in soup.findAll("doc"):
@@ -392,6 +396,7 @@ def check_rapid_line(line):
 
 
 def preprocess_rapid(text, verbose=False):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     soup = BeautifulSoup(text)
     result = {}
     for file in soup.findAll("file"):
@@ -437,6 +442,7 @@ def preprocess_news_commentary(text):
     discussion_text = []
     discussion_count = 0
     line_idx = 0
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     for line_i, line in enumerate(StringIO(text)):
         line = line.strip()
         if line:
@@ -869,13 +875,13 @@ def main():
         logging.info(f"Processing file {file_path}..")
         with file_path.open() as f:
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-                file_docs = remove_untokenizable_characters(preprocess_europarl(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_europarl(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:
-                file_docs = remove_untokenizable_characters(preprocess_news_commentary(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_news_commentary(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:
-                file_docs = remove_untokenizable_characters(preprocess_ted(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_ted(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:
-                file_docs = remove_untokenizable_characters(preprocess_rapid(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_rapid(f.read()), tokenizer)[0]
             else:
                 raise ValueError(
                     f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
