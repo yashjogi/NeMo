@@ -22,7 +22,7 @@ SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
 
 def create_triplet(tag):
-    start = re.compile(f'<{tag}(?: [^>]*[^>/] *|>)')
+    start = re.compile(f'<{tag}(?: [^>]*[^>/]>|>)')
     end = re.compile(f'</{tag}>')
     start_or_end = re.compile(start.pattern + '|' + end.pattern)
     return start, end, start_or_end
