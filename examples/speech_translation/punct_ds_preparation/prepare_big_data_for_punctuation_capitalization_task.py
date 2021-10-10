@@ -61,8 +61,8 @@ DROP_TAGS = re.compile(r'</?(div|sup|span|blockquote|em)[^>]*>')
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
-TABLE_START = re.compile(r'{\|')
-TABLE_END = re.compile(r'\|}')
+TABLE_START = re.compile('^{\\|', flags=re.MULTILINE)
+TABLE_END = re.compile('\n\\|}')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -101,9 +101,10 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
     for start_m, end_m in zip(start_iter, end_iter):
         if start_m.span()[0] >= end_m.span()[0]:
             logging.warning(
-                f"Encountered closing tag '{end_m.group(0)}' before or simultaneously with opening tag "
-                f"'{start_m.group(0)}'. start_re={start_re}, end_re={end_re}. Document is in lines between "
-                f"{start_line} and {end_line}. Discarding the remainder of the document."
+                f"Encountered closing tag '{end_m.group(0)}' in position {end_m.span()[0]} before or simultaneously "
+                f"with opening tag '{start_m.group(0)}' in position {start_m.span()[0]}. start_re={start_re}, "
+                f"end_re={end_re}. Document is in lines between {start_line} and {end_line}. Discarding the remainder "
+                f"of the document."
             )
             return result
         if start_m.span()[0] < last_end:
