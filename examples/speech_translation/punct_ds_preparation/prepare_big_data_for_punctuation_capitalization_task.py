@@ -19,6 +19,14 @@ random.seed(42)
 
 SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
+
+def create_triplet(tag):
+    start = re.compile(f'<{tag}[^>]*>')
+    end = re.compile(f'</{tag}>')
+    start_or_end = re.compile(start.pattern + '|' + end.pattern)
+    return start, end, start_or_end
+
+
 PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$')
 PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
@@ -54,20 +62,23 @@ DOC_END = '</doc>'
 AMP_DEL = re.compile(r'(\w)&amp;')
 # SUP_TAG = re.compile(r'</?sup>')
 # SPAN_TAG = re.compile(r'</?span[^>]*>')
-DROP_TAGS = re.compile(r'</?(div|su[pb]|span|blockquote|em)[^>]*>')
+DROP_TAGS = re.compile(r'</?(div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*/>')
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
-REF_START = re.compile('<ref[^>]*>')
-REF_END = re.compile('</ref>')
-REF_START_OR_END = re.compile(REF_START.pattern + '|' + REF_END.pattern)
-MATH_START = re.compile('<math[^>]*>')
-MATH_END = re.compile('</math>')
-MATH_START_OR_END = re.compile(MATH_START.pattern + '|' + MATH_END.pattern)
+REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
+MATH_START, MATH_END, MATH_START_OR_END = create_triplet('math')
 # TABLE_START = re.compile('^:{,2}{\\|(?:[^\n]*\n\\|\n{\\|)?', flags=re.MULTILINE)
 TABLE_START = re.compile('^:{,2}{\\|', flags=re.MULTILINE)
 TABLE_END = re.compile('\n\\|}')
 TABLE_START_OR_END = re.compile(TABLE_START.pattern + '|' + TABLE_END.pattern, flags=re.MULTILINE)
+GALLERY_START, GALLERY_END, GALLERY_START_OR_END = create_triplet('gallery')
+IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END = create_triplet('imagemap')
+SCORE_START, SCORE_END, SCORE_START_OR_END = create_triplet('score')
+CODE_START, CODE_END, CODE_START_OR_END = create_triplet('code')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
+DOUBLE_BRACES_START = re.compile('{{')
+DOUBLE_BRACES_END = re.compile('}}')
+DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -85,7 +96,7 @@ def remove_remarks(text):
     return result
 
 
-def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path, start_line, end_line):
+def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
     result = ""
     start_iter = start_re.finditer(text)
     end_iter = end_re.finditer(text)
@@ -95,27 +106,28 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
             logging.warning(
                 f"Encountered closing tag {repr(end_m.group(0))} in position {end_m.span()[0]} before or simultaneously "
                 f"with opening tag {repr(start_m.group(0))} in position {start_m.span()[0]}. start_re={start_re}, "
-                f"end_re={end_re}. Document is in lines between {start_line} and {end_line}. Discarding the remainder "
-                f"of the document."
+                f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and {pos_info[2]}. "
+                f"Discarding the remainder of the document."
             )
             return result
         if start_m.span()[0] < last_end:
             if remove_whole_line:
                 if end_m.span()[0] > last_end:
                     logging.warning(
-                        f"Encountered closing tag {repr(end_m.group(0))} in position {end_m.span()[0]} in not parsed text "
-                        f"(starting with position {last_end}) whereas no starting tag {start_re} was found in not "
-                        f"parsed text. Probably tags {start_re} and {end_re} are multiline. Document is in lines between "
-                        f"{start_line} and {end_line} in file {file_path}. Discarding the remainder of the document."
+                        f"Encountered closing tag {repr(end_m.group(0))} in position {end_m.span()[0]} in not parsed "
+                        f"text (starting with position {last_end}) whereas no starting tag {start_re} was found in not "
+                        f"parsed text. Probably tags {start_re} and {end_re} are multiline. Document is in lines "
+                        f"between {pos_info[1]} and {pos_info[2]} in file {pos_info[0]}. Discarding the remainder of "
+                        f"the document."
                     )
                     return result
                 continue
             else:
                 logging.warning(
-                    f"Encountered 2 opening tags with regex '{start_re.pattern}' (the last match '{start_m.group(0)}' in "
-                    f"position {start_m.span()[0]}) before closing tag with regex '{end_re.pattern}' in position "
-                    f"{last_end}. Probably here nested tags are used. Document is in lines between {start_line} and "
-                    f"{end_line} in file {file_path}. Discarding the remainder of the document."
+                    f"Encountered 2 opening tags with regex '{start_re.pattern}' (the last match '{start_m.group(0)}' "
+                    f"in position {start_m.span()[0]}) before closing tag with regex '{end_re.pattern}' in position "
+                    f"{last_end}. Probably here nested tags are used. Document is in lines between {pos_info[1]} and "
+                    f"{pos_info[2]} in file {pos_info[0]}. Discarding the remainder of the document."
                 )
                 return result
         if remove_whole_line:
@@ -132,9 +144,7 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
     return result
 
 
-def remove_tag_with_content_nested(
-    text, start_re, end_re, start_or_end_re, remove_whole_line, file_path, start_line, end_line
-):
+def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remove_whole_line, pos_info):
     result = ""
     num_opened = 0
     last_end = 0
@@ -149,8 +159,8 @@ def remove_tag_with_content_nested(
                 logging.warning(
                     f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
                     f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
-                    f"end_re={end_re}. Document is in file {file_path} lines between {start_line} and {end_line}. "
-                    f"Discarding the document after {last_end}."
+                    f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
+                    f"{pos_info[2]}. Discarding the document after {last_end}."
                 )
             else:
                 num_opened -= 1
@@ -160,7 +170,7 @@ def remove_tag_with_content_nested(
     return result
 
 
-def remove_double_square_brackets_specials(text, file_path, start_line, end_line):
+def remove_double_square_brackets_specials(text, pos_info):
     result = ""
     last_end = 0
     for m in SPECIAL_SQUARE_BRACKETS_START.finditer(text):
@@ -173,8 +183,8 @@ def remove_double_square_brackets_specials(text, file_path, start_line, end_line
             if mm is None:
                 logging.warning(
                     f"Encountered special square brackets without closing starting in position {start} of document in "
-                    f"file {file_path} located in lines between {start_line} and {end_line}. The part of the document "
-                    f"starting from position {start} will be discarded."
+                    f"file {pos_info[0]} located in lines between {pos_info[1]} and {pos_info[2]}. The part of the "
+                    f"document starting from position {start} will be discarded."
                 )
                 return result
             if mm.group(0) == ']]':
@@ -187,11 +197,9 @@ def remove_double_square_brackets_specials(text, file_path, start_line, end_line
     return result + text[last_end:]
 
 
-def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, start_line, end_line):
+def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
-    while DOUBLE_BRACES_WITH_CONTENT.search(text) is not None:
-        text = DOUBLE_BRACES_WITH_CONTENT.sub('', text)
     text = text.strip()
     if not text:
         return [], tok_chars, untok_chars
@@ -199,25 +207,23 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
-    text = remove_double_square_brackets_specials(text, file_path, start_line, end_line)
-
     text = remove_tag_with_content_nested(
-        text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, file_path, start_line, end_line
+        text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, True, pos_info
     )
-    # text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, file_path, start_line, end_line)
+    text = remove_double_square_brackets_specials(text, pos_info)
+
+    text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
+    # text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, pos_info)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
     text = REFERENCE.sub('', text)
     text = REFERENCE_SHORT.sub('', text)
-    # text = remove_tag_with_content(text, REF_START, REF_END, True, file_path, start_line, end_line)
-    text = remove_tag_with_content_nested(
-        text, REF_START, REF_END, REF_START_OR_END, True, file_path, start_line, end_line
-    )
-    # text = remove_tag_with_content(text, MATH_START, MATH_END, True, file_path, start_line, end_line)
-    text = remove_tag_with_content_nested(
-        text, MATH_START, MATH_END, MATH_START_OR_END, True, file_path, start_line, end_line
-    )
+    # text = remove_tag_with_content(text, REF_START, REF_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, REF_START, REF_END, REF_START_OR_END, False, pos_info)
+    # text = remove_tag_with_content(text, MATH_START, MATH_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, MATH_START, MATH_END, MATH_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, CODE_START, CODE_END, CODE_START_OR_END, True, pos_info)
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
@@ -233,7 +239,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         else:
             logging.warning(
                 f"Found double square brackets with three sections {repr(match.group(0))} in document from lines "
-                f"between {start_line} and {end_line}."
+                f"between {pos_info[1]} and {pos_info[2]}."
             )
             res = match_text[1]
         if ':' in res:
@@ -264,7 +270,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
     text = AMP_DEL.sub(r'\1', text)
     text = text.replace('&amp;', 'and')
     text = EMPTY_PARENTHESES.sub(' ', text)
-
+    text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, SCORE_START, SCORE_END, SCORE_START_OR_END, True, pos_info)
     text = NEW_LINE_DUP.sub('\n', text)
     if text and text[-1] != '\n':
         text += '\n'
@@ -272,8 +280,8 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
     if '<' in text or '>' in text:
         logging.warning(
-            f"There are still 'greater than' or 'less than' signs in document in file {file_path} between lines "
-            f"{start_line} and {end_line}."
+            f"There are still 'greater than' or 'less than' signs in document in file {pos_info[0]} between lines "
+            f"{pos_info[1]} and {pos_info[2]}."
         )
     return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()], tok_chars, untok_chars
 
@@ -347,7 +355,7 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                     )
                 else:
                     text, tok_chars, untok_chars = get_wiki_text_lines(
-                        text.group(1), tokenizer, tok_chars, untok_chars, file_path, start_line, end_line
+                        text.group(1), tokenizer, tok_chars, untok_chars, [file_path, start_line, end_line]
                     )
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
