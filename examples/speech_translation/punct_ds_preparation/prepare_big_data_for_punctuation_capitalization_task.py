@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 import random
@@ -75,10 +76,14 @@ GALLERY_START, GALLERY_END, GALLERY_START_OR_END = create_triplet('gallery')
 IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END = create_triplet('imagemap')
 SCORE_START, SCORE_END, SCORE_START_OR_END = create_triplet('score')
 CODE_START, CODE_END, CODE_START_OR_END = create_triplet('code')
+TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END = create_triplet('timeline')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
 DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
+NBSP = re.compile('&(amp;)?nbsp;')
+LT = re.compile('&(amp;)lt;')
+GT = re.compile('&(amp;)gt;')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -200,6 +205,7 @@ def remove_double_square_brackets_specials(text, pos_info):
 
 
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
+    text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
     text = text.strip()
@@ -272,13 +278,14 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = remove_remarks(text)
     text = text.replace("''", '"')
     text = text.replace("&quot;", '"')
-    text = text.replace('&nbsp;', ' ')
+    text = NBSP.sub(' ', text)
     text = AMP_DEL.sub(r'\1', text)
     text = text.replace('&amp;', 'and')
     text = EMPTY_PARENTHESES.sub(' ', text)
     text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, SCORE_START, SCORE_END, SCORE_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, True, pos_info)
     text = NEW_LINE_DUP.sub('\n', text)
     if text and text[-1] != '\n':
         text += '\n'
