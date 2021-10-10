@@ -13,12 +13,9 @@ from nemo.collections.nlp.modules import get_tokenizer
 
 import prepare_small_data_for_punctuation_capitalization_task as small
 
-
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
-
 random.seed(42)
-
 
 SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
@@ -57,38 +54,29 @@ DOC_END = '</doc>'
 AMP_DEL = re.compile(r'(\w)&amp;')
 # SUP_TAG = re.compile(r'</?sup>')
 # SPAN_TAG = re.compile(r'</?span[^>]*>')
-DROP_TAGS = re.compile(r'</?(div|sup|span|blockquote|em)[^>]*>')
+DROP_TAGS = re.compile(r'</?(div|su[pb]|span|blockquote|em)[^>]*>')
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
+REFERENCE_SHORT = re.compile('<ref[^>]*/>')
+REF_START = re.compile('<ref[^>]*>')
+REF_END = re.compile('</ref>')
 MATH_START = re.compile('<math[^>]*>')
 MATH_END = re.compile('</math>')
 TABLE_START = re.compile('^:{,2}{\\|', flags=re.MULTILINE)
 TABLE_END = re.compile('\n\\|}')
+EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
-
-
-# def remove_tables(text):
-#     result = ""
-#     tables_in_progress = 0
-#     for i in range(len(text)):
-#         if text[i : i + 2] == '{|':
-#             tables_in_progress += 1
-#         if tables_in_progress == 0:
-#             result += text[i]
-#         if text[i - 1 : i + 1] == '|}':
-#             tables_in_progress -= 1
-#     return result
 
 
 def remove_remarks(text):
     result = ""
     remarks_in_progress = 0
     for i in range(len(text)):
-        if text[i : i + 4] == '<!--':
+        if text[i: i + 4] == '<!--':
             remarks_in_progress += 1
         if remarks_in_progress == 0:
             result += text[i]
-        if text[i - 2 : i + 1] == '-->':
+        if text[i - 2: i + 1] == '-->':
             remarks_in_progress -= 1
     return result
 
@@ -97,7 +85,7 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
     result = ""
     start_iter = start_re.finditer(text)
     end_iter = end_re.finditer(text)
-    last_end = -1
+    last_end = 0
     for start_m, end_m in zip(start_iter, end_iter):
         if start_m.span()[0] >= end_m.span()[0]:
             logging.warning(
@@ -108,19 +96,30 @@ def remove_tag_with_content(text, start_re, end_re, remove_whole_line, file_path
             )
             return result
         if start_m.span()[0] < last_end:
-            logging.warning(
-                f"Encountered 2 opening tags with regex '{start_re.pattern}' (the last match '{start_m.group(0)}' in "
-                f"position {start_m.span()[0]}) before closing tag with regex '{end_re.pattern}' in position "
-                f"{last_end}. Probably here nested tags are used. Document is in lines between {start_line} and "
-                f"{end_line} in file {file_path}. Discarding the remainder of the document."
-            )
-            return result
+            if remove_whole_line:
+                if end_m.span()[0] > last_end:
+                    logging.warning(
+                        f"Encountered closing tag '{end_m.group(0)}' in position {end_m.span()[0]} in not parsed text "
+                        f"(starting with position {last_end}) whereas no starting tag {start_re} was found in not "
+                        f"parsed text. Probably tags {start_re} and {end_re} are multiline. Document is in lines between "
+                        f"{start_line} and {end_line} in file {file_path}. Discarding the remainder of the document."
+                    )
+                    return result
+                continue
+            else:
+                logging.warning(
+                    f"Encountered 2 opening tags with regex '{start_re.pattern}' (the last match '{start_m.group(0)}' in "
+                    f"position {start_m.span()[0]}) before closing tag with regex '{end_re.pattern}' in position "
+                    f"{last_end}. Probably here nested tags are used. Document is in lines between {start_line} and "
+                    f"{end_line} in file {file_path}. Discarding the remainder of the document."
+                )
+                return result
         if remove_whole_line:
             ind = text.rfind('\n', last_end, start_m.span()[0])
             if ind == -1:
                 ind = last_end
             result += text[last_end: ind]
-            last_end = text.find('\n', )
+            last_end = text.find('\n', end_m.span()[1])
         else:
             result += text[last_end: start_m.span()[0]]
             last_end = end_m.span()[1]
@@ -169,17 +168,20 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_double_square_brackets_specials(text, file_path, start_line, end_line)
+
     text = remove_tag_with_content(text, TABLE_START, TABLE_END, True, file_path, start_line, end_line)
     text = TRIPLE_QUOTES.sub(r'\1', text)
     text = text.replace('&lt;', '<')
     text = text.replace('&gt;', '>')
     text = REFERENCE.sub('', text)
+    text = REFERENCE_SHORT.sub('', text)
+    text = remove_tag_with_content(text, REF_START, REF_END, True, file_path, start_line, end_line)
     text = remove_tag_with_content(text, MATH_START, MATH_END, True, file_path, start_line, end_line)
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
-    
+
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
         match_text = match_text.split('|')
@@ -212,7 +214,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
         ):
             res = ""
         return res
-    
+
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = remove_remarks(text)
     text = text.replace("''", '"')
@@ -220,12 +222,18 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, file_path, star
     text = text.replace('&nbsp;', ' ')
     text = AMP_DEL.sub(r'\1', text)
     text = text.replace('&amp;', 'and')
+    text = EMPTY_PARENTHESES.sub(' ', text)
 
     text = NEW_LINE_DUP.sub('\n', text)
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
+    if '<' in text or '>' in text:
+        logging.warning(
+            f"There are still 'greater than' or 'less than' signs in document in file {file_path} between lines "
+            f"{start_line} and {end_line}."
+        )
     return [sent.strip() for sent in nltk.sent_tokenize(text) if sent.strip()], tok_chars, untok_chars
 
 
