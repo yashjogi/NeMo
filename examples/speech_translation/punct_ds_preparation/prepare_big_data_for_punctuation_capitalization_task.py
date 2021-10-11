@@ -103,7 +103,7 @@ LETTER = re.compile(r'\w')
 SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
 
 
 def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
