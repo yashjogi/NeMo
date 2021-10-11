@@ -99,6 +99,9 @@ TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
 XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
+LETTER = re.compile(r'\w')
+SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
+PARENTHESES = re.compile('[)(]')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
 
@@ -286,6 +289,31 @@ def remove_lists(text):
     return result
 
 
+def check_quotes_and_parentheses(line):
+    opened = 0
+    for m in PARENTHESES.finditer(line):
+        if m.group(0) == '(':
+            opened += 1
+        else:
+            opened -= 1
+            if opened < 0:
+                return False
+    return opened == 0 and line.count('"') % 2 == 0
+
+
+def remove_suspicious_lines(text):
+    result = ""
+    i = 0
+    for m in SUSPICIOUS_LINE.finditer(text):
+        if m.span()[0] >= i:
+            right = text.rfind('\n', i, m.span()[0])
+            if right > 0:
+                result += text[i: right]
+            i = text.find('\n', m.span()[1])
+    result += text[i:]
+    return '\n'.join([line for line in text.split('\n') if check_quotes_and_parentheses(line)])
+
+
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
@@ -382,7 +410,13 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
             f"{pos_info[1]} and {pos_info[2]}."
         )
     if nltk_tokenization:
-        stripped = [sent.strip() for sent in nltk.sent_tokenize(text)]
+        stripped = []
+        for sent in nltk.sent_tokenize(text):
+            if LETTER.match(sent[0]) is None:
+                stripped[-1] += sent
+            else:
+                stripped.append(sent)
+        stripped = [sent.strip() for sent in stripped]
     else:
         stripped = [sent.strip() for sent in text.split('\n')]
     return [sent for sent in stripped if sent], tok_chars, untok_chars
