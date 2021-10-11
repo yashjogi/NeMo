@@ -319,7 +319,8 @@ def remove_untokenizable_characters_from_text(
             right = text.rfind('\n', i, m.span()[0])
             if right > 0:
                 result += text[i : right]
-            i = text.find('\n', m.span()[1])
+            cand = text.find('\n', m.span()[1])
+            i = cand if cand > 0 else len(text)
         result += text[i:]
     else:
         result = uc.sub('', uc.sub('\n' + uc.pattern + '\n', '\n', text))

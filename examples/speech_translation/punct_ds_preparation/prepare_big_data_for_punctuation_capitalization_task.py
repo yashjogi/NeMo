@@ -100,23 +100,10 @@ XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 LETTER = re.compile(r'\w')
-SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
+SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]\n?$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
-
-
-def remove_remarks(text):
-    result = ""
-    remarks_in_progress = 0
-    for i in range(len(text)):
-        if text[i: i + 4] == '<!--':
-            remarks_in_progress += 1
-        if remarks_in_progress == 0:
-            result += text[i]
-        if text[i - 2: i + 1] == '-->':
-            remarks_in_progress -= 1
-    return result
 
 
 def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
@@ -196,7 +183,9 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
             else:
                 num_opened -= 1
                 if num_opened == 0:
-                    last_end = text.find('\n', m.span()[1]) if remove_whole_line else m.span()[1]
+                    cand = text.find('\n', m.span()[1])
+                    cand = cand if cand > 0 else len(text)
+                    last_end = cand if remove_whole_line else m.span()[1]
     if num_opened == 0:
         result += text[last_end:]
     return result
@@ -284,7 +273,8 @@ def remove_lists(text):
             else:
                 if j - start_idx_of_clean_text > 500:
                     result += text[start_idx_of_clean_text: m.span()[0]]
-            start_idx_of_clean_text = text.find('\n', m.span()[1])
+            cand = text.find('\n', m.span()[1])
+            start_idx_of_clean_text = cand if cand > 0 else len(text)
     result += text[start_idx_of_clean_text:]
     return result
 
@@ -309,9 +299,10 @@ def remove_suspicious_lines(text):
             right = text.rfind('\n', i, m.span()[0])
             if right > 0:
                 result += text[i: right]
-            i = text.find('\n', m.span()[1])
+            cand = text.find('\n', m.span()[1])
+            i = cand if cand > 0 else len(text)
     result += text[i:]
-    return '\n'.join([line for line in text.split('\n') if check_quotes_and_parentheses(line)])
+    return '\n'.join([line for line in result.split('\n') if check_quotes_and_parentheses(line)])
 
 
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
