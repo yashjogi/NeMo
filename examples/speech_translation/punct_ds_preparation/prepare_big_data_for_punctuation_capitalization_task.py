@@ -236,7 +236,6 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
 
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
-        print("match_text:", match_text)
         match_text = match_text.split('|')
         if len(match_text) == 1:
             res = match_text[0]
