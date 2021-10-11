@@ -100,7 +100,7 @@ XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 LETTER = re.compile(r'\w')
-SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
+SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
@@ -353,14 +353,14 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
         match_text = match_text.split('|')
         if len(match_text) == 1:
             res = match_text[0]
-        elif len(match_text) == 2:
+        elif len(match_text) >= 2:
             res = match_text[1]
+            # logging.warning(
+            #     f"Found double square brackets with three sections {repr(match.group(0))} in document from lines "
+            #     f"between {pos_info[1]} and {pos_info[2]}."
+            # )
         else:
-            logging.warning(
-                f"Found double square brackets with three sections {repr(match.group(0))} in document from lines "
-                f"between {pos_info[1]} and {pos_info[2]}."
-            )
-            res = match_text[1]
+            res = ""
         if ':' in res:
             split_res = res.split(':')
             if split_res[1]:
@@ -383,11 +383,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
 
     text = DROP_TAGS.sub('', text)
     text = text.replace("''", '"')
-    text = text.replace('<doc doc_id"', '')
-    text = text.replace('</doc>', '')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
-    text = remove_lists(text)
+    # text = remove_lists(text)
     text = text.replace('[', '(')
     text = text.replace(']', ')')
     if text and text[-1] != '\n':
@@ -397,12 +395,12 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
             text, tokenizer, tok_chars, untok_chars, True
         )
     text = remove_suspicious_lines(text)
-    tag_match = TAG.search(text)
-    if tag_match is not None:
-        logging.warning(
-            f"There are still tag '{tag_match.group(0)}' in document in file {pos_info[0]} between lines "
-            f"{pos_info[1]} and {pos_info[2]}."
-        )
+    # tag_match = TAG.search(text)
+    # if tag_match is not None:
+    #     logging.warning(
+    #         f"There are still tag '{tag_match.group(0)}' in document in file {pos_info[0]} between lines "
+    #         f"{pos_info[1]} and {pos_info[2]}."
+    #     )
     if nltk_tokenization:
         stripped = []
         for sent in nltk.sent_tokenize(text):
