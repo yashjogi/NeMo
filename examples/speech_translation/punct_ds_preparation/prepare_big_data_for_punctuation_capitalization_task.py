@@ -174,14 +174,18 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
         else:
             assert end_re.match(m.group(0)) is not None
             if num_opened == 0:
-                logging.warning(
-                    f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
-                    f"10 characters and 10 characters after: {repr(text[max(m.span()[0] - 10, 0): m.span()[1] + 10])}. "
-                    f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
-                    f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
-                    f"{pos_info[2]}. Discarding the document after position {last_end}."
-                )
-                return result
+                section_border = text.rfind('==\n', last_end, m.span()[0])
+                last_end = m.span()[1]
+                if section_border > 0:
+                    result += text[last_end: section_border]
+                # logging.warning(
+                #     f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
+                #     f"10 characters and 10 characters after: {repr(text[max(m.span()[0] - 10, 0): m.span()[1] + 10])}. "
+                #     f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
+                #     f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
+                #     f"{pos_info[2]}. Discarding the document after position {last_end}."
+                # )
+                # return result
             else:
                 num_opened -= 1
                 if num_opened == 0:
@@ -273,7 +277,6 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = remove_tag_with_content_nested(
         text, SYNTAXHIGHLIGHT_START, SYNTAXHIGHLIGHT_END, SYNTAXHIGHLIGHT_START_OR_END, False, pos_info
     )
-    text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_double_square_brackets_specials(text, pos_info)
     # text = TRIPLE_QUOTES.sub(r'\1', text)
     text = remove_tag_with_content_nested(text, REF_START, REF_END, REF_START_OR_END, False, pos_info)
@@ -300,7 +303,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = remove_tag_with_content_nested(text, OL_START, OL_END, OL_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, UL_START, UL_END, UL_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END, False, pos_info)
-
+    text = EQUALS_SIGN_HEADERS.sub('\n', text)
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
         match_text = match_text.split('|')
