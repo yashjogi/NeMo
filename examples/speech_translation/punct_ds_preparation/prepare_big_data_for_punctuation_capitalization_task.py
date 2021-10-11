@@ -45,7 +45,7 @@ SPECIAL_SQUARE_BRACKETS_START = re.compile(
 SPECIAL_SQUARE_BRACKETS_BORDER = re.compile(r'\[\[|]]')
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
-TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
+# TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
     r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
 )
@@ -57,7 +57,7 @@ DOC_HEAD = re.compile(
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
-DROP_TAGS = re.compile(r'</?(div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*>')
+DROP_TAGS = re.compile(r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*>|'{3}")
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
@@ -213,7 +213,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         text = text[:end_section.span()[0]].strip()
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_double_square_brackets_specials(text, pos_info)
-    text = TRIPLE_QUOTES.sub(r'\1', text)
+    # text = TRIPLE_QUOTES.sub(r'\1', text)
     text = remove_tag_with_content_nested(text, REF_START, REF_END, REF_START_OR_END, False, pos_info)
     text = REFERENCE_SHORT.sub('', text)
     text = remove_tag_with_content_nested(text, MATH_START, MATH_END, MATH_START_OR_END, True, pos_info)
@@ -225,10 +225,18 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
-    text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
+    # text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
+    text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
+    text = text.replace("''", '"')
+    text = EMPTY_PARENTHESES.sub(' ', text)
+    text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, SCORE_START, SCORE_END, SCORE_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, True, pos_info)
 
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
+        print("match_text:", match_text)
         match_text = match_text.split('|')
         if len(match_text) == 1:
             res = match_text[0]
@@ -261,14 +269,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         return res
 
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
-    text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
-    text = text.replace("''", '"')
-    text = EMPTY_PARENTHESES.sub(' ', text)
-    text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
-    text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
-    text = remove_tag_with_content_nested(text, SCORE_START, SCORE_END, SCORE_START_OR_END, True, pos_info)
-    text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, True, pos_info)
     text = NEW_LINE_DUP.sub('\n', text)
+    text = text.replace('[', '(')
+    text = text.replace(']', ')')
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
