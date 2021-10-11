@@ -64,8 +64,8 @@ DOC_HEAD = re.compile(
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
 DROP_TAGS = re.compile(
-    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font|kbd|mapframe|a|section)"
-    r"(?: [^>]*>|/?>)|'{3}"
+    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font|kbd|mapframe|a|section|"
+    r"onlyinclude)(?: [^>]*>|/?>)|'{3}"
 )
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>', flags=re.I)
