@@ -36,7 +36,7 @@ QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]', flags=re.I)
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
-EQUALS_SIGN_HEADERS = re.compile('^[ \t]*==+[^\n=]+==+[ \t]*$', flags=re.MULTILINE)
+EQUALS_SIGN_HEADERS = re.compile('^[ \t]*={2,}[^\n=]+={2,}[ \t]*$', flags=re.MULTILINE)
 SPECIAL_SQUARE_BRACKETS_START = re.compile(
     r'\[\[(?:[ :]{,2}File:|[ :]{,2}Image:|[ :]{,2}User:|[ :]{,2}User talk:|[ :]{,2}Special:| ?#footer| '
     r'?{{rdconfigarray)',
@@ -45,9 +45,11 @@ SPECIAL_SQUARE_BRACKETS_START = re.compile(
 SPECIAL_SQUARE_BRACKETS_BORDER = re.compile(r'\[\[|]]')
 SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
+DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_SINGLE_SECTION = re.compile(r'\[\[([^][|]*)]]')
+DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS = re.compile(r'\[\[[^][|]*\|([^][|]*)[^][]*]]')
 # TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
-    r"==\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*=="
+    r"={2,}\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*={2,}"
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
@@ -266,8 +268,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         ):
             res = ""
         return res
-
-    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
+    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_SINGLE_SECTION.sub(r'\1', text)
+    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS.sub(r'\1', text)
+    # text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
     text = text.replace('[', '(')
     text = text.replace(']', ')')
