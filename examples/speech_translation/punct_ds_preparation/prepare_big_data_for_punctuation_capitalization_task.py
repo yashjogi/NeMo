@@ -64,7 +64,8 @@ DOC_HEAD = re.compile(
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
 DROP_TAGS = re.compile(
-    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font)(?: [^>]*>|/?>)|'{3}"
+    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font|kbd|mapframe|a|section)"
+    r"(?: [^>]*>|/?>)|'{3}"
 )
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>', flags=re.I)
@@ -88,6 +89,8 @@ HIERO_START, HIERO_END, HIERO_START_OR_END = create_triplet('hiero')
 CHEM_START, CHEM_END, CHEM_START_OR_END = create_triplet('chem')
 VAR_START, VAR_END, VAR_START_OR_END = create_triplet('var')
 SYNTAXHIGHLIGHT_START, SYNTAXHIGHLIGHT_END, SYNTAXHIGHLIGHT_START_OR_END = create_triplet('syntaxhighlight')
+PRE_START, PRE_END, PRE_START_OR_END = create_triplet('pre')
+MAPFRAME_START, MAPFRAME_END, MAPFRAME_START_OR_END = create_triplet('mapframe')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
@@ -96,7 +99,7 @@ TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
 XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
 
 
 def remove_remarks(text):
@@ -290,9 +293,6 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
     )
     text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
-    text = DROP_TAGS.sub('', text)
-    text = text.replace('<doc doc_id"', '')
-    text = text.replace('</doc>', '')
     text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
     text = text.replace("''", '"')
     text = EMPTY_PARENTHESES.sub(' ', text)
@@ -302,8 +302,11 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, OL_START, OL_END, OL_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, UL_START, UL_END, UL_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, MAPFRAME_START, MAPFRAME_END, MAPFRAME_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, PRE_START, PRE_END, PRE_START_OR_END, False, pos_info)
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
+
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
         match_text = match_text.split('|')
@@ -336,6 +339,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         ):
             res = ""
         return res
+
+    text = DROP_TAGS.sub('', text)
+    text = text.replace('<doc doc_id"', '')
+    text = text.replace('</doc>', '')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
     text = text.replace('[', '(')
