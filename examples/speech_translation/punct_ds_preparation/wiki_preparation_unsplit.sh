@@ -1,5 +1,5 @@
 python prepare_big_data_for_punctuation_capitalization_task.py \
-  --output_dir /media/apeganov/DATA/prepared_wiki_split \
+  --output_dir /media/apeganov/DATA/prepared_wiki_unsplit \
   --corpus_types wikipedia \
   --clean_data_dir /media/apeganov/DATA/debug_punct_wiki_preparation_clean \
   --create_model_input \
