@@ -57,21 +57,17 @@ DOC_HEAD = re.compile(
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
-# EM_TAG = re.compile('</?em>')
-# BLOCKQUOTE_TAG = re.compile('</?blockquote>')
-# DIV_TAG = re.compile('</?div[^>]*>')
-AMP_DEL = re.compile(r'(\w)&amp;')
-# SUP_TAG = re.compile(r'</?sup>')
-# SPAN_TAG = re.compile(r'</?span[^>]*>')
 DROP_TAGS = re.compile(r'</?(div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*>')
 REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
 MATH_START, MATH_END, MATH_START_OR_END = create_triplet('math')
-# TABLE_START = re.compile('^:{,2}{\\|(?:[^\n]*\n\\|\n{\\|)?', flags=re.MULTILINE)
 TABLE_START = re.compile(':{,2}{\\|', flags=re.MULTILINE)
 TABLE_END = re.compile('\n\\|}')
 TABLE_START_OR_END = re.compile(TABLE_START.pattern + '|' + TABLE_END.pattern, flags=re.MULTILINE)
+REMARK_START = re.compile('<!--')
+REMARK_END = re.compile('-->')
+REMARK_START_OR_END = re.compile(REMARK_START.pattern + '|' + REMARK_END.pattern, flags=re.MULTILINE)
 GALLERY_START, GALLERY_END, GALLERY_START_OR_END = create_triplet('gallery')
 IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END = create_triplet('imagemap')
 SCORE_START, SCORE_END, SCORE_START_OR_END = create_triplet('score')
@@ -81,9 +77,6 @@ EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
 DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
-NBSP = re.compile('&(amp;)?nbsp;')
-LT = re.compile('&(amp;)lt;')
-GT = re.compile('&(amp;)gt;')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -268,7 +261,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         return res
 
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
-    text = remove_remarks(text)
+    text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
     text = text.replace("''", '"')
     text = EMPTY_PARENTHESES.sub(' ', text)
     text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)

@@ -591,7 +591,7 @@ def arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, va
 def arrange_sentences_by_number_of_words(docs, sequence_length_range):
     result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     for doc_id, doc in docs.items():
-        doc_arrangement = arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, [doc_id])
+        doc_arrangement = arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, [doc_id])[0]
         for k, v in doc_arrangement.items():
             result[k] += v
     return result
