@@ -204,11 +204,12 @@ def remove_double_square_brackets_specials(text, pos_info):
         while num_openings > 0:
             mm = SPECIAL_SQUARE_BRACKETS_BORDER.search(text, search_start)
             if mm is None:
-                logging.warning(
-                    f"Encountered special square brackets without closing starting in position {start} of document in "
-                    f"file {pos_info[0]} located in lines between {pos_info[1]} and {pos_info[2]}. The part of the "
-                    f"document starting from position {start} will be discarded."
-                )
+                # logging.warning(
+                #     f"Encountered special square brackets without closing starting in position {start} of document in "
+                #     f"file {pos_info[0]} located in lines between {pos_info[1]} and {pos_info[2]}. Match +- 20 "
+                #     f"characters: {repr(text[max(m.span()[0] - 20, 0) : m.span()[1] + 20])}. The part of the "
+                #     f"document starting from position {start} will be discarded."
+                # )
                 return result
             if mm.group(0) == ']]':
                 num_openings -= 1
