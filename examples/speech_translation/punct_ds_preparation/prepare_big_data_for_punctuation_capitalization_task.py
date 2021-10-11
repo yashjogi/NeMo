@@ -43,13 +43,15 @@ SPECIAL_SQUARE_BRACKETS_START = re.compile(
     flags=re.I
 )
 SPECIAL_SQUARE_BRACKETS_BORDER = re.compile(r'\[\[|]]')
-SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
+# SINGLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'(?<!\[)\[([^][]*)](?!])')
 DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
-DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_SINGLE_SECTION = re.compile(r'\[\[([^][|]*)]]')
-DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS = re.compile(r'\[\[[^][|]*\|([^][|]*)[^][]*]]')
+# DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_SINGLE_SECTION = re.compile(r'\[\[([^][|]*)]]')
+# DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS = re.compile(r'\[\[[^][|]*\|([^][|]*)[^][]*]]')
 # TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
-    r"={2,}\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*={2,}"
+    r"^[ \t]={2,}\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*={2,}"
+    r"[ \t]*$",
+    flags=re.MULTILINE,
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
@@ -60,7 +62,7 @@ DOC_HEAD = re.compile(
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
 DROP_TAGS = re.compile(r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*>|'{3}")
-REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
+# REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
 MATH_START, MATH_END, MATH_START_OR_END = create_triplet('math')
@@ -79,6 +81,7 @@ EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
 DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
+TAG = re.compile(r'<[a-z]+(?: [^>]+)?/?>')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -227,7 +230,6 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = DROP_TAGS.sub('', text)
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
-    # text = SINGLE_SQUARE_BRACKETS_WITH_CONTENT.sub(r'(\1)', text)
     text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
     text = text.replace("''", '"')
     text = EMPTY_PARENTHESES.sub(' ', text)
@@ -268,9 +270,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         ):
             res = ""
         return res
-    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_SINGLE_SECTION.sub(r'\1', text)
-    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS.sub(r'\1', text)
-    # text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
+    text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
     text = text.replace('[', '(')
     text = text.replace(']', ')')
@@ -280,9 +280,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars
         )
-    if '<' in text or '>' in text:
+    tag_match = TAG.search(text)
+    if tag_match is not None:
         logging.warning(
-            f"There are still '>' or '<' characters in document in file {pos_info[0]} between lines "
+            f"There are still tag '{tag_match.group(0)}' in document in file {pos_info[0]} between lines "
             f"{pos_info[1]} and {pos_info[2]}."
         )
     stripped = [sent.strip() for sent in nltk.sent_tokenize(text)]
