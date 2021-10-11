@@ -31,9 +31,11 @@ def create_triplet(tag):
 PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$')
 PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
+COLON_TITLES = re.compile(r'\w+:\w')
 TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL)
 QUOTES = re.compile('"\'')
-REDIRECT = re.compile(r'^\s*#REDIRECT +\[\[[^]]*]]', flags=re.I)
+REDIRECT = re.compile(r'^\s*#REDIRECT *\[\[[^]]*]]', flags=re.I)
+MAY_REFER_TO = re.compile('^[^\n]+ may refer to:\n', flags=re.I)
 DOUBLE_BRACES_WITH_CONTENT = re.compile(r'{{[^}{]*}}|\({{[^}{]*}}\)')
 TABLE = re.compile('{|')
 EQUALS_SIGN_HEADERS = re.compile('^[ \t]*={2,}[^\n=]+={2,}[ \t]*$', flags=re.MULTILINE)
@@ -61,7 +63,9 @@ DOC_HEAD = re.compile(
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
-DROP_TAGS = re.compile(r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki)[^>]*>|'{3}")
+DROP_TAGS = re.compile(
+    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font)(?: [^>]*>|>)|'{3}"
+)
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
@@ -76,12 +80,21 @@ GALLERY_START, GALLERY_END, GALLERY_START_OR_END = create_triplet('gallery')
 IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END = create_triplet('imagemap')
 SCORE_START, SCORE_END, SCORE_START_OR_END = create_triplet('score')
 CODE_START, CODE_END, CODE_START_OR_END = create_triplet('code')
+OL_START, OL_END, OL_START_OR_END = create_triplet('ol')
+UL_START, UL_END, UL_START_OR_END = create_triplet('ul')
 TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END = create_triplet('timeline')
+NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END = create_triplet('timeline')
+HIERO_START, HIERO_END, HIERO_START_OR_END = create_triplet('hiero')
+CHEM_START, CHEM_END, CHEM_START_OR_END = create_triplet('chem')
+VAR_START, VAR_END, VAR_START_OR_END = create_triplet('var')
+SYNTAXHIGHLIGHT_START, SYNTAXHIGHLIGHT_END, SYNTAXHIGHLIGHT_START_OR_END = create_triplet('syntaxhighlight')
 EMPTY_PARENTHESES = re.compile(r' *\([ .,!;?|&#%^@$"\'<>{}/\\*~\][]*\) *')
 DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
 DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
-TAG = re.compile(r'<[a-z]+(?: [^>]+)?/?>')
+TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
+XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>')
+NEXT_LINE_TAG = re.compile(' *\n *<([a-z]+)(?: [^>\n]+)?>')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
@@ -206,16 +219,59 @@ def remove_double_square_brackets_specials(text, pos_info):
     return result + text[last_end:]
 
 
+# def remove_xml_code_fragments(text, pos_info):
+#     result = ""
+#     last_end = 0
+#     for header_match in XML_HEADER.finditer(text):
+#         start = header_match.span()[0]
+#         if start < last_end:
+#             continue
+#         result += text[last_end: text.rfind('\n', last_end, start)]
+#         next_line_tag = NEXT_LINE_TAG.match(text)
+#         if next_line_tag is None:
+#             last_end = text.find('\n', header_match.span()[1])
+#         else:
+#             tag = next_line_tag.group(1)
+#             num_opened = 1
+#             opening = '<' + tag
+#             closing = f'</{tag}>'
+#             current_pos = next_line_tag.span()[1]
+#             next_closing = text.find(closing, current_pos)
+#             while num_opened > 0 and current_pos < len(text):
+#                 while current_pos > 0:
+#                     current_pos = text.find(opening, current_pos, next_closing)
+#                     num_opened += 1
+#                 num_opened -= 1
+#                 current_pos = next_closing + len(closing)
+#                 next_closing = text.find(closing, current_pos)
+#                 if next_closing < 0 < num_opened:
+#                     logging.warning(
+#                         f"The end of XML fragment end starting from position {start} in document from "
+#                         f"file {pos_info[0]} between lines {pos_info[1]} and {pos_info[2]} is not found. Start of the "
+#                         f"fragment +-20 characters: {repr(text[max(start - 20, 0) : start + 20])}. Tag which did not "
+#                         f"close: '{tag}'. The remainder of the document will be discarded."
+#                     )
+#                     return result
+#             last_end = text.find('\n', current_pos)
+#     result += text[last_end:]
+#     return result
+
+
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
+    if MAY_REFER_TO.match(text):
+        return [], tok_chars, untok_chars
     text = text.strip()
     if not text:
         return [], tok_chars, untok_chars
     end_section = END_SECTION.search(text)
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
+    text = remove_tag_with_content_nested(
+        text, SYNTAXHIGHLIGHT_START, SYNTAXHIGHLIGHT_END, SYNTAXHIGHLIGHT_START_OR_END, False, pos_info
+    )
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
     text = remove_double_square_brackets_specials(text, pos_info)
     # text = TRIPLE_QUOTES.sub(r'\1', text)
@@ -223,6 +279,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = REFERENCE_SHORT.sub('', text)
     text = remove_tag_with_content_nested(text, MATH_START, MATH_END, MATH_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, CODE_START, CODE_END, CODE_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, HIERO_START, HIERO_END, HIERO_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, CHEM_START, CHEM_END, CHEM_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, VAR_START, VAR_END, VAR_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(
         text, DOUBLE_BRACES_START, DOUBLE_BRACES_END, DOUBLE_BRACES_START_OR_END, False, pos_info
     )
@@ -236,7 +295,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, SCORE_START, SCORE_END, SCORE_START_OR_END, True, pos_info)
-    text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END, False, pos_info)
+    text = remove_tag_with_content_nested(text, OL_START, OL_END, OL_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, UL_START, UL_END, UL_START_OR_END, True, pos_info)
+    text = remove_tag_with_content_nested(text, NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END, False, pos_info)
 
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
@@ -351,36 +413,37 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                     title = None
                 else:
                     title = title.group(1)
-                text = TEXT_OF_PAGE.search(page)
-                if text is None:
-                    logging.warning(
-                        f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} is not found. "
-                        f"Skipping page.."
-                    )
-                else:
-                    text, tok_chars, untok_chars = get_wiki_text_lines(
-                        text.group(1), tokenizer, tok_chars, untok_chars, [file_path, start_line, end_line]
-                    )
-                    if text:
-                        file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
-                        out_f.write(file_text)
-                        arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
-                            text, sequence_length_range, [file_i, doc_id]
+                if COLON_TITLES.match(title) is None and '(disambiguation)' not in title:
+                    text = TEXT_OF_PAGE.search(page)
+                    if text is None:
+                        logging.warning(
+                            f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} is not "
+                            f"found. Skipping page.."
                         )
-                        for k, v in arrangement.items():
-                            sentences_by_number_of_words[k] += v
-                        sentence_len_by_docs[doc_id] = np.array(line_num_words)
-                        doc_id_to_file_i[doc_id] = file_i
-                        doc_id += 1
-                        total_number_of_characters_in_current_file += len(file_text)
-                        if total_number_of_characters_in_current_file > MAX_NUM_CHARACTERS_IN_1_FILE:
-                            out_f.close()
-                            logging.info(f"Finished filling file {current_file_path}")
-                            file_i += 1
-                            current_file_path = output_dir / Path(str(file_i) + '.xml')
-                            logging.info(f"Filling file {current_file_path}")
-                            out_f = current_file_path.open('w')
-                            total_number_of_characters_in_current_file = 0
+                    else:
+                        text, tok_chars, untok_chars = get_wiki_text_lines(
+                            text.group(1), tokenizer, tok_chars, untok_chars, [file_path, start_line, end_line]
+                        )
+                        if text:
+                            file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
+                            out_f.write(file_text)
+                            arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
+                                text, sequence_length_range, [file_i, doc_id]
+                            )
+                            for k, v in arrangement.items():
+                                sentences_by_number_of_words[k] += v
+                            sentence_len_by_docs[doc_id] = np.array(line_num_words)
+                            doc_id_to_file_i[doc_id] = file_i
+                            doc_id += 1
+                            total_number_of_characters_in_current_file += len(file_text)
+                            if total_number_of_characters_in_current_file > MAX_NUM_CHARACTERS_IN_1_FILE:
+                                out_f.close()
+                                logging.info(f"Finished filling file {current_file_path}")
+                                file_i += 1
+                                current_file_path = output_dir / Path(str(file_i) + '.xml')
+                                logging.info(f"Filling file {current_file_path}")
+                                out_f = current_file_path.open('w')
+                                total_number_of_characters_in_current_file = 0
                 page = ""
                 page_i += 1
                 page_in_progress = False
