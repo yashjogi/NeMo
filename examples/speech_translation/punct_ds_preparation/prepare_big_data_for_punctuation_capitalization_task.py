@@ -51,9 +51,9 @@ DOUBLE_SQUARE_BRACKETS_WITH_CONTENT = re.compile(r'\[\[([^][]*)]]')
 # DOUBLE_SQUARE_BRACKETS_WITH_CONTENT_TWO_SECTIONS = re.compile(r'\[\[[^][|]*\|([^][|]*)[^][]*]]')
 # TRIPLE_QUOTES = re.compile(r"'''([^']+)'''")
 END_SECTION = re.compile(
-    r"^[ \t]={2,}\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*={2,}"
+    r"^[ \t]*={2,}\s*(?:See also|References|Notes|Sources|Primary sources|Secondary sources|External links)\s*={2,}"
     r"[ \t]*$",
-    flags=re.MULTILINE,
+    flags=re.MULTILINE | re.I,
 )
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
@@ -64,7 +64,7 @@ DOC_HEAD = re.compile(
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
 DROP_TAGS = re.compile(
-    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font)(?: [^>]*>|>)|'{3}"
+    r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font)(?: [^>]*>|/?>)|'{3}"
 )
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>')
