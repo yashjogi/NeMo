@@ -279,7 +279,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
-        text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(text, tokenizer)
+        text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+            text, tokenizer, tok_chars, untok_chars
+        )
     if '<' in text or '>' in text:
         logging.warning(
             f"There are still '>' or '<' characters in document in file {pos_info[0]} between lines "
