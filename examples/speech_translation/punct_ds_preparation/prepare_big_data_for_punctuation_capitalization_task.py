@@ -286,7 +286,7 @@ def remove_lists(text):
     return result
 
 
-def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
+def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
@@ -381,7 +381,10 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
             f"There are still tag '{tag_match.group(0)}' in document in file {pos_info[0]} between lines "
             f"{pos_info[1]} and {pos_info[2]}."
         )
-    stripped = [sent.strip() for sent in nltk.sent_tokenize(text)]
+    if nltk_tokenization:
+        stripped = [sent.strip() for sent in nltk.sent_tokenize(text)]
+    else:
+        stripped = [sent.strip() for sent in text.split('\n')]
     return [sent for sent in stripped if sent], tok_chars, untok_chars
 
 
@@ -407,7 +410,9 @@ def count_lines_in_file(file_path):
     return count
 
 
-def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range, start_doc_id=0):
+def preprocess_wikipedia(
+        file_path, output_dir, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
@@ -454,8 +459,9 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                             f"found. Skipping page.."
                         )
                     else:
+                        pos_info = [file_path, start_line, end_line]
                         text, tok_chars, untok_chars = get_wiki_text_lines(
-                            text.group(1), tokenizer, tok_chars, untok_chars, [file_path, start_line, end_line]
+                            text.group(1), tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
                         )
                         if text:
                             file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
@@ -653,7 +659,7 @@ def normalize_punctuation_in_all_documents(document_dir, lang):
 
 
 def main():
-    args = small.get_args(SUPPORTED_CORPUS_TYPES)
+    args = small.get_args(SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True)
     tokenizer = get_tokenizer(args.tokenizer)
     number_of_sentences_in_input = 0
     sentences_by_number_of_words = {n: [] for n in range(args.sequence_length_range[0], args.sequence_length_range[1])}
@@ -663,7 +669,9 @@ def main():
     for corpus_type, file_path in zip(args.corpus_types, args.input_files):
         if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
             logging.info(f"Preprocessing wikipedia file {file_path}...")
-            res = preprocess_wikipedia(file_path, document_dir, tokenizer, args.sequence_length_range, 0)
+            res = preprocess_wikipedia(
+                file_path, document_dir, tokenizer, args.sequence_length_range, 0, args.nltk_tokenization
+            )
             corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
             for k, v in corpus_sentences_by_number_of_words.items():
                 sentences_by_number_of_words[k] += v
