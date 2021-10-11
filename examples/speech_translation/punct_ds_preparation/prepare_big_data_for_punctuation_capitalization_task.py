@@ -65,7 +65,7 @@ DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line
 DOC_END = '</doc>'
 DROP_TAGS = re.compile(
     r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font|kbd|mapframe|a|section|"
-    r"onlyinclude)(?: [^>]*>|/?>)|'{3}"
+    r"onlyinclude|time|cite)(?: [^>]*>|/?>)|'{3}"
 )
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
 REFERENCE_SHORT = re.compile('<ref[^>]*/>', flags=re.I)
@@ -98,6 +98,7 @@ DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUB
 TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
 XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
+LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
 
@@ -265,11 +266,31 @@ def remove_double_square_brackets_specials(text, pos_info):
 #     return result
 
 
+def remove_lists(text):
+    result = ""
+    start_idx_of_clean_text = 0
+    for m in LIST_ELEMENT_START.finditer(text):
+        if m.span()[0] >= start_idx_of_clean_text:
+            j = max(m.span()[0] - 1, 0)
+            while j > start_idx_of_clean_text and text[j] in '\n ':
+                j -= 1
+            if text[j] == ':':
+                right = text.rfind('\n', start_idx_of_clean_text, j)
+                if right > 0:
+                    result += text[start_idx_of_clean_text: text.rfind('\n', start_idx_of_clean_text, j)]
+            else:
+                if j - start_idx_of_clean_text > 500:
+                    result += text[start_idx_of_clean_text: m.span()[0]]
+            start_idx_of_clean_text = text.find('\n', m.span()[1])
+    result += text[start_idx_of_clean_text:]
+    return result
+
+
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
-    if MAY_REFER_TO.match(text):
+    if MAY_REFER_TO.match(text) or text[-18:].strip() == '{{disambiguation}}':
         return [], tok_chars, untok_chars
     text = text.strip()
     if not text:
@@ -294,7 +315,6 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
     )
     text = remove_tag_with_content_nested(text, TABLE_START, TABLE_END, TABLE_START_OR_END, True, pos_info)
     text = remove_tag_with_content_nested(text, REMARK_START, REMARK_END, REMARK_START_OR_END, False, pos_info)
-    text = text.replace("''", '"')
     text = EMPTY_PARENTHESES.sub(' ', text)
     text = remove_tag_with_content_nested(text, GALLERY_START, GALLERY_END, GALLERY_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END, False, pos_info)
@@ -341,17 +361,19 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info):
         return res
 
     text = DROP_TAGS.sub('', text)
+    text = text.replace("''", '"')
     text = text.replace('<doc doc_id"', '')
     text = text.replace('</doc>', '')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
+    text = remove_lists(text)
     text = text.replace('[', '(')
     text = text.replace(']', ')')
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
-            text, tokenizer, tok_chars, untok_chars
+            text, tokenizer, tok_chars, untok_chars, True
         )
     tag_match = TAG.search(text)
     if tag_match is not None:

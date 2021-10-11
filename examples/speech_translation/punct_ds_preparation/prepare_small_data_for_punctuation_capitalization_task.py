@@ -274,7 +274,9 @@ def too_many_uppercase(text):
     return too_many
 
 
-def remove_untokenizable_characters_from_text(text, tokenizer, tok_chars=None, untok_chars=None):
+def remove_untokenizable_characters_from_text(
+    text, tokenizer, tok_chars=None, untok_chars=None, remove_all_lines=False
+):
     tok_chars = {' ', '\n'} if tok_chars is None else tok_chars.copy()
     untok_chars = set() if untok_chars is None else untok_chars.copy()
     all_chars = set(text)
@@ -302,9 +304,19 @@ def remove_untokenizable_characters_from_text(text, tokenizer, tok_chars=None, u
     if '-' in detected_untok_chars:
         detected_untok_chars.remove('-')
         detected_untok_chars.append('-')
-    uc = '[' + ''.join(detected_untok_chars) + ']'
-    text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
-    return text, tok_chars, untok_chars
+    uc = re.compile('[' + ''.join(detected_untok_chars) + ']', re.I)
+    if remove_all_lines:
+        result = ""
+        i = 0
+        for m in uc.finditer(text):
+            right = text.rfind('\n', i, m.span()[0])
+            if right > 0:
+                result += text[i : right]
+            i = text.find('\n', m.span()[1])
+        result += text[i:]
+    else:
+        result = uc.sub('', uc.sub('\n' + uc.pattern + '\n', '\n', text))
+    return result, tok_chars, untok_chars
 
 
 def remove_untokenizable_characters(docs, tokenizer):
