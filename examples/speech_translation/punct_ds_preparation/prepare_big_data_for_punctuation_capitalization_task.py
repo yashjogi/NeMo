@@ -186,7 +186,8 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
                 num_opened -= 1
                 if num_opened == 0:
                     last_end = text.find('\n', m.span()[1]) if remove_whole_line else m.span()[1]
-    result += text[last_end:]
+    if num_opened == 0:
+        result += text[last_end:]
     return result
 
 
