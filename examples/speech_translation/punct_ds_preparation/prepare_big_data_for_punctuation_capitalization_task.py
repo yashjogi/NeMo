@@ -22,17 +22,17 @@ SUPPORTED_CORPUS_TYPES = ["wikipedia"]
 
 
 def create_triplet(tag):
-    start = re.compile(f'<{tag}(?: [^>]*[^>/]>|>)')
-    end = re.compile(f'</{tag}>')
-    start_or_end = re.compile(start.pattern + '|' + end.pattern)
+    start = re.compile(f'<{tag}(?: [^>]*[^>/]>|>)', flags=re.I)
+    end = re.compile(f'</{tag}>', flags=re.I)
+    start_or_end = re.compile(start.pattern + '|' + end.pattern, flags=re.I)
     return start, end, start_or_end
 
 
-PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$')
-PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$')
-TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>')
+PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$', flags=re.I)
+PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$', flags=re.I)
+TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>', flags=re.I)
 COLON_TITLES = re.compile(r'\w+:\w')
-TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL)
+TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL | re.I)
 QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT *\[\[[^]]*]]', flags=re.I)
 MAY_REFER_TO = re.compile('^[^\n]+ may refer to:\n', flags=re.I)
@@ -67,7 +67,7 @@ DROP_TAGS = re.compile(
     r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font)(?: [^>]*>|/?>)|'{3}"
 )
 # REFERENCE = re.compile('<ref[^>]*>[^<]*</ref>')
-REFERENCE_SHORT = re.compile('<ref[^>]*/>')
+REFERENCE_SHORT = re.compile('<ref[^>]*/>', flags=re.I)
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
 MATH_START, MATH_END, MATH_START_OR_END = create_triplet('math')
 TABLE_START = re.compile(':{,2}{\\|', flags=re.MULTILINE)
@@ -83,7 +83,7 @@ CODE_START, CODE_END, CODE_START_OR_END = create_triplet('code')
 OL_START, OL_END, OL_START_OR_END = create_triplet('ol')
 UL_START, UL_END, UL_START_OR_END = create_triplet('ul')
 TIMELINE_START, TIMELINE_END, TIMELINE_START_OR_END = create_triplet('timeline')
-NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END = create_triplet('timeline')
+NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END = create_triplet('noinclude')
 HIERO_START, HIERO_END, HIERO_START_OR_END = create_triplet('hiero')
 CHEM_START, CHEM_END, CHEM_START_OR_END = create_triplet('chem')
 VAR_START, VAR_END, VAR_START_OR_END = create_triplet('var')
@@ -93,8 +93,8 @@ DOUBLE_BRACES_START = re.compile('{{')
 DOUBLE_BRACES_END = re.compile('}}')
 DOUBLE_BRACES_START_OR_END = re.compile(DOUBLE_BRACES_START.pattern + '|' + DOUBLE_BRACES_END.pattern)
 TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
-XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>')
-NEXT_LINE_TAG = re.compile(' *\n *<([a-z]+)(?: [^>\n]+)?>')
+XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
+NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 6
 
