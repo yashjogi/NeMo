@@ -71,12 +71,12 @@ DROP_TAGS = re.compile(
 REFERENCE_SHORT = re.compile('<ref[^>]*/>', flags=re.I)
 REF_START, REF_END, REF_START_OR_END = create_triplet('ref')
 MATH_START, MATH_END, MATH_START_OR_END = create_triplet('math')
-TABLE_START = re.compile(':{,2}{\\|', flags=re.MULTILINE)
+TABLE_START = re.compile(':{,2}{\\|')
 TABLE_END = re.compile('\n\\|}')
-TABLE_START_OR_END = re.compile(TABLE_START.pattern + '|' + TABLE_END.pattern, flags=re.MULTILINE)
+TABLE_START_OR_END = re.compile(TABLE_START.pattern + '|' + TABLE_END.pattern)
 REMARK_START = re.compile('<!--')
 REMARK_END = re.compile('-->')
-REMARK_START_OR_END = re.compile(REMARK_START.pattern + '|' + REMARK_END.pattern, flags=re.MULTILINE)
+REMARK_START_OR_END = re.compile(REMARK_START.pattern + '|' + REMARK_END.pattern)
 GALLERY_START, GALLERY_END, GALLERY_START_OR_END = create_triplet('gallery')
 IMAGEMAP_START, IMAGEMAP_END, IMAGEMAP_START_OR_END = create_triplet('imagemap')
 SCORE_START, SCORE_END, SCORE_START_OR_END = create_triplet('score')
@@ -100,7 +100,7 @@ XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 LETTER = re.compile(r'\w')
-SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]\n?$', flags=re.MULTILINE)
+SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
@@ -292,9 +292,11 @@ def check_quotes_and_parentheses(line):
 
 
 def remove_suspicious_lines(text):
+    if not text:
+        return ""
     result = ""
     i = 0
-    for m in SUSPICIOUS_LINE.finditer(text):
+    for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
         if m.span()[0] >= i:
             right = text.rfind('\n', i, m.span()[0])
             if right > 0:
@@ -314,7 +316,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
     text = text.strip()
     if not text:
         return [], tok_chars, untok_chars
-    end_section = END_SECTION.search(text)
+    end_section = END_SECTION.search(text, pos=text[0] == '\n')
     if end_section is not None:
         text = text[:end_section.span()[0]].strip()
     text = remove_tag_with_content_nested(
