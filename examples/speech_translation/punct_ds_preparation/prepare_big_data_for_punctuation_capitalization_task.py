@@ -405,11 +405,18 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
     if nltk_tokenization:
         stripped = []
         for sent in nltk.sent_tokenize(text):
+            sent = sent.lstrip()
+            if not sent:
+                continue
             if LETTER.match(sent[0]) is None:
+                assert (
+                    stripped,
+                    "Text is supposed to be cleaned in a way that first character in every line is a word character"
+                )
                 stripped[-1] += sent
             else:
                 stripped.append(sent)
-        stripped = [sent.strip() for sent in stripped]
+        stripped = [sent.rstrip() for sent in stripped]
     else:
         stripped = [sent.strip() for sent in text.split('\n')]
     return [sent for sent in stripped if sent], tok_chars, untok_chars
