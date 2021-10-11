@@ -365,13 +365,12 @@ def preprocess_wikipedia(file_path, output_dir, tokenizer, sequence_length_range
                     if text:
                         file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
                         out_f.write(file_text)
-                        for k, v in small.arrange_sentences_by_number_of_words_in_1_doc(
-                                text, sequence_length_range, [file_i, doc_id]
-                        ).items():
-                            sentences_by_number_of_words[k] += v
-                        sentence_len_by_docs[doc_id] = np.array(
-                            [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(line)) for line in text]
+                        arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
+                            text, sequence_length_range, [file_i, doc_id]
                         )
+                        for k, v in arrangement.items():
+                            sentences_by_number_of_words[k] += v
+                        sentence_len_by_docs[doc_id] = np.array(line_num_words)
                         doc_id_to_file_i[doc_id] = file_i
                         doc_id += 1
                         total_number_of_characters_in_current_file += len(file_text)
