@@ -403,6 +403,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars, True
         )
+    text = remove_suspicious_lines(text)
     tag_match = TAG.search(text)
     if tag_match is not None:
         logging.warning(
