@@ -70,14 +70,15 @@ SPACING_CHARACTERS_TO_REPLACE = re.compile(
 )
 
 
-def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False):
+def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_partially_ready_parameters=False):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
-        "input_files",
+        "--input_files",
         help="List of files with input data. You should also provide `--corpus_types` list which elements are types "
         "corresponding files.",
         nargs="+",
         type=Path,
+        required=not add_partially_ready_parameters,
     )
     parser.add_argument(
         "--input_language",

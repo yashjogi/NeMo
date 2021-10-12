@@ -1,8 +1,9 @@
 python prepare_wmt_data_for_punctuation_capitalization_task.py \
-  ~/data/europarl/v10/training-monolingual/europarl-v10.en.tsv \
-  ~/data/news-commentary/v16/training-monolingual/news-commentary-v16.en \
-  ~/data/rapid/RAPID_2019.de-en.xlf \
-  ~/data/TED_Talks/en-ja/train.tags.en-ja.en \
+  --input_files \
+    ~/data/europarl/v10/training-monolingual/europarl-v10.en.tsv \
+    ~/data/news-commentary/v16/training-monolingual/news-commentary-v16.en \
+    ~/data/rapid/RAPID_2019.de-en.xlf \
+    ~/data/TED_Talks/en-ja/train.tags.en-ja.en \
   --input_language en \
   --output_dir punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.9.2021_24.01 \
   --corpus_types europarl 'news-commentary' rapid TED \

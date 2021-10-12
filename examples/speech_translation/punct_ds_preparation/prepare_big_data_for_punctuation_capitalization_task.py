@@ -4,7 +4,7 @@ import os
 import random
 import re
 from pathlib import Path
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen, run
 
 import numpy as np
 from tqdm import tqdm
@@ -100,7 +100,9 @@ XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 LETTER = re.compile(r'\w')
-SUSPICIOUS_LINE = re.compile(r'^\W|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE)
+SUSPICIOUS_LINE = re.compile(
+    r'^[^\w"]|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE
+)
 PARENTHESES = re.compile('[)(]')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -538,10 +540,29 @@ def is_int(s):
     return True
 
 
+def move_to_line(fd, line_i, read_size=65536):
+    new_line_count = 0
+    block = 'FILLER'
+    num_blocks = -1
+    while block and new_line_count <= line_i:
+        block = fd.read(read_size)
+        last_block_count = block.count('\n')
+        new_line_count += last_block_count
+        num_blocks += 1
+    if new_line_count is None:
+        return False
+    i = 0
+    j = 0
+    while i < line_i - new_line_count + last_block_count:
+        j = block.index('\n', j) + 1
+        i += 1
+    fd.seek(num_blocks * read_size + j)
+    return True
+
+
 def write_dataset(
-    segments,
-    sorted_file,
-    line_start_pos,
+    borders,
+    input_file,
     output_dir,
     create_model_input,
     bert_labels,
@@ -552,13 +573,13 @@ def write_dataset(
 ):
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
-    with sorted_file.open() as in_f, \
+    with input_file.open() as in_f, \
             text_fn.open('w') as tf, \
             input_fn.open('w') as inp_f, \
             bert_fn.open('w') as bf, \
             ar_fn.open('w') as af:
-        for i in tqdm(segments):
-            in_f.seek(line_start_pos[i])
+        move_to_line(in_f, borders[0])
+        for _ in tqdm(range(borders[1] - borders[0])):
             line = in_f.readline().strip()
             tf.write(line + '\n')
             line = [s for s in small.WORD.split(line) if s]
@@ -591,7 +612,6 @@ def read_doc(fd):
 
 
 def cut_and_save(segments, doc_dir, output_file):
-    line_start_pos = []
     current_pos = 0
     current_file_i = -1
     current_fd = None
@@ -626,10 +646,8 @@ def cut_and_save(segments, doc_dir, output_file):
                 current_doc = read_doc(current_fd)
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
-            line_start_pos.append(current_pos)
             f.write(text_seg)
             current_pos += len(text_seg)
-    return np.array(line_start_pos)
 
 
 def read_docs_from_file(file_path):
@@ -679,7 +697,7 @@ def write_docs_to_file(docs, file_path):
             f.write(doc_to_str(k, v['source'], v["title"], v["start_line"], v["end_line"], v["text"]))
 
 
-def normalize_punctuation_in_all_documents(document_dir, lang):
+def normalize_punctuation_in_all_documents(document_dir, output_idr, lang):
     normalize_process = start_normalize_process(lang)
     for p in tqdm(list(document_dir.iterdir())):
         if is_int(p.stem) and p.suffixes == ['.xml']:
@@ -689,7 +707,11 @@ def normalize_punctuation_in_all_documents(document_dir, lang):
             )
             for k, text in zip(file_docs, outs.decode('utf-8').split('\n\n\n')):
                 file_docs[k]["text"] = text
-            write_docs_to_file(file_docs, Path(str(p) + '.norm'))
+            write_docs_to_file(file_docs, output_idr / p.name)
+
+
+def shuffle_file_lines(input_file, output_file):
+    run(['shuf', str(input_file), '>', str(output_file)], capture_output=False)
 
 
 def main():
@@ -721,7 +743,10 @@ def main():
             f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
         )
     logging.info("Normalizing punctuation...")
-    normalize_punctuation_in_all_documents(document_dir, args.input_language)
+    normalized_dir = args.output_dir / Path("normalized_documents")
+    normalize_punctuation_in_all_documents(
+        document_dir, normalized_dir, args.input_language
+    )
     if args.size is None:
         args.size = number_of_sentences_in_input
     if (
@@ -769,10 +794,13 @@ def main():
     )
     result = result[np.argsort(result[:, 0])]  # sort by file index
     result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
-    sorted_text_file = args.output_dir / Path('sorted_text.txt')
+    sorted_text_file = args.output_dir / 'sorted_text.txt'
+    shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     logging.info("Cutting segments...")
-    line_start_pos = cut_and_save(result, document_dir, sorted_text_file)
-    order = np.random.permutation(result.shape[0])
+    cut_and_save(result, document_dir, sorted_text_file)
+    logging.info("shuffling segments...")
+    shuffle_file_lines(sorted_text_file, shuffled_text_file)
+    # order = np.random.permutation(result.shape[0])
     if args.dev_size > len(result):
         raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({len(result)})")
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -780,9 +808,8 @@ def main():
     if test_size > 0:
         logging.info("Writing test dataset...")
         write_dataset(
-            order[:test_size],
+            [0, test_size],
             sorted_text_file,
-            line_start_pos,
             args.output_dir / Path("test"),
             args.create_model_input,
             args.bert_labels,
@@ -794,9 +821,8 @@ def main():
     if args.dev_size > 0:
         logging.info("Writing dev dataset...")
         write_dataset(
-            order[test_size : test_size + args.dev_size],
+            [test_size, test_size + args.dev_size],
             sorted_text_file,
-            line_start_pos,
             args.output_dir / Path("dev"),
             args.create_model_input,
             args.bert_labels,
@@ -807,9 +833,8 @@ def main():
         )
     logging.info("Writing train dataset...")
     write_dataset(
-        order[test_size + args.dev_size :],
+        [test_size + args.dev_size, args.size],
         sorted_text_file,
-        line_start_pos,
         args.output_dir / Path("train"),
         args.create_model_input,
         args.bert_labels,

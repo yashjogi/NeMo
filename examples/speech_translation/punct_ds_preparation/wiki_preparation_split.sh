@@ -9,5 +9,5 @@ python prepare_big_data_for_punctuation_capitalization_task.py \
   --fasttext_model lid.176.bin \
   --only_first_punctuation_character_after_word_in_autoregressive \
   --no_label_if_all_characters_are_upper_case \
-  ~/data/enwiki-20210920-pages-articles-multistream.xml \
+  --input_files ~/data/enwiki-20210920-pages-articles-multistream.xml \
   -n
