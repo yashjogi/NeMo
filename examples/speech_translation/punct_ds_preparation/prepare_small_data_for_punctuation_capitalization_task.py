@@ -70,7 +70,7 @@ SPACING_CHARACTERS_TO_REPLACE = re.compile(
 )
 
 
-def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_partially_ready_parameters=False):
+def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_resume_argument=False):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
         "--input_files",
@@ -78,7 +78,7 @@ def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_
         "corresponding files.",
         nargs="+",
         type=Path,
-        required=not add_partially_ready_parameters,
+        required=not add_resume_argument,
     )
     parser.add_argument(
         "--input_language",
@@ -211,7 +211,16 @@ def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_
             help="Tokenize lines into sentences using NLTK tokenization.",
             action="store_true",
         )
+    if add_resume_argument:
+        parser.add_argument(
+            "--resume_from",
+            choices=["normalization", "cutting", "shuffling", "writing"],
+            help="From which stage big dataset preparation is started."
+        )
     args = parser.parse_args()
+    if args.size is not None:
+        if args.dev_size > args.size:
+            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({args.size})")
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
         raise ValueError(

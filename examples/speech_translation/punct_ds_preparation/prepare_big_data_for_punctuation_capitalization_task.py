@@ -714,95 +714,126 @@ def shuffle_file_lines(input_file, output_file):
     run(['shuf', str(input_file), '>', str(output_file)], capture_output=False)
 
 
+def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
+    sentences_by_number_of_words = {
+        n: [] for n in range(sequence_length_range[0], sequence_length_range[1])
+    }
+    sentence_len_by_docs, doc_id_to_file_i = {}, {}
+    for p in tqdm(document_dir.iterdir(), total=len(list(document_dir.iterdir()))):
+        if is_int(p.stem) and p.suffix == '.xml':
+            file_i = int(p.stem)
+            docs = read_docs_from_file(p)
+            for doc_id, doc in docs.items():
+                doc_id_to_file_i[doc_id] = file_i
+                arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
+                    doc, sequence_length_range, [file_i, doc_id]
+                )
+                sentence_len_by_docs[doc_id] = np.array(line_num_words)
+                for k, v in arrangement.items():
+                    sentences_by_number_of_words[k] += v
+    return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
+
+
 def main():
-    args = small.get_args(SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True)
-    tokenizer = get_tokenizer(args.tokenizer)
-    number_of_sentences_in_input = 0
-    sentences_by_number_of_words = {n: [] for n in range(args.sequence_length_range[0], args.sequence_length_range[1])}
-    sentence_len_by_docs = {}
-    doc_id_to_file_i = {}
+    args = small.get_args(SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True, add_resume_argument=True)
     document_dir = args.output_dir / Path("documents")
-    for corpus_type, file_path in zip(args.corpus_types, args.input_files):
-        if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-            logging.info(f"Preprocessing wikipedia file {file_path}...")
-            res = preprocess_wikipedia(
-                file_path, document_dir, tokenizer, args.sequence_length_range, 0, args.nltk_tokenization
+    if args.resume_from is None:
+        tokenizer = get_tokenizer(args.tokenizer)
+        sentences_by_number_of_words = {
+            n: [] for n in range(args.sequence_length_range[0], args.sequence_length_range[1])
+        }
+        sentence_len_by_docs = {}
+        doc_id_to_file_i = {}
+        for corpus_type, file_path in zip(args.corpus_types, args.input_files):
+            if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
+                logging.info(f"Preprocessing wikipedia file {file_path}...")
+                res = preprocess_wikipedia(
+                    file_path, document_dir, tokenizer, args.sequence_length_range, 0, args.nltk_tokenization
+                )
+                corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
+                for k, v in corpus_sentences_by_number_of_words.items():
+                    sentences_by_number_of_words[k] += v
+                sentence_len_by_docs.update(corpus_sentence_len_by_docs)
+                doc_id_to_file_i.update(corpus_doc_id_to_file_i)
+            else:
+                raise ValueError(
+                    f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
+                )
+            number_of_corpus_sentences = sum([len(v) for v in corpus_sentences_by_number_of_words.values()])
+            logging.info(
+                f"Finished preprocessing corpus {file_path}. Number of sentences the corpus: "
+                f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
             )
-            corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
-            for k, v in corpus_sentences_by_number_of_words.items():
-                sentences_by_number_of_words[k] += v
-            sentence_len_by_docs.update(corpus_sentence_len_by_docs)
-            doc_id_to_file_i.update(corpus_doc_id_to_file_i)
-        else:
-            raise ValueError(
-                f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
-            )
-        number_of_corpus_sentences = sum([len(v) for v in corpus_sentences_by_number_of_words.values()])
-        logging.info(
-            f"Finished preprocessing corpus {file_path}. Number of sentences the corpus: "
-            f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
+    else:
+        logging.info(f"Loading stats and info about dataset in directory {document_dir}...")
+        sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = collect_info_about_preprocessed_data(
+            document_dir, args.sequence_length_range
         )
-    logging.info("Normalizing punctuation...")
+    number_of_sentences_in_input = sum([len(e) for e in sentences_by_number_of_words.values()])
     normalized_dir = args.output_dir / Path("normalized_documents")
-    normalize_punctuation_in_all_documents(
-        document_dir, normalized_dir, args.input_language
-    )
+    if args.resume_from is None or args.resume_from == "normalization":
+        logging.info("Normalizing punctuation...")
+        normalize_punctuation_in_all_documents(
+            document_dir, normalized_dir, args.input_language
+        )
     if args.size is None:
         args.size = number_of_sentences_in_input
-    if (
-        sum([len(x) for x in sentences_by_number_of_words.values()])
-        < args.size * args.percentage_segments_with_intact_sentences / 100
-    ):
-        raise ValueError(
-            f"Cannot find enough segments consisting of whole sentences to build dataset with {args.size} segments "
-            f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole sentences. "
-            f"Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
-        )
-    logging.info(f"Selecting segments with intact sentences...")
-    result, number_of_words_stats, remaining_by_docs = small.select_close_to_uniform_distribution(
-        sentences_by_number_of_words,
-        args.size,
-        args.percentage_segments_with_intact_sentences,
-        {k: len(v) for k, v in sentence_len_by_docs.items()}
-    )
-    result = np.array(result)
-    result = np.concatenate(
-        [
-            result,
-            np.zeros([result.shape[0], 1], dtype=result.dtype),
-            np.full([result.shape[0], 1], -1, dtype=result.dtype),
-        ],
-        1,
-    )
-    logging.info("Selecting segments with not intact sentences...")
-    result = np.concatenate(
-        [
-            result,
-            prepend_file_i(
-                np.array(
-                    small.create_not_whole_sentence_segments(
-                        sentence_len_by_docs,
-                        remaining_by_docs,
-                        number_of_words_stats,
-                        args.size,
-                        args.percentage_segments_with_intact_sentences,
-                    ),
-                ),
-                doc_id_to_file_i
-            )
-        ]
-    )
-    result = result[np.argsort(result[:, 0])]  # sort by file index
-    result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
+        if args.dev_size > args.size:
+            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({args.size})")
     sorted_text_file = args.output_dir / 'sorted_text.txt'
+    if args.resume_from is None or args.resume_from in ["normalization", "cutting"]:
+        if (
+            sum([len(x) for x in sentences_by_number_of_words.values()])
+            < args.size * args.percentage_segments_with_intact_sentences / 100
+        ):
+            raise ValueError(
+                f"Cannot find enough segments consisting of whole sentences to build dataset with {args.size} segments "
+                f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole sentences. "
+                f"Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
+            )
+        logging.info(f"Selecting segments with intact sentences...")
+        result, number_of_words_stats, remaining_by_docs = small.select_close_to_uniform_distribution(
+            sentences_by_number_of_words,
+            args.size,
+            args.percentage_segments_with_intact_sentences,
+            {k: len(v) for k, v in sentence_len_by_docs.items()}
+        )
+        result = np.array(result)
+        result = np.concatenate(
+            [
+                result,
+                np.zeros([result.shape[0], 1], dtype=result.dtype),
+                np.full([result.shape[0], 1], -1, dtype=result.dtype),
+            ],
+            1,
+        )
+        logging.info("Selecting segments with not intact sentences...")
+        result = np.concatenate(
+            [
+                result,
+                prepend_file_i(
+                    np.array(
+                        small.create_not_whole_sentence_segments(
+                            sentence_len_by_docs,
+                            remaining_by_docs,
+                            number_of_words_stats,
+                            args.size,
+                            args.percentage_segments_with_intact_sentences,
+                        ),
+                    ),
+                    doc_id_to_file_i
+                )
+            ]
+        )
+        result = result[np.argsort(result[:, 0])]  # sort by file index
+        result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
+        logging.info("Cutting segments...")
+        cut_and_save(result, document_dir, sorted_text_file)
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
-    logging.info("Cutting segments...")
-    cut_and_save(result, document_dir, sorted_text_file)
-    logging.info("shuffling segments...")
-    shuffle_file_lines(sorted_text_file, shuffled_text_file)
+    if args.resume_from is None or args.resume_from in ["normalization", "cutting", "shuffling"]:
+        logging.info("shuffling segments...")
+        shuffle_file_lines(sorted_text_file, shuffled_text_file)
     # order = np.random.permutation(result.shape[0])
-    if args.dev_size > len(result):
-        raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({len(result)})")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     test_size = int(args.size * args.test_ratio / 100)
     if test_size > 0:
