@@ -663,9 +663,8 @@ def read_docs_from_file(file_path):
                         f"Encountered start of document number {start.group(1)} on line {i} in file {file_path} while "
                         f"document number {curr_doc_id} is still in progress."
                     )
-                curr_doc_id, curr_source, curr_title, curr_start_line, curr_end_line = [
-                    int(start.group(i)) for i in range(1, 6)
-                ]
+                curr_source, curr_title = start.group(2), start.group(3)
+                curr_doc_id, curr_start_line, curr_end_line = [int(start.group(i)) for i in [1, 4, 5]]
             if line.startswith("</doc>"):
                 if curr_doc_id is None:
                     raise ValueError(
