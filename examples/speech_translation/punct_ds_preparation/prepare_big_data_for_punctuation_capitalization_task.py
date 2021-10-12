@@ -766,7 +766,7 @@ def main():
                 f"{number_of_corpus_sentences}, number of documents in the corpus: {len(corpus_sentence_len_by_docs)}"
             )
     else:
-        logging.info(f"Loading stats and info about dataset in directory {document_dir}...")
+        logging.info(f"Loading stats and info about dataset in directory '{document_dir}'...")
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = collect_info_about_preprocessed_data(
             document_dir, args.sequence_length_range
         )
