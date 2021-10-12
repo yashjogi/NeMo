@@ -99,7 +99,7 @@ TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
 XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
-LETTER = re.compile(r'\w')
+GOOD_LINE_START = re.compile(r'[\w"]')
 SUSPICIOUS_LINE = re.compile(
     r'^[^\w"]|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE
 )
@@ -410,7 +410,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
             sent = sent.lstrip()
             if not sent:
                 continue
-            if LETTER.match(sent[0]) is None:
+            if GOOD_LINE_START.match(sent[0]) is None:
                 assert stripped, \
                     "Text is supposed to be cleaned in a way that first character in every line is a word character"
                 stripped[-1] += sent
