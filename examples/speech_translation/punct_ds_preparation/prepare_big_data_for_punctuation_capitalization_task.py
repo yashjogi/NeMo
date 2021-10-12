@@ -652,34 +652,36 @@ def cut_and_save(segments, doc_dir, output_file):
 
 def read_docs_from_file(file_path):
     current_doc = ""
-    current_doc_id = None
+    curr_doc_id = None
     docs = {}
     with file_path.open() as f:
         for i, line in enumerate(f):
             start = DOC_HEAD.match(line)
             if start is not None:
-                if current_doc_id is not None:
+                if curr_doc_id is not None:
                     raise ValueError(
                         f"Encountered start of document number {start.group(1)} on line {i} in file {file_path} while "
-                        f"document number {current_doc_id} is still in progress."
+                        f"document number {curr_doc_id} is still in progress."
                     )
-                current_doc_id = int(start.group(1))
+                curr_doc_id, curr_source, curr_title, curr_start_line, curr_end_line = [
+                    int(start.group(i)) for i in range(1, 6)
+                ]
             if line.startswith("</doc>"):
-                if current_doc_id is None:
+                if curr_doc_id is None:
                     raise ValueError(
                         f"Encountered end of document on line {i} in file {file_path} while there is no document in "
                         f"progress."
                     )
-                docs[current_doc_id] = {
-                    "source": start.group(2),
-                    "title": start.group(3),
-                    "start_line": start.group(4),
-                    "end_line": start.group(5),
+                docs[curr_doc_id] = {
+                    "source": curr_source,
+                    "title": curr_title,
+                    "start_line": curr_start_line,
+                    "end_line": curr_end_line,
                     "text": current_doc
                 }
                 current_doc = ""
-                current_doc_id = None
-            if current_doc_id is not None:
+                curr_doc_id = None
+            if curr_doc_id is not None:
                 current_doc += line
     return docs
 
