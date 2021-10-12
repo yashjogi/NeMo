@@ -58,7 +58,7 @@ END_SECTION = re.compile(
 NORMALIZE_ENDING_PATTERN = re.compile(b'.*EOFEOFEOF', flags=re.DOTALL)
 NEW_LINE_DUP = re.compile('\n{2,}')
 DOC_HEAD = re.compile(
-    '^<doc docid="({[0-9]*})" source="([^"]+)" title="([^"]+)" start_line="([0-9]+)" end_line="([0-9]+)">$',
+    '^<doc docid="([0-9]+)" source="([^"]+)" title="([^"]+)" start_line="([0-9]+)" end_line="([0-9]+)">$',
     flags=re.MULTILINE
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
