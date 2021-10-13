@@ -104,6 +104,20 @@ SUSPICIOUS_LINE = re.compile(
     r'^[^\w"]|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
+LONG_HYPHEN_NO_SPACE = re.compile(r'\b—\b')
+NOT_USUAL_HYPHENS = re.compile(r'[–—]')
+SPACE_DUP = re.compile(' {2,}')
+OPENING_PARENTHESES_WITH_SPACE = re.compile(r'\( +')
+NO_SPACE_OPENING_PARENTHESES = re.compile(r'\b\(')
+SPACE_CLOSING_PARENTHESES = re.compile(r' +\)')
+CLOSING_PARENTHESES_NO_SPACE = re.compile(r'\)\b')
+SPACE_CLOSING_QUOTE = re.compile(' +" *([,.(?!;-])')
+OPENING_QUOTE_SPACE = re.compile(' *([,.(;-]) *" +')
+BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
+    r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
+)
+
+
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
 
@@ -223,44 +237,6 @@ def remove_double_square_brackets_specials(text, pos_info):
     return result + text[last_end:]
 
 
-# def remove_xml_code_fragments(text, pos_info):
-#     result = ""
-#     last_end = 0
-#     for header_match in XML_HEADER.finditer(text):
-#         start = header_match.span()[0]
-#         if start < last_end:
-#             continue
-#         result += text[last_end: text.rfind('\n', last_end, start)]
-#         next_line_tag = NEXT_LINE_TAG.match(text)
-#         if next_line_tag is None:
-#             last_end = text.find('\n', header_match.span()[1])
-#         else:
-#             tag = next_line_tag.group(1)
-#             num_opened = 1
-#             opening = '<' + tag
-#             closing = f'</{tag}>'
-#             current_pos = next_line_tag.span()[1]
-#             next_closing = text.find(closing, current_pos)
-#             while num_opened > 0 and current_pos < len(text):
-#                 while current_pos > 0:
-#                     current_pos = text.find(opening, current_pos, next_closing)
-#                     num_opened += 1
-#                 num_opened -= 1
-#                 current_pos = next_closing + len(closing)
-#                 next_closing = text.find(closing, current_pos)
-#                 if next_closing < 0 < num_opened:
-#                     logging.warning(
-#                         f"The end of XML fragment end starting from position {start} in document from "
-#                         f"file {pos_info[0]} between lines {pos_info[1]} and {pos_info[2]} is not found. Start of the "
-#                         f"fragment +-20 characters: {repr(text[max(start - 20, 0) : start + 20])}. Tag which did not "
-#                         f"close: '{tag}'. The remainder of the document will be discarded."
-#                     )
-#                     return result
-#             last_end = text.find('\n', current_pos)
-#     result += text[last_end:]
-#     return result
-
-
 def remove_lists(text):
     result = ""
     start_idx_of_clean_text = 0
@@ -294,10 +270,38 @@ def check_quotes_and_parentheses(line):
     return opened == 0 and line.count('"') % 2 == 0
 
 
+def normalize_quotes(lines):
+    filtered = []
+    for line in lines:
+        line_result = ""
+        already_checked = 0
+        i = line.find('"')
+        quote_count = 0
+        while i >= 0:
+            assert i < len(line) - 1, \
+                "Opening quote at the end of line. All input lines have to have even number of quotes"
+            if quote_count % 2 == 0:
+                if i == 0:
+                    line_result = '"'
+                else:
+                    line_result += line[already_checked: i - (line[i - 1] == ' ')] + ' ' + '"'
+                already_checked = i + 1 + (line[i + 1] == ' ')
+            else:
+                line_result += line[already_checked: i - (line[i - 1] == ' ')] + '"'
+                if i < len(line) - 1:
+                    line_result += ' '
+
+
+
+
+
+
+
 def remove_suspicious_lines(text):
     if not text:
         return ""
     result = ""
+    text = normalize_quotes(text)
     i = 0
     for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
         if m.span()[0] >= i:
@@ -308,6 +312,18 @@ def remove_suspicious_lines(text):
             i = cand if cand > 0 else len(text)
     result += text[i:]
     return '\n'.join([line for line in result.split('\n') if check_quotes_and_parentheses(line)])
+
+
+def normalize_punctuation(text):
+    text = LONG_HYPHEN_NO_SPACE.sub(' - ', text)
+    text = NOT_USUAL_HYPHENS.sub('-', text)
+    text = OPENING_PARENTHESES_WITH_SPACE.sub('(', text)
+    text = NO_SPACE_OPENING_PARENTHESES.sub(' (', text)
+    text = SPACE_CLOSING_PARENTHESES.sub(')', text)
+    text = CLOSING_PARENTHESES_NO_SPACE.sub(') ', text)
+    text = BROKEN_PARENTHESES_WITH_CONTENT.sub('', text)
+    text = SPACE_CLOSING_QUOTE.sub(r'"\1', text)
+    text = OPENING_QUOTE_SPACE.sub(r'\1 "', text)
 
 
 def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
@@ -398,12 +414,7 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
             text, tokenizer, tok_chars, untok_chars, True
         )
     text = remove_suspicious_lines(text)
-    # tag_match = TAG.search(text)
-    # if tag_match is not None:
-    #     logging.warning(
-    #         f"There are still tag '{tag_match.group(0)}' in document in file {pos_info[0]} between lines "
-    #         f"{pos_info[1]} and {pos_info[2]}."
-    #     )
+    text = normalize_punctuation(text)
     if nltk_tokenization:
         stripped = []
         for sent in nltk.sent_tokenize(text):
@@ -697,6 +708,7 @@ def write_docs_to_file(docs, file_path):
 
 
 def normalize_punctuation_in_all_documents(document_dir, output_idr, lang):
+    output_idr.mkdir(exist_ok=True, parents=True)
     normalize_process = start_normalize_process(lang)
     for p in tqdm(list(document_dir.iterdir())):
         if is_int(p.stem) and p.suffixes == ['.xml']:
@@ -719,7 +731,7 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
     }
     sentence_len_by_docs, doc_id_to_file_i = {}, {}
     for p in tqdm(document_dir.iterdir(), total=len(list(document_dir.iterdir()))):
-        if is_int(p.stem) and p.suffix == '.xml':
+        if is_int(p.stem) and p.suffixes == ['.xml']:
             file_i = int(p.stem)
             docs = read_docs_from_file(p)
             for doc_id, doc in docs.items():
