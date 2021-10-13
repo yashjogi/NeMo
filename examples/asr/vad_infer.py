@@ -85,6 +85,8 @@ def main():
     if args.vad_model.endswith('.nemo'):
         logging.info(f"Using local VAD model from {args.vad_model}")
         vad_model = EncDecClassificationModel.restore_from(restore_path=args.vad_model)
+    elif args.vad_model.endswith('.ckpt'):
+        vad_model = EncDecClassificationModel.load_from_checkpoint(checkpoint_path=args.vad_model)
     else:
         logging.info(f"Using NGC cloud VAD model {args.vad_model}")
         vad_model = EncDecClassificationModel.from_pretrained(model_name=args.vad_model)

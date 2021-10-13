@@ -139,6 +139,9 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         if model_path.endswith('.nemo'):
             self._vad_model = EncDecClassificationModel.restore_from(model_path)
             logging.info("VAD model loaded locally from {}".format(model_path))
+        elif model_path.endswith('.ckpt'):
+            self._vad_model = EncDecClassificationModel.load_from_checkpoint(checkpoint_path=model_path)
+            logging.info("VAD model loaded locally from {}".format(model_path))
         else:
             if model_path not in get_available_model_names(EncDecClassificationModel):
                 logging.warning(
