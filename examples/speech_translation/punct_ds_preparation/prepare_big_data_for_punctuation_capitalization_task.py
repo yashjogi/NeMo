@@ -578,6 +578,7 @@ def preprocess_wikipedia_parallel(
             preprocess_wikipedia,
             list(
                 zip(
+                    range(num_jobs),
                     [progress_queue] * num_jobs,
                     [file_path] * num_jobs,
                     borders,
@@ -589,6 +590,7 @@ def preprocess_wikipedia_parallel(
                     [sequence_length_range] * num_jobs,
                     start_doc_id,
                     [nltk_tokenization] * num_jobs,
+                    [5000] * num_jobs,
                 )
             )
         )
@@ -601,8 +603,9 @@ def preprocess_wikipedia_parallel(
     return result[0]
 
 
-def preprocess_wikipedia(args,):
+def preprocess_wikipedia(args):
     (
+        rank,
         progress_queue,
         file_path,
         borders,
@@ -620,7 +623,7 @@ def preprocess_wikipedia(args,):
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
     page = ""
-    page_i = 0
+    page_i = count_pages_in_file(file_path, 0, borders[0])
     page_in_progress = False
     characters_for_1_file = (borders[1] - borders[0]) // num_out_files
     total_number_of_characters_from_original_text_in_current_file = 0
@@ -633,7 +636,7 @@ def preprocess_wikipedia(args,):
     num_lines_processed_when_progress_was_reported_last_time = 0
     with file_path.open() as in_f:
         in_f.seek(borders[0])
-        for i, line in enumerate(in_f):
+        for i, line in enumerate(in_f, count_lines_in_file(file_path, 0, borders[0])):
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
