@@ -70,7 +70,9 @@ SPACING_CHARACTERS_TO_REPLACE = re.compile(
 )
 
 
-def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_resume_argument=False):
+def get_args(
+    supported_corpus_types, add_nltk_tokenization_parameter=False, add_resume_argument=False, add_num_jobs=False
+):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
         "--input_files",
@@ -217,6 +219,8 @@ def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_
             choices=["cutting", "shuffling", "writing"],
             help="From which stage big dataset preparation is started."
         )
+    if add_num_jobs:
+        parser.add_argument("--num_jobs", default=1, type=int)
     args = parser.parse_args()
     if args.size is not None:
         if args.dev_size > args.size:

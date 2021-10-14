@@ -788,7 +788,8 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
 
 
 def main():
-    args = small.get_args(SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True, add_resume_argument=True)
+    args = small.get_args(
+        SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True, add_resume_argument=True, add_num_jobs=True)
     document_dir = args.output_dir / Path("documents")
     if args.resume_from is None:
         tokenizer = get_tokenizer(args.tokenizer)
