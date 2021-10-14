@@ -465,10 +465,11 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
                     f" First 20 characters in text are: {repr(text[:20])}. Document is in file {pos_info[0]} between " \
                     f"lines {pos_info[1]} and {pos_info[2]}. Whole text after suspicious removal:\n" \
                     f"{after_suspicious_removal}"
-                stripped[-1] += ' ' + sent
+                if sent[0] != ' ' and stripped[-1] != ' ':
+                    stripped[-1] += ' '
+                stripped[-1] += sent
             else:
                 stripped.append(sent)
-            # stripped = SPACE_DUP.sub(' ', '\n'.join([sent.rstrip() for sent in stripped])).split('\n')
             stripped = [sent.rstrip() for sent in stripped]
     else:
         stripped = [sent.strip() for sent in text.split('\n')]
