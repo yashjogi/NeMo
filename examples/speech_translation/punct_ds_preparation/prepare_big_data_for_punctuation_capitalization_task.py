@@ -127,6 +127,7 @@ SPACE_NEW_LINE = re.compile(' \n')
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
 BUFFER_SIZE = 2 ** 24
+POSSIBLE_LINE_ENDS = {'\n', '\r', '\v', '\f', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029'}
 
 
 def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
@@ -621,11 +622,25 @@ def preprocess_wikipedia_parallel(
 
 def file_line_generator(fd, buffer_size, total_to_read):
     read = 0
+    last_line = None
     while read < total_to_read:
         buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
-        read += buffer_size
-        for line in buffer.splitlines(True):
-            yield line
+        if not buffer:
+            if last_line is not None and last_line:
+                yield last_line
+                return
+        read += len(buffer)
+        split = buffer.splitlines(True)
+        if last_line is not None:
+            if last_line[-1] in POSSIBLE_LINE_ENDS:
+                yield last_line
+            else:
+                split[0] = last_line + split[0]
+        for i in range(len(split) - 1):
+            yield split[i]
+        last_line = split[-1]
+    if last_line is not None:
+        yield last_line
 
 
 def preprocess_wikipedia(args):
