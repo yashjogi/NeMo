@@ -535,21 +535,25 @@ def get_borders_with_documents_intact(file_path, num_parts):
     part_size = length // num_parts
     current_pos = 0
     with file_path.open() as f:
-        while not eof(f):
+        for i in range(num_parts):
             f.seek(part_size + f.tell())
             if eof(f):
-                borders.append((current_pos, f.tell()))
+                borders.append((current_pos, length))
             else:
                 begin_pos = f.tell()
                 line = f.readline()
+                success = False
                 while line:
                     if '<page' in line:
                         ind = line.index('<page') + begin_pos
                         borders.append((current_pos, ind))
                         current_pos = ind
+                        success = True
                         break
                     begin_pos = f.tell()
                     line = f.readline()
+                if not success:
+                    borders.append((current_pos, length))
     return borders
 
 
