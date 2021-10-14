@@ -603,6 +603,14 @@ def preprocess_wikipedia_parallel(
     return result[0]
 
 
+def file_line_generator(fd):
+    line = fd.readline()
+    yield line
+    while line:
+        yield line
+        line = fd.readline()
+
+
 def preprocess_wikipedia(args):
     (
         rank,
@@ -636,7 +644,7 @@ def preprocess_wikipedia(args):
     num_lines_processed_when_progress_was_reported_last_time = 0
     with file_path.open() as in_f:
         in_f.seek(borders[0])
-        for i, line in enumerate(in_f, count_lines_in_file(file_path, 0, borders[0])):
+        for i, line in enumerate(file_line_generator(in_f), count_lines_in_file(file_path, 0, borders[0])):
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
