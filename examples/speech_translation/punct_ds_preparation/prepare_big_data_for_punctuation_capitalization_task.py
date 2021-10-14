@@ -441,8 +441,9 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
             text, tokenizer, tok_chars, untok_chars, True
         )
     text = SPACE_DUP.sub(' ', text)
-    text = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
-    text = normalize_punctuation(text, lang)
+    after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
+    text = normalize_punctuation(after_suspicious_removal, lang)
+    text = NEW_LINE_DUP.sub('\n', text)
     if nltk_tokenization:
         stripped = []
         for sent in nltk.sent_tokenize(text):
@@ -452,7 +453,9 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
             if GOOD_LINE_START.match(sent[0]) is None:
                 assert stripped, \
                     f"Text is supposed to be cleaned in a way that first character in every line is a word character." \
-                    f" First 20 characters in text are: {repr(text[:20])}"
+                    f" First 20 characters in text are: {repr(text[:20])}. Document is in file {pos_info[0]} between " \
+                    f"lines {pos_info[1]} and {pos_info[2]}. Whole text after suspicious removal:\n" \
+                    f"{after_suspicious_removal}"
                 stripped[-1] += sent
             else:
                 stripped.append(sent)
