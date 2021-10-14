@@ -506,6 +506,9 @@ def count_characters_in_file(file_path):
 
 def get_borders_with_documents_intact(file_path, num_parts):
     length = count_characters_in_file(file_path)
+    part_size = length // num_parts
+    with file_path.open() as f:
+
 
 
 def preprocess_wikipedia_parallel(
