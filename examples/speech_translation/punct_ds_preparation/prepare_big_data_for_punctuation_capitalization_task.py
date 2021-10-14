@@ -116,7 +116,7 @@ PUNCTUATION_MARK_OPENING_PARENTHESES = re.compile(r'([.!:?;,…])\(')
 SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
-BROKEN_PARENTHESES_WITH_CONTENT = re.compile('\\([ \\w,;:?!."\'/-]*[:;,-] *\\)|\\( *[:;,?!.][\\w ,;:?!."\'/-]*\\)')
+BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[^\\w"][^)(]*\\)|\\( *…? *\\)')
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n')
@@ -261,11 +261,13 @@ def remove_lists(text):
     return result
 
 
-def check_quotes_and_parentheses(line):
+def check_quotes_and_parentheses(line, do_no_allow_nested=True):
     opened = 0
     for m in PARENTHESES.finditer(line):
         if m.group(0) == '(':
             opened += 1
+            if opened > 1 and do_no_allow_nested:
+                return False
         else:
             opened -= 1
             if opened < 0:
@@ -344,6 +346,7 @@ def normalize_punctuation(text, lang):
     text = DIGIT_SPACE_PERCENT.sub(r'\1% ', text)
     text = SPACE_PUNCTUATION_MARK.sub(r'\1', text)
     text = text.replace('…', '...')
+    text = text.replace('ː', ':')
     # if lang == 'en':
     #     # English "quotation"
     #     text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"\2', text)
