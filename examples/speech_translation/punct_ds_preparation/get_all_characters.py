@@ -24,7 +24,8 @@ def main():
             block = in_f.read(BLOCK_SIZE)
             characters.update(block)
     for c in '\n\t \r\v':
-        characters.remove(c)
+        if c in characters:
+            characters.remove(c)
     characters = sorted(characters, key=lambda x: ord(x))
     with args.output.open('w') as out_f:
         for c in characters:
