@@ -27,7 +27,7 @@ random.seed(42)
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
-WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b(?:\w+(?:(?:-|\.)\w+)*(?:'\w+)?)\b\W*")
+WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
 # For splitting text into words and punctuation
 WORD = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
@@ -65,16 +65,20 @@ ROMAN_NUMERAL = re.compile(
 )
 HTTP = re.compile(r'https?://', flags=re.I)
 BRACKETS_AND_CONTENT = re.compile(r'\(.*\)')
+SPACING_CHARACTERS_TO_REPLACE = re.compile(
+    '[\t\v\r' + r'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff' + ''.join([chr(i) for i in range(0x2000, 0x200c)]) + ']+'
+)
 
 
-def get_args(supported_corpus_types):
+def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_resume_argument=False):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
-        "input_files",
+        "--input_files",
         help="List of files with input data. You should also provide `--corpus_types` list which elements are types "
         "corresponding files.",
         nargs="+",
         type=Path,
+        required=not add_resume_argument,
     )
     parser.add_argument(
         "--input_language",
@@ -200,7 +204,23 @@ def get_args(supported_corpus_types):
         "are marked as 'u'.",
         action="store_true",
     )
+    if add_nltk_tokenization_parameter:
+        parser.add_argument(
+            "--nltk_tokenization",
+            "-n",
+            help="Tokenize lines into sentences using NLTK tokenization.",
+            action="store_true",
+        )
+    if add_resume_argument:
+        parser.add_argument(
+            "--resume_from",
+            choices=["cutting", "shuffling", "writing"],
+            help="From which stage big dataset preparation is started."
+        )
     args = parser.parse_args()
+    if args.size is not None:
+        if args.dev_size > args.size:
+            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({args.size})")
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
         raise ValueError(
@@ -271,38 +291,50 @@ def too_many_uppercase(text):
     return too_many
 
 
-def remove_untokenizable_characters_from_text(text, tokenizer):
-    tmp_new_line_character = "NEWLINECHARACTER"
-    while tmp_new_line_character in text and len(tmp_new_line_character) < 20:
-        tmp_new_line_character += 'R'
-    while tmp_new_line_character in text and len(tmp_new_line_character) < 30:
-        tmp_new_line_character = 'N' + tmp_new_line_character
-    if tmp_new_line_character in text:
-        logging.warning(
-            f'Could not find temporary replacement for new line character. It is possible that a space character will '
-            f'be removed as not tokenizable'
-        )
+def remove_untokenizable_characters_from_text(
+    text, tokenizer, tok_chars=None, untok_chars=None, remove_all_lines=False
+):
+    tok_chars = {' ', '\n'} if tok_chars is None else tok_chars.copy()
+    untok_chars = set() if untok_chars is None else untok_chars.copy()
+    all_chars = set(text)
+    detected_untok_chars = list(all_chars & untok_chars)
+    candidates_for_untok_chars = all_chars - tok_chars - untok_chars
+    if not detected_untok_chars and not candidates_for_untok_chars:
+        return text, tok_chars, untok_chars
+    for c in candidates_for_untok_chars:
+        if tokenizer.text_to_ids(c):
+            tok_chars.add(c)
+        else:
+            untok_chars.add(c)
+            detected_untok_chars.append(c)
+    if not detected_untok_chars:
+        return text, tok_chars, untok_chars
+    if '\\' in detected_untok_chars:
+        detected_untok_chars.remove('\\')
+        detected_untok_chars = ['\\\\'] + detected_untok_chars
+    if '^' == detected_untok_chars[0]:
+        if len(detected_untok_chars) > 1:
+            detected_untok_chars.remove('^')
+            detected_untok_chars.append('^')
+        else:
+            detected_untok_chars = [r'\^']
+    if '-' in detected_untok_chars:
+        detected_untok_chars.remove('-')
+        detected_untok_chars.append('-')
+    uc = re.compile('[' + ''.join(detected_untok_chars) + ']', re.I)
+    if remove_all_lines:
+        result = ""
+        i = 0
+        for m in uc.finditer(text):
+            right = text.rfind('\n', i, m.span()[0])
+            if right > 0:
+                result += text[i : right]
+            cand = text.find('\n', m.span()[1])
+            i = cand if cand > 0 else len(text)
+        result += text[i:]
     else:
-        text = re.sub('\n', tmp_new_line_character, text)
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(tmp_new_line_character, '\n', text)
-    untokenizable_characters = list()
-    for c in set(text) - {' ', '\n'}:
-        if not tokenizer.text_to_ids(c):
-            untokenizable_characters.append(c)
-    if untokenizable_characters:
-        if '\\' in untokenizable_characters:
-            untokenizable_characters.remove('\\')
-            untokenizable_characters = ['\\\\'] + untokenizable_characters
-        if '^' == untokenizable_characters[0]:
-            untokenizable_characters.remove('^')
-            untokenizable_characters.append('^')
-        if '-' in untokenizable_characters:
-            untokenizable_characters.remove('-')
-            untokenizable_characters.append('-')
-        uc = '[' + ''.join(untokenizable_characters) + ']'
-        text = re.sub(uc, '', re.sub('\n' + uc + '\n', '\n', text))
-    return text
+        result = uc.sub('', uc.sub('\n' + uc.pattern + '\n', '\n', text))
+    return result, tok_chars, untok_chars
 
 
 def remove_untokenizable_characters(docs, tokenizer):
@@ -317,6 +349,7 @@ def remove_untokenizable_characters(docs, tokenizer):
 
 
 def preprocess_europarl(text):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     f = StringIO(text)
     docs = {}
     for i, line in enumerate(f):
@@ -339,6 +372,7 @@ def preprocess_europarl(text):
 
 
 def preprocess_ted(text):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     soup = BeautifulSoup(text)
     result = {}
     for doc in soup.findAll("doc"):
@@ -392,6 +426,7 @@ def check_rapid_line(line):
 
 
 def preprocess_rapid(text, verbose=False):
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     soup = BeautifulSoup(text)
     result = {}
     for file in soup.findAll("file"):
@@ -437,6 +472,7 @@ def preprocess_news_commentary(text):
     discussion_text = []
     discussion_count = 0
     line_idx = 0
+    text = SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     for line_i, line in enumerate(StringIO(text)):
         line = line.strip()
         if line:
@@ -572,37 +608,22 @@ def remove_wrong_lang_docs(docs, lang, model_path, max_fraction, max_length):
 
 def arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, values_to_prepend):
     result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
+    lengths = [len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in doc]
     for start_sentence_i, sentence in enumerate(doc):
         for end_sentence_i in range(start_sentence_i + 1, len(doc)):
-            n_words = sum(
-                [
-                    len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
-                    for i in range(start_sentence_i, end_sentence_i)
-                ]
-            )
+            n_words = sum(lengths[start_sentence_i : end_sentence_i])
             if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
                 break
             result[n_words].append(values_to_prepend + [start_sentence_i, end_sentence_i])
-    return result
+    return result, lengths
 
 
 def arrange_sentences_by_number_of_words(docs, sequence_length_range):
     result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     for doc_id, doc in docs.items():
-        doc_arrangement = arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, [doc_id])
+        doc_arrangement = arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, [doc_id])[0]
         for k, v in doc_arrangement.items():
             result[k] += v
-        # for start_sentence_i, sentence in enumerate(doc):
-        #     for end_sentence_i in range(start_sentence_i + 1, len(doc)):
-        #         n_words = sum(
-        #             [
-        #                 len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(doc[i]))
-        #                 for i in range(start_sentence_i, end_sentence_i)
-        #             ]
-        #         )
-        #         if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
-        #             break
-        #         result[n_words].append((doc_id, start_sentence_i, end_sentence_i))
     return result
 
 
@@ -869,13 +890,13 @@ def main():
         logging.info(f"Processing file {file_path}..")
         with file_path.open() as f:
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
-                file_docs = remove_untokenizable_characters(preprocess_europarl(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_europarl(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:
-                file_docs = remove_untokenizable_characters(preprocess_news_commentary(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_news_commentary(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:
-                file_docs = remove_untokenizable_characters(preprocess_ted(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_ted(f.read()), tokenizer)[0]
             elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:
-                file_docs = remove_untokenizable_characters(preprocess_rapid(f.read()), tokenizer)
+                file_docs = remove_untokenizable_characters(preprocess_rapid(f.read()), tokenizer)[0]
             else:
                 raise ValueError(
                     f"Unsupported corpus type '{corpus_type}. Supported corpus types are {SUPPORTED_CORPUS_TYPES}"
