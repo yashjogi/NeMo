@@ -533,7 +533,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
     current_pos = 0
     with file_path.open() as f:
         while not eof(f):
-            f.seek(part_size, f.tell())
+            f.seek(part_size + f.tell())
             if eof(f):
                 borders.append((current_pos, f.tell()))
             else:
