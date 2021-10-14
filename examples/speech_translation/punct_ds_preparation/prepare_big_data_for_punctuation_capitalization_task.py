@@ -736,7 +736,6 @@ def preprocess_wikipedia(args):
     assert len(page) == 0
     if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
-        logging.info(f"Finished filling file {current_file_path}")
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
