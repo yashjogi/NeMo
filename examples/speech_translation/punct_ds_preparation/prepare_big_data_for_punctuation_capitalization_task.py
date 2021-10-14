@@ -104,19 +104,23 @@ SUSPICIOUS_LINE = re.compile(
     r'^[^\w"]|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$', flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
-LONG_HYPHEN_NO_SPACE = re.compile(r'\b—\b')
+LONG_HYPHEN = re.compile(r'—')
 NOT_USUAL_HYPHENS = re.compile(r'[–—]')
 SPACE_DUP = re.compile(' {2,}')
 OPENING_PARENTHESES_WITH_SPACE = re.compile(r'\( +')
 NO_SPACE_OPENING_PARENTHESES = re.compile(r'\b\(')
 SPACE_CLOSING_PARENTHESES = re.compile(r' +\)')
 CLOSING_PARENTHESES_NO_SPACE = re.compile(r'\)\b')
-SPACE_CLOSING_QUOTE = re.compile(' +" *([,.(?!;-])')
-OPENING_QUOTE_SPACE = re.compile(' *([,.(;-]) *" +')
+CLOSING_PARENTHESES_SPACE_PUNCTUATION_MARK = re.compile(r'\) ([.!:?;,…])')
+SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
+DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
+UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
     r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
 )
-
+QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.]+)')
+COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([,.]+)"')
+SPACE_NEW_LINE = re.compile(' \n')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -270,38 +274,50 @@ def check_quotes_and_parentheses(line):
     return opened == 0 and line.count('"') % 2 == 0
 
 
-def normalize_quotes(lines):
-    filtered = []
-    for line in lines:
-        line_result = ""
-        already_checked = 0
-        i = line.find('"')
-        quote_count = 0
-        while i >= 0:
+def normalize_quotes(line):
+    line_result = ""
+    already_checked = 0
+    i = line.find('"')
+    quote_count = 0
+    while i >= 0:
+        if quote_count % 2 == 0:
             assert i < len(line) - 1, \
                 "Opening quote at the end of line. All input lines have to have even number of quotes"
-            if quote_count % 2 == 0:
-                if i == 0:
-                    line_result = '"'
-                else:
-                    line_result += line[already_checked: i - (line[i - 1] == ' ')] + ' ' + '"'
+            if i == 0:
+                line_result = '"'
+            else:
+                line_result += line[already_checked: i - (line[i - 1] == ' ')] + ' ' + '"'
+            already_checked = i + 1 + (line[i + 1] == ' ')
+        else:
+            line_result += line[already_checked: i - (line[i - 1] == ' ')] + '"'
+            if i < len(line) - 1:
+                line_result += ' '
                 already_checked = i + 1 + (line[i + 1] == ' ')
             else:
-                line_result += line[already_checked: i - (line[i - 1] == ' ')] + '"'
-                if i < len(line) - 1:
-                    line_result += ' '
+                already_checked = len(line)
+        i = line.find('"', already_checked)
+        quote_count += 1
+    return line_result + line[already_checked:]
 
 
-
-
-
-
-
-def remove_suspicious_lines(text):
+def remove_suspicious_lines_and_rearrange_quotes_and_spaces(text):
+    text = UNICODE_APOSTROPHE.sub(r"\1'\2", text)
+    text = text.replace('`', "'")
+    text = text.replace('‘', "'")
+    text = text.replace('‚', "'")
+    text = text.replace('’', '"')
+    text = text.replace("''", '"')
+    text = text.replace('„', '"')
+    text = text.replace('“', '"')
+    text = text.replace('”', '"')
+    text = text.replace('«', '"')
+    text = text.replace('»', '"')
     if not text:
         return ""
+    text = '\n'.join(
+        [normalize_quotes(line) for line in text.split('\n') if check_quotes_and_parentheses(line) and '""' not in line]
+    )
     result = ""
-    text = normalize_quotes(text)
     i = 0
     for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
         if m.span()[0] >= i:
@@ -311,22 +327,33 @@ def remove_suspicious_lines(text):
             cand = text.find('\n', m.span()[1])
             i = cand if cand > 0 else len(text)
     result += text[i:]
-    return '\n'.join([line for line in result.split('\n') if check_quotes_and_parentheses(line)])
+    return result
 
 
-def normalize_punctuation(text):
-    text = LONG_HYPHEN_NO_SPACE.sub(' - ', text)
+def normalize_punctuation(text, lang):
+    text = LONG_HYPHEN.sub(' - ', text)
+    text = SPACE_DUP.sub(' ', text)
     text = NOT_USUAL_HYPHENS.sub('-', text)
     text = OPENING_PARENTHESES_WITH_SPACE.sub('(', text)
     text = NO_SPACE_OPENING_PARENTHESES.sub(' (', text)
     text = SPACE_CLOSING_PARENTHESES.sub(')', text)
     text = CLOSING_PARENTHESES_NO_SPACE.sub(') ', text)
+    text = CLOSING_PARENTHESES_SPACE_PUNCTUATION_MARK.sub(r')\1', text)
     text = BROKEN_PARENTHESES_WITH_CONTENT.sub('', text)
-    text = SPACE_CLOSING_QUOTE.sub(r'"\1', text)
-    text = OPENING_QUOTE_SPACE.sub(r'\1 "', text)
+    text = DIGIT_SPACE_PERCENT.sub(r'\1% ', text)
+    text = SPACE_PUNCTUATION_MARK.sub(r'\1', text)
+    text = text.replace('…', '...')
+    if lang == 'en':
+        # English "quotation"
+        text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"', text)
+    else:
+        # French "quotation"
+        text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'"\1', text)
+    text = SPACE_NEW_LINE.sub('\n', text)
+    return text
 
 
-def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
+def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
@@ -413,8 +440,9 @@ def get_wiki_text_lines(text, tokenizer, tok_chars, untok_chars, pos_info, nltk_
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars, True
         )
-    text = remove_suspicious_lines(text)
-    text = normalize_punctuation(text)
+    text = SPACE_DUP.sub(' ', text)
+    text = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
+    text = normalize_punctuation(text, lang)
     if nltk_tokenization:
         stripped = []
         for sent in nltk.sent_tokenize(text):
@@ -456,7 +484,7 @@ def count_lines_in_file(file_path):
 
 
 def preprocess_wikipedia(
-        file_path, output_dir, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+        file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
@@ -506,7 +534,7 @@ def preprocess_wikipedia(
                     else:
                         pos_info = [file_path, start_line, end_line]
                         text, tok_chars, untok_chars = get_wiki_text_lines(
-                            text.group(1), tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
+                            text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
                         )
                         if text:
                             file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
@@ -759,7 +787,13 @@ def main():
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
                 logging.info(f"Preprocessing wikipedia file {file_path}...")
                 res = preprocess_wikipedia(
-                    file_path, document_dir, tokenizer, args.sequence_length_range, 0, args.nltk_tokenization
+                    file_path,
+                    document_dir,
+                    args.input_language,
+                    tokenizer,
+                    args.sequence_length_range,
+                    0,
+                    args.nltk_tokenization
                 )
                 corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
                 for k, v in corpus_sentences_by_number_of_words.items():
@@ -781,12 +815,6 @@ def main():
             document_dir, args.sequence_length_range
         )
     number_of_sentences_in_input = sum([len(e) for e in sentences_by_number_of_words.values()])
-    normalized_dir = args.output_dir / Path("normalized_documents")
-    if args.resume_from is None or args.resume_from == "normalization":
-        logging.info("Normalizing punctuation...")
-        normalize_punctuation_in_all_documents(
-            document_dir, normalized_dir, args.input_language
-        )
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:

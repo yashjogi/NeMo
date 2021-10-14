@@ -214,7 +214,7 @@ def get_args(supported_corpus_types, add_nltk_tokenization_parameter=False, add_
     if add_resume_argument:
         parser.add_argument(
             "--resume_from",
-            choices=["normalization", "cutting", "shuffling", "writing"],
+            choices=["cutting", "shuffling", "writing"],
             help="From which stage big dataset preparation is started."
         )
     args = parser.parse_args()
