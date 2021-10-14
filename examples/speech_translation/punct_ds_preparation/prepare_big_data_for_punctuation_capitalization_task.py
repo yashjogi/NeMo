@@ -124,7 +124,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[
 SPACE_NEW_LINE = re.compile(' \n')
 
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
 
 
 def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
