@@ -116,9 +116,7 @@ PUNCTUATION_MARK_OPENING_PARENTHESES = re.compile(r'([.!:?;,…])\(')
 SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
-BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
-    r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
-)
+BROKEN_PARENTHESES_WITH_CONTENT = re.compile(r'\([ \w,;:?!"-]*[:;,-] *\)|\( *[:;,?!.][\w ,;:?!"-]*\)')
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n')
