@@ -481,12 +481,15 @@ def start_normalize_process(lang):
     return normalize_process
 
 
-def blocks(files, size=65536):
+def blocks(files, size=65536, lines=True):
     while True:
         b = files.read(size)
         if not b:
             break
-        yield b.count('\n')
+        if lines:
+            yield b.count('\n')
+        else:
+            yield len(b)
 
 
 def count_lines_in_file(file_path):
@@ -495,10 +498,20 @@ def count_lines_in_file(file_path):
     return count
 
 
+def count_characters_in_file(file_path):
+    with file_path.open() as f:
+        count = sum(blocks(f, lines=False))
+    return count
+
+
+def get_borders_with_documents_intact(file_path, num_parts):
+    length = count_characters_in_file(file_path)
+
+
 def preprocess_wikipedia_parallel(
     num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
-
+    borders = get_borders_with_documents_intact(file_path, num_jobs)
 
 
 def preprocess_wikipedia(
