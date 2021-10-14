@@ -495,8 +495,14 @@ def count_lines_in_file(file_path):
     return count
 
 
+def preprocess_wikipedia_parallel(
+    num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+):
+
+
+
 def preprocess_wikipedia(
-        file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+    file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
@@ -799,7 +805,8 @@ def main():
         for corpus_type, file_path in zip(args.corpus_types, args.input_files):
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
                 logging.info(f"Preprocessing wikipedia file {file_path}...")
-                res = preprocess_wikipedia(
+                res = preprocess_wikipedia_parallel(
+                    args.num_jobs,
                     file_path,
                     document_dir,
                     args.input_language,
