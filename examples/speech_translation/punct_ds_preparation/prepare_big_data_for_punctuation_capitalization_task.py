@@ -725,10 +725,8 @@ def preprocess_wikipedia(args):
                             total_number_of_characters_from_original_text_in_current_file += len(file_text)
                             if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
                                 out_f.close()
-                                logging.info(f"Finished filling file {current_file_path}")
                                 file_i += 1
                                 current_file_path = output_dir / Path(str(file_i) + '.xml')
-                                logging.info(f"Filling file {current_file_path}")
                                 out_f = current_file_path.open('w')
                                 total_number_of_characters_from_original_text_in_current_file = 0
                 page = ""
