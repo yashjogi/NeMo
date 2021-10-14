@@ -431,8 +431,11 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     text = text.replace("''", '"')
     text = DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(double_square_brackets_replacement, text)
     text = NEW_LINE_DUP.sub('\n', text)
-    if text[0] == '\n':
-        text = text[1:]
+    if text:
+        if text[0] == '\n':
+            text = text[1:]
+    else:
+        return [], tok_chars, untok_chars
     # text = remove_lists(text)
     text = text.replace('[', '(')
     text = text.replace(']', ')')
