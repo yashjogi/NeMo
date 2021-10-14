@@ -605,7 +605,6 @@ def preprocess_wikipedia_parallel(
 
 def file_line_generator(fd):
     line = fd.readline()
-    yield line
     while line:
         yield line
         line = fd.readline()
