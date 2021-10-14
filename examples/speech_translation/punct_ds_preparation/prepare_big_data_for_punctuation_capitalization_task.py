@@ -624,7 +624,7 @@ def file_line_generator(fd, buffer_size, total_to_read):
     while read < total_to_read:
         buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
         read += buffer_size
-        for line in buffer.splitlines():
+        for line in buffer.splitlines(True):
             yield line
 
 
