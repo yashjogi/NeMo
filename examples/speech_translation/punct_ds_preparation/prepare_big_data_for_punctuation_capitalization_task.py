@@ -601,20 +601,21 @@ def preprocess_wikipedia_parallel(
     return result[0]
 
 
-def preprocess_wikipedia(
-    progress_queue,
-    file_path,
-    borders,
-    start_out_file_i,
-    num_out_files,
-    output_dir,
-    lang,
-    tokenizer,
-    sequence_length_range,
-    start_doc_id=0,
-    nltk_tokenization=True,
-    report_progress_every_n_lines=5000,
-):
+def preprocess_wikipedia(args,):
+    (
+        progress_queue,
+        file_path,
+        borders,
+        start_out_file_i,
+        num_out_files,
+        output_dir,
+        lang,
+        tokenizer,
+        sequence_length_range,
+        start_doc_id,
+        nltk_tokenization,
+        report_progress_every_n_lines
+    ) = args
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
