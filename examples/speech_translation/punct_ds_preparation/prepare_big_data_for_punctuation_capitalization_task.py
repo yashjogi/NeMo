@@ -660,8 +660,6 @@ def preprocess_wikipedia(args):
     with file_path.open() as in_f:
         in_f.seek(borders[0])
         for i, line in enumerate(file_line_generator(in_f), num_lines_processed_when_progress_was_reported_last_time):
-            if i == 1 and rank == 0:
-                print("line:", line)
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
