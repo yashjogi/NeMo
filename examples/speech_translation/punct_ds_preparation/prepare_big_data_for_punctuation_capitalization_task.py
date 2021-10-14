@@ -655,11 +655,11 @@ def preprocess_wikipedia(args):
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
-    num_lines_processed_when_progress_was_reported_last_time = 0
+    num_lines_processed_when_progress_was_reported_last_time = count_lines_in_file(file_path, 0, borders[0])
     start_line, end_line = None, None
     with file_path.open() as in_f:
         in_f.seek(borders[0])
-        for i, line in enumerate(file_line_generator(in_f), count_lines_in_file(file_path, 0, borders[0])):
+        for i, line in enumerate(file_line_generator(in_f), num_lines_processed_when_progress_was_reported_last_time):
             if i == 1 and rank == 0:
                 print("line:", line)
             if i % report_progress_every_n_lines == 0:
