@@ -119,7 +119,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
     r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
 )
 QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
-COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([,.]+)"')
+COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n')
 
 
@@ -348,7 +348,7 @@ def normalize_punctuation(text, lang):
         text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"\2', text)
     else:
         # French "quotation"
-        text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'"\1', text)
+        text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'\1"\2', text)
     text = SPACE_NEW_LINE.sub('\n', text)
     return text
 
