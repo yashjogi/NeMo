@@ -118,7 +118,7 @@ UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
     r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
 )
-QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.]+)')
+QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([,.]+)"')
 SPACE_NEW_LINE = re.compile(' \n')
 
@@ -345,7 +345,7 @@ def normalize_punctuation(text, lang):
     text = text.replace('…', '...')
     if lang == 'en':
         # English "quotation"
-        text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"', text)
+        text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"\2', text)
     else:
         # French "quotation"
         text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'"\1', text)
