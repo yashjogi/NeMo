@@ -126,6 +126,7 @@ SPACE_NEW_LINE = re.compile(' \n')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
+BUFFER_SIZE = 2 ** 24
 
 
 def remove_tag_with_content(text, start_re, end_re, remove_whole_line, pos_info):
@@ -618,11 +619,12 @@ def preprocess_wikipedia_parallel(
     return tuple(list(result[0]) + [start_file_i + sum(num_output_files)])
 
 
-def file_line_generator(fd):
-    line = fd.readline()
-    while line:
-        yield line
-        line = fd.readline()
+def file_line_generator(fd, buffer_size, total_to_read):
+    read = 0
+    while read < total_to_read:
+        buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
+        for line in buffer.splitlines():
+            yield line
 
 
 def preprocess_wikipedia(args):
@@ -659,12 +661,13 @@ def preprocess_wikipedia(args):
     start_line, end_line = None, None
     with file_path.open() as in_f:
         in_f.seek(borders[0])
-        for i, line in enumerate(file_line_generator(in_f), num_lines_processed_when_progress_was_reported_last_time):
+        for i, line in enumerate(
+            file_line_generator(in_f, BUFFER_SIZE, borders[1] - borders[0]),
+            num_lines_processed_when_progress_was_reported_last_time,
+        ):
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
-            if in_f.tell() >= borders[1]:
-                break
             total_number_of_characters_from_original_text_in_current_file += len(line)
             if '<page' in line:
                 if PAGE_OPENING_NORMAL_TAG.match(line) is None:
