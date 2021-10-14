@@ -504,10 +504,19 @@ def count_characters_in_file(file_path):
     return count
 
 
+def eof(fd):
+    s = fd.read(1)
+    return not bool(s)
+
+
 def get_borders_with_documents_intact(file_path, num_parts):
     length = count_characters_in_file(file_path)
     part_size = length // num_parts
+    current_pos = 0
     with file_path.open() as f:
+        while not eof(f):
+            f.seek(part_size, 1)
+
 
 
 
