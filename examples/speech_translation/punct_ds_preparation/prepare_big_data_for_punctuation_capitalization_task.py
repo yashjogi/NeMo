@@ -486,7 +486,7 @@ def start_normalize_process(lang):
     return normalize_process
 
 
-def blocks(files, size=65536, lines=True, num_characters=None):
+def count_in_blocks(files, size=65536, specific_to_count=None, num_characters=None):
     total_num_characters = 0
     while True:
         b = files.read(size)
@@ -495,22 +495,29 @@ def blocks(files, size=65536, lines=True, num_characters=None):
         if num_characters is not None:
             if total_num_characters + len(b) > num_characters:
                 b = b[:num_characters - total_num_characters]
-        if lines:
-            yield b.count('\n')
-        else:
+        if specific_to_count is None:
             yield len(b)
+        else:
+            yield b.count(specific_to_count)
 
 
 def count_lines_in_file(file_path, start=0, end=None):
     with file_path.open() as f:
         f.seek(start)
-        count = sum(blocks(f, num_characters=None if end is None else end - start))
+        count = sum(count_in_blocks(f, specific_to_count='\n', num_characters=None if end is None else end - start))
     return count
 
 
 def count_characters_in_file(file_path):
     with file_path.open() as f:
-        count = sum(blocks(f, lines=False))
+        count = sum(count_in_blocks(f))
+    return count
+
+
+def count_pages_in_file(file_path, start, end):
+    with file_path.open() as f:
+        f.seek(start)
+        count = sum(count_in_blocks(f, specific_to_count='<page', num_characters=end - start))
     return count
 
 
@@ -539,17 +546,60 @@ def get_borders_with_documents_intact(file_path, num_parts):
     return borders
 
 
+def show_prog(q, total_num_lines):
+    prog = tqdm(total=total_num_lines, desc="Total", unit='Lines', unit_scale=True)
+    while True:
+        try:
+            to_add = q.get(timeout=1)
+            prog.n += to_add
+            prog.update(0)
+            if prog.n >= total_num_lines:
+                break
+        except mp.TimeoutError:
+            continue
+
+
 def preprocess_wikipedia_parallel(
     num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
     borders = get_borders_with_documents_intact(file_path, num_jobs)
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
     start_out_file_i = list(accumulate(num_output_files, initial=0))[:-1]
+    start_doc_id = list(accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in borders]))[:-1]
+    manager = mp.Manager()
+    progress_queue = manager.Queue()
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path)))
+    progress_process.start()
     with mp.Pool(num_jobs) as pool:
-        pool.map(preprocess_wikipedia, )
+        result = pool.map(
+            preprocess_wikipedia,
+            list(
+                zip(
+                    [progress_queue] * num_jobs,
+                    [file_path] * num_jobs,
+                    borders,
+                    start_out_file_i,
+                    num_output_files,
+                    [output_dir] * num_jobs,
+                    [lang] * num_jobs,
+                    [tokenizer] * num_jobs,
+                    [sequence_length_range] * num_jobs,
+                    start_doc_id,
+                    [nltk_tokenization] * num_jobs,
+                )
+            )
+        )
+        progress_process.join()
+        for i in range(1, len(result)):
+            for k, v in result[i][0].items():
+                result[0][0][k] += v
+            result[0][1].update(result[i][1])
+            result[0][2].update(result[i][2])
+    return result[0]
 
 
 def preprocess_wikipedia(
+    progress_queue,
     file_path,
     borders,
     start_out_file_i,
@@ -559,7 +609,8 @@ def preprocess_wikipedia(
     tokenizer,
     sequence_length_range,
     start_doc_id=0,
-    nltk_tokenization=True
+    nltk_tokenization=True,
+    report_progress_every_n_lines=5000,
 ):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
@@ -575,9 +626,13 @@ def preprocess_wikipedia(
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
+    num_lines_processed_when_progress_was_reported_last_time = 0
     with file_path.open() as in_f:
         in_f.seek(borders[0])
-        for i, line in tqdm(enumerate(in_f), total=count_lines_in_file(file_path, borders[0], borders[1])):
+        for i, line in enumerate(in_f):
+            if i % report_progress_every_n_lines == 0:
+                progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
+                num_lines_processed_when_progress_was_reported_last_time = i
             if in_f.tell() >= borders[1]:
                 break
             total_number_of_characters_from_original_text_in_current_file += len(line)
@@ -639,6 +694,7 @@ def preprocess_wikipedia(
                 page = ""
                 page_i += 1
                 page_in_progress = False
+    progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
     assert len(page) == 0
     if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
