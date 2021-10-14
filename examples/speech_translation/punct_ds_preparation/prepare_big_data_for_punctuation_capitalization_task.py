@@ -562,13 +562,23 @@ def show_prog(q, total_num_lines):
 
 
 def preprocess_wikipedia_parallel(
-    num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+    num_jobs,
+    file_path,
+    output_dir,
+    lang,
+    tokenizer,
+    sequence_length_range,
+    start_doc_id=0,
+    start_file_i=0,
+    nltk_tokenization=True,
 ):
     borders = get_borders_with_documents_intact(file_path, num_jobs)
     logging.info(f"Found borders for multiprocessing: {borders}")
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
-    start_out_file_i = list(accumulate(num_output_files, initial=0))[:-1]
-    start_doc_id = list(accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in borders]))[:-1]
+    start_out_file_i = list(accumulate(num_output_files, initial=start_file_i))[:-1]
+    start_doc_id = list(
+        accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in borders], initial=start_doc_id)
+    )[:-1]
     manager = mp.Manager()
     progress_queue = manager.Queue()
     progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path)))
@@ -600,7 +610,7 @@ def preprocess_wikipedia_parallel(
                 result[0][0][k] += v
             result[0][1].update(result[i][1])
             result[0][2].update(result[i][2])
-    return result[0]
+    return tuple(list(result[0]) + [start_file_i + sum(num_output_files)])
 
 
 def file_line_generator(fd):
@@ -645,6 +655,8 @@ def preprocess_wikipedia(args):
     with file_path.open() as in_f:
         in_f.seek(borders[0])
         for i, line in enumerate(file_line_generator(in_f), count_lines_in_file(file_path, 0, borders[0])):
+            if i == 0 and rank == 0:
+                print("line:", line)
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
@@ -946,6 +958,7 @@ def main():
         }
         sentence_len_by_docs = {}
         doc_id_to_file_i = {}
+        num_docs, num_files = 0, 0
         for corpus_type, file_path in zip(args.corpus_types, args.input_files):
             if corpus_type == SUPPORTED_CORPUS_TYPES[0]:
                 logging.info(f"Preprocessing wikipedia file {file_path}...")
@@ -956,10 +969,12 @@ def main():
                     args.input_language,
                     tokenizer,
                     args.sequence_length_range,
-                    0,
+                    num_docs,
+                    num_files,
                     args.nltk_tokenization
                 )
-                corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i = res
+                (corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i, num_files) \
+                    = res
                 for k, v in corpus_sentences_by_number_of_words.items():
                     sentences_by_number_of_words[k] += v
                 sentence_len_by_docs.update(corpus_sentence_len_by_docs)
