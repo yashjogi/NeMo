@@ -118,8 +118,8 @@ UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
     r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
 )
-QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
-COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
+# QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
+# COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n')
 
 
@@ -317,6 +317,8 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(text):
     text = '\n'.join(
         [normalize_quotes(line) for line in text.split('\n') if check_quotes_and_parentheses(line) and '""' not in line]
     )
+    if not text:
+        return text
     result = ""
     i = 0
     for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
@@ -343,12 +345,12 @@ def normalize_punctuation(text, lang):
     text = DIGIT_SPACE_PERCENT.sub(r'\1% ', text)
     text = SPACE_PUNCTUATION_MARK.sub(r'\1', text)
     text = text.replace('…', '...')
-    if lang == 'en':
-        # English "quotation"
-        text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"\2', text)
-    else:
-        # French "quotation"
-        text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'\1"\2', text)
+    # if lang == 'en':
+    #     # English "quotation"
+    #     text = QUOTE_THEN_COMMA_OR_PERIOD.sub(r'\1"\2', text)
+    # else:
+    #     # French "quotation"
+    #     text = COMMA_OR_PERIOD_THEN_QUOTE.sub(r'\1"\2', text)
     text = SPACE_NEW_LINE.sub('\n', text)
     return text
 
