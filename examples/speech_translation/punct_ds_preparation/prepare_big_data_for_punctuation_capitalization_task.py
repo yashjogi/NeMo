@@ -537,13 +537,15 @@ def get_borders_with_documents_intact(file_path, num_parts):
             if eof(f):
                 borders.append((current_pos, f.tell()))
             else:
+                begin_pos = f.tell()
                 line = f.readline()
                 while line:
                     if '<page' in line:
-                        ind = line.index('<page') + f.tell()
+                        ind = line.index('<page') + begin_pos
                         borders.append((current_pos, ind))
                         current_pos = ind
                         break
+                    begin_pos = f.tell()
                     line = f.readline()
     return borders
 
