@@ -655,7 +655,7 @@ def preprocess_wikipedia(args):
     with file_path.open() as in_f:
         in_f.seek(borders[0])
         for i, line in enumerate(file_line_generator(in_f), count_lines_in_file(file_path, 0, borders[0])):
-            if i == 0 and rank == 0:
+            if i == 1 and rank == 0:
                 print("line:", line)
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
