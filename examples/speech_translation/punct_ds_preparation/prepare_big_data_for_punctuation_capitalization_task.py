@@ -468,7 +468,7 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
                 stripped[-1] += ' ' + sent
             else:
                 stripped.append(sent)
-            stripped = [SPACE_DUP.sub(' ', sent.rstrip()) for sent in stripped]
+            stripped = SPACE_DUP.sub(' ', '\n'.join([sent.rstrip() for sent in stripped])).split('\n')
     else:
         stripped = [sent.strip() for sent in text.split('\n')]
     return [sent for sent in stripped if sent], tok_chars, untok_chars
