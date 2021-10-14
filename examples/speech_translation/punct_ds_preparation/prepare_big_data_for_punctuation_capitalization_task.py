@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import re
+from itertools import accumulate
 from pathlib import Path
 from subprocess import PIPE, Popen, run
 
@@ -484,20 +485,25 @@ def start_normalize_process(lang):
     return normalize_process
 
 
-def blocks(files, size=65536, lines=True):
+def blocks(files, size=65536, lines=True, num_characters=None):
+    total_num_characters = 0
     while True:
         b = files.read(size)
         if not b:
             break
+        if num_characters is not None:
+            if total_num_characters + len(b) > num_characters:
+                b = b[:num_characters - total_num_characters]
         if lines:
             yield b.count('\n')
         else:
             yield len(b)
 
 
-def count_lines_in_file(file_path):
+def count_lines_in_file(file_path, start=0, end=None):
     with file_path.open() as f:
-        count = sum(blocks(f))
+        f.seek(start)
+        count = sum(blocks(f, num_characters=None if end is None else end - start))
     return count
 
 
@@ -513,24 +519,45 @@ def eof(fd):
 
 
 def get_borders_with_documents_intact(file_path, num_parts):
+    borders = []
     length = count_characters_in_file(file_path)
     part_size = length // num_parts
     current_pos = 0
     with file_path.open() as f:
         while not eof(f):
             f.seek(part_size, 1)
-
-
+            if eof(f):
+                borders.append((current_pos, f.tell()))
+            else:
+                for line in f:
+                    if '<page' in line:
+                        ind = line.index('<page')
+                        borders.append((current_pos, ind))
+                        current_pos = ind
+                        break
+    return borders
 
 
 def preprocess_wikipedia_parallel(
     num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
     borders = get_borders_with_documents_intact(file_path, num_jobs)
+    num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
+    start_out_file_i = list(accumulate(num_output_files, initial=0))[:-1]
+
 
 
 def preprocess_wikipedia(
-    file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
+    file_path,
+    borders,
+    start_out_file_i,
+    num_out_files,
+    output_dir,
+    lang,
+    tokenizer,
+    sequence_length_range,
+    start_doc_id=0,
+    nltk_tokenization=True
 ):
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     sentence_len_by_docs = {}
@@ -538,15 +565,20 @@ def preprocess_wikipedia(
     page = ""
     page_i = 0
     page_in_progress = False
-    total_number_of_characters_in_current_file = 0
-    file_i = 0
+    characters_for_1_file = (borders[1] - borders[0]) // num_out_files
+    total_number_of_characters_from_original_text_in_current_file = 0
+    file_i = start_out_file_i
     doc_id = start_doc_id
     output_dir.mkdir(exist_ok=True, parents=True)
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
     with file_path.open() as in_f:
-        for i, line in tqdm(enumerate(in_f), total=count_lines_in_file(file_path)):
+        in_f.seek(borders[0])
+        for i, line in tqdm(enumerate(in_f), total=count_lines_in_file(file_path, borders[0], borders[1])):
+            if in_f.tell() >= borders[1]:
+                break
+            total_number_of_characters_from_original_text_in_current_file += len(line)
             if '<page' in line:
                 if PAGE_OPENING_NORMAL_TAG.match(line) is None:
                     logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
@@ -593,19 +625,20 @@ def preprocess_wikipedia(
                             sentence_len_by_docs[doc_id] = np.array(line_num_words)
                             doc_id_to_file_i[doc_id] = file_i
                             doc_id += 1
-                            total_number_of_characters_in_current_file += len(file_text)
-                            if total_number_of_characters_in_current_file > MAX_NUM_CHARACTERS_IN_1_FILE:
+                            total_number_of_characters_from_original_text_in_current_file += len(file_text)
+                            if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
                                 out_f.close()
                                 logging.info(f"Finished filling file {current_file_path}")
                                 file_i += 1
                                 current_file_path = output_dir / Path(str(file_i) + '.xml')
                                 logging.info(f"Filling file {current_file_path}")
                                 out_f = current_file_path.open('w')
-                                total_number_of_characters_in_current_file = 0
+                                total_number_of_characters_from_original_text_in_current_file = 0
                 page = ""
                 page_i += 1
                 page_in_progress = False
-    if total_number_of_characters_in_current_file:
+    assert len(page) == 0
+    if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
         logging.info(f"Finished filling file {current_file_path}")
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
