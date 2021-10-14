@@ -117,7 +117,7 @@ SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
-    r'\([ \w,;:?!"-]*:\)|\(:[ \w,;:?!"-]*\)|\([;,][\w ,;:?!"-]\)|\([\w ,;:?!"-][,;]\)'
+    r' *\([ \w,;:?!"-]*:\) *|\(:[ \w,;:?!"-]*\) *|\([;,][\w ,;:?!"-]\) *|\([\w ,;:?!"-][,;]\) *'
 )
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
@@ -343,7 +343,6 @@ def normalize_punctuation(text, lang):
     text = CLOSING_PARENTHESES_NO_SPACE.sub(') ', text)
     text = CLOSING_PARENTHESES_SPACE_PUNCTUATION_MARK.sub(r')\1', text)
     text = PUNCTUATION_MARK_OPENING_PARENTHESES.sub(r'\1 (', text)
-    text = BROKEN_PARENTHESES_WITH_CONTENT.sub('', text)
     text = DIGIT_SPACE_PERCENT.sub(r'\1% ', text)
     text = SPACE_PUNCTUATION_MARK.sub(r'\1', text)
     text = text.replace('…', '...')
@@ -449,6 +448,7 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars, True
         )
+    text = BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
     text = normalize_punctuation(after_suspicious_removal, lang)
