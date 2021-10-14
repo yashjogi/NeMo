@@ -533,7 +533,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
     current_pos = 0
     with file_path.open() as f:
         while not eof(f):
-            f.seek(part_size, 1)
+            f.seek(part_size, f.tell())
             if eof(f):
                 borders.append((current_pos, f.tell()))
             else:
@@ -563,6 +563,7 @@ def preprocess_wikipedia_parallel(
     num_jobs, file_path, output_dir, lang, tokenizer, sequence_length_range, start_doc_id=0, nltk_tokenization=True
 ):
     borders = get_borders_with_documents_intact(file_path, num_jobs)
+    logging.info(f"Found borders for multiprocessing: {borders}")
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
     start_out_file_i = list(accumulate(num_output_files, initial=0))[:-1]
     start_doc_id = list(accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in borders]))[:-1]
