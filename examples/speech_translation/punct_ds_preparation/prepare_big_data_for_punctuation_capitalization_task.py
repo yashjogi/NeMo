@@ -6,6 +6,7 @@ import random
 import re
 from itertools import accumulate
 from pathlib import Path
+from queue import Empty
 from subprocess import PIPE, Popen, run
 
 import numpy as np
@@ -560,6 +561,8 @@ def show_prog(q, total_num_lines):
             if prog.n >= total_num_lines:
                 break
         except mp.TimeoutError:
+            continue
+        except Empty:
             continue
 
 
