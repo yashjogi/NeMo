@@ -451,7 +451,8 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
                 continue
             if GOOD_LINE_START.match(sent[0]) is None:
                 assert stripped, \
-                    "Text is supposed to be cleaned in a way that first character in every line is a word character"
+                    f"Text is supposed to be cleaned in a way that first character in every line is a word character." \
+                    f" First 20 characters in text are: {repr(text[:20])}"
                 stripped[-1] += sent
             else:
                 stripped.append(sent)
