@@ -641,6 +641,7 @@ def preprocess_wikipedia(args):
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
     num_lines_processed_when_progress_was_reported_last_time = 0
+    start_line, end_line = None, None
     with file_path.open() as in_f:
         in_f.seek(borders[0])
         for i, line in enumerate(file_line_generator(in_f), count_lines_in_file(file_path, 0, borders[0])):
@@ -652,20 +653,28 @@ def preprocess_wikipedia(args):
             total_number_of_characters_from_original_text_in_current_file += len(line)
             if '<page' in line:
                 if PAGE_OPENING_NORMAL_TAG.match(line) is None:
-                    logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
+                    logging.warning(
+                        f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}'
+                    )
                 page_in_progress = True
                 start_line = i
             if page_in_progress:
                 page += line
             if '</page' in line:
                 if PAGE_CLOSING_NORMAL_TAG.match(line) is None:
-                    logging.warning(f'Encountered an unusual page opening tag in line {i} {repr(line)}')
+                    logging.warning(
+                        f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}'
+                    )
                 if not page_in_progress:
                     logging.warning(
-                        f'Encountered closing page tag without opening tag. Line number: {i}. Line {repr(line)}'
+                        f'Encountered closing page tag without opening tag. Line number: {i}. Line {repr(line)} in '
+                        f'process {rank}'
                     )
                 elif not page:
-                    logging.warning(f"Encountered a page which takes only one line. Line: {i}. Line {repr(line)}")
+                    logging.warning(
+                        f"Encountered a page which takes only one line. Line: {i}. Line {repr(line)} in process"
+                        f"{rank}"
+                    )
                 end_line = i
                 title = TITLE_OF_PAGE.search(page)
                 if title is None:
@@ -677,8 +686,8 @@ def preprocess_wikipedia(args):
                     text = TEXT_OF_PAGE.search(page)
                     if text is None:
                         logging.warning(
-                            f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} is not "
-                            f"found. Skipping page.."
+                            f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} in process "
+                            f"{rank} is not found. Skipping page.."
                         )
                     else:
                         pos_info = [file_path, start_line, end_line]
@@ -707,6 +716,8 @@ def preprocess_wikipedia(args):
                                 total_number_of_characters_from_original_text_in_current_file = 0
                 page = ""
                 page_i += 1
+                start_line = None
+                end_line = None
                 page_in_progress = False
     progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
     assert len(page) == 0
