@@ -1,5 +1,6 @@
 import html
 import logging
+import multiprocessing as mp
 import os
 import random
 import re
@@ -544,7 +545,8 @@ def preprocess_wikipedia_parallel(
     borders = get_borders_with_documents_intact(file_path, num_jobs)
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
     start_out_file_i = list(accumulate(num_output_files, initial=0))[:-1]
-
+    with mp.Pool(num_jobs) as pool:
+        pool.map(preprocess_wikipedia, )
 
 
 def preprocess_wikipedia(
