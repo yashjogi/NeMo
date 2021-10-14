@@ -737,7 +737,8 @@ def preprocess_wikipedia(args):
                 end_line = None
                 page_in_progress = False
     progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
-    assert len(page) == 0
+    assert len(page) == 0, f"The page {page_i} with title {title} in file {file_path} between lines {start_line} and " \
+        f"{end_line} is not finished in process {rank}. Accumulated page text:\n{page}"
     if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
