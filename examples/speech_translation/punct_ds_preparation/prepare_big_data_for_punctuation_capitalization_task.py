@@ -1021,8 +1021,10 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
     sentence_len_by_docs, doc_id_to_file_i = {}, {}
     for p in tqdm(document_dir.iterdir(), total=len(list(document_dir.iterdir()))):
         if is_int(p.stem) and p.suffixes == ['.xml']:
+            print("processing file")
             file_i = int(p.stem)
             docs = read_docs_from_file(p)
+            print(f"read {len(docs)} docs")
             for doc_id, doc in docs.items():
                 doc_id_to_file_i[doc_id] = file_i
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
@@ -1084,7 +1086,7 @@ def main():
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
-            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({args.size})")
+            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is greater than size of all dataset {args.size}")
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["normalization", "cutting"]:
         if (
