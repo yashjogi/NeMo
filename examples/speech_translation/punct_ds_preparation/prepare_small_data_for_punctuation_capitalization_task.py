@@ -650,7 +650,9 @@ def select_close_to_uniform_distribution(
         / 100
         * percentage_of_segments_with_intact_sentences
     )
-    for i, (n, len_) in tqdm(enumerate(number_of_sentences_by_number_of_words)):
+    for i, (n, len_) in tqdm(
+        enumerate(number_of_sentences_by_number_of_words), total=len(number_of_sentences_by_number_of_words)
+    ):
         if n < min_number_of_sentences_for_sentence_len:
             tmp = sentences_by_number_of_words[len_]
             # Readjust planned number of segments for remaining sentences lengths taking into account that for current
@@ -713,7 +715,7 @@ def create_not_whole_sentence_segments(
     nw_i = 0
     done = not bool(yet_to_cut_by_number_of_words)
     while not done:
-        for doc_id, remaining in remaining_by_docs.items():
+        for doc_id, remaining in tqdm(remaining_by_docs.items(), total=len(remaining_by_docs)):
             next_sentence_i = -1
             for i in remaining:
                 len_ = sentence_len_by_docs[doc_id][i]
@@ -724,7 +726,10 @@ def create_not_whole_sentence_segments(
                     next_sentence_i = i + 1
                     number_of_words = list(yet_to_cut_by_number_of_words.keys())
                     nw_i %= len(number_of_words)
-                    while shift + number_of_words[nw_i] + 1 > num_words and next_sentence_i < len(sentence_len_by_docs[doc_id]):
+                    while (
+                        shift + number_of_words[nw_i] + 1 > num_words
+                        and next_sentence_i < len(sentence_len_by_docs[doc_id])
+                    ):
                         num_words += sentence_len_by_docs[doc_id][next_sentence_i]
                         next_sentence_i += 1
                     if shift + number_of_words[nw_i] < num_words:
@@ -737,6 +742,14 @@ def create_not_whole_sentence_segments(
                                 number_of_words[nw_i],
                             ]
                         )
+                        if doc_id == 0:
+                            print([
+                                doc_id,
+                                start_sentence_i,
+                                next_sentence_i,
+                                shift,
+                                number_of_words[nw_i],
+                            ])
                         yet_to_cut_by_number_of_words[number_of_words[nw_i]] -= 1
                         if yet_to_cut_by_number_of_words[number_of_words[nw_i]] == 0:
                             del yet_to_cut_by_number_of_words[number_of_words[nw_i]]

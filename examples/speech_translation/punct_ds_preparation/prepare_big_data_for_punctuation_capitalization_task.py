@@ -402,6 +402,7 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     text = remove_tag_with_content_nested(text, NOINCLUDE_START, NOINCLUDE_END, NOINCLUDE_START_OR_END, False, pos_info)
     text = remove_tag_with_content_nested(text, PRE_START, PRE_END, PRE_START_OR_END, False, pos_info)
     text = EQUALS_SIGN_HEADERS.sub('\n', text)
+
     def double_square_brackets_replacement(match):
         match_text = match.group(1)
         match_text = match_text.split('|')
