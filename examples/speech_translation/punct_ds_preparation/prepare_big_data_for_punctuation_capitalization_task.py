@@ -489,7 +489,7 @@ def start_normalize_process(lang):
     return normalize_process
 
 
-def count_in_blocks(files, size=65536, specific_to_count=None, num_characters=None):
+def count_in_blocks(files, size=BUFFER_SIZE, specific_to_count=None, num_characters=None):
     total_num_characters = 0
     while True:
         b = files.read(size)
@@ -524,9 +524,10 @@ def count_pages_in_file(file_path, start, num_characters):
     return count
 
 
-def eof(fd):
-    s = fd.read(1)
-    return not bool(s)
+# def eof(fd):
+#     s = fd.read(1)
+#     fd.seek(fd.tell() - len(s.encode('utf-8')))
+#     return not bool(s)
 
 
 def move_by_n_characters_in_file(fd, n, buffer_size):
@@ -550,14 +551,12 @@ def get_borders_with_documents_intact(file_path, num_parts):
     remainder = ""
     with file_path.open(buffering=BUFFER_SIZE) as f:
         for i in range(num_parts):
-            characters_in_part, bytes_read = move_by_n_characters_in_file(
-                f, part_size * (i + 1) - total_characters_read, BUFFER_SIZE
-            )
+            read_size = part_size * (i + 1) - total_characters_read
+            characters_in_part, bytes_read = move_by_n_characters_in_file(f, read_size, BUFFER_SIZE)
             characters_in_part += len(remainder)
             bytes_read += len(remainder.encode('utf-8'))
             total_characters_read += characters_in_part
-            # f.seek(part_size + f.tell())
-            if eof(f):
+            if characters_in_part < read_size:
                 byte_borders.append((last_byte_border, last_byte_border + bytes_read))
                 num_characters_in_part.append(characters_in_part)
             else:
@@ -619,27 +618,29 @@ def preprocess_wikipedia_parallel(
     logging.info(f"Number of characters in parts: {num_characters_in_part}")
     num_output_files = [int(np.ceil(n / MAX_NUM_CHARACTERS_IN_1_FILE)) for n in num_characters_in_part]
     start_out_file_ids = list(accumulate(num_output_files, initial=start_file_i))[:-1]
-    logging.info(f"Calculating starting document ids for processes")
+    logging.info(f"Calculating starting document ids for processes...")
     start_doc_ids = list(
         accumulate(
             [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
             initial=start_doc_id
         )
     )[:-1]
+    logging.info(f"Calculating starting lines for processes...")
     start_line_ids = list(
         accumulate(
             [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
             initial=0
         )
     )[:-1]
+    logging.info(f"Starting lines for processes are: {start_line_ids}")
     manager = mp.Manager()
     progress_queue = manager.Queue()
-    logging.info("Creating progress process")
+    logging.info("Creating progress process...")
     progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path)))
-    logging.info("Starting progress process")
+    logging.info("Starting progress process...")
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
-        logging.info("Launching multiprocessing pool")
+        logging.info("Launching multiprocessing pool...")
         result = pool.map(
             preprocess_wikipedia,
             list(
