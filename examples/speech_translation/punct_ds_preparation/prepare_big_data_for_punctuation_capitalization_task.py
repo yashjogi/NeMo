@@ -1030,6 +1030,7 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
                     doc, sequence_length_range, [file_i, doc_id]
                 )
+                print("len(arrangement):", [len(v) for v in arrangement.values()])
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
                     sentences_by_number_of_words[k] += v
