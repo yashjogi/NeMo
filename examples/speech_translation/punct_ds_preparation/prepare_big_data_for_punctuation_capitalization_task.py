@@ -555,6 +555,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
             )
             characters_in_part += len(remainder)
             bytes_read += len(remainder.encode('utf-8'))
+            total_characters_read += characters_in_part
             # f.seek(part_size + f.tell())
             if eof(f):
                 byte_borders.append((last_byte_border, last_byte_border + bytes_read))
@@ -583,7 +584,6 @@ def get_borders_with_documents_intact(file_path, num_parts):
                 if not success:
                     byte_borders.append((last_byte_border, last_byte_border + bytes_read))
                     num_characters_in_part.append(characters_in_part)
-
     return byte_borders, num_characters_in_part
 
 
