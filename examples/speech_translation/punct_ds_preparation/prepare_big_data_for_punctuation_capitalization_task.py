@@ -531,11 +531,13 @@ def eof(fd):
 
 def move_by_n_characters_in_file(fd, n, buffer_size):
     characters_read = 0
+    bytes_read = 0
     buffer = 'filler'
     while buffer and n > characters_read:
-        buffer = fd.read(buffer_size)
+        buffer = fd.read(min(buffer_size, n - characters_read))
         characters_read += len(buffer)
-    return characters_read
+        bytes_read += len(buffer.encode('utf-8'))
+    return characters_read, bytes_read
 
 
 def get_borders_with_documents_intact(file_path, num_parts):
@@ -544,30 +546,32 @@ def get_borders_with_documents_intact(file_path, num_parts):
     length = count_characters_in_file(file_path)
     part_size = length // num_parts
     last_byte_border = 0
-    with file_path.open() as f:
+    total_characters_read = 0
+    with file_path.open(buffering=BUFFER_SIZE) as f:
         for i in range(num_parts):
-            characters_read = move_by_n_characters_in_file(f, part_size, BUFFER_SIZE)
+            characters_read, bytes_read = move_by_n_characters_in_file(
+                f, part_size * (i + 1) - total_characters_read, BUFFER_SIZE
+            )
             # f.seek(part_size + f.tell())
             if eof(f):
-                byte_borders.append((last_byte_border, f.tell()))
+                byte_borders.append((last_byte_border, last_byte_border + bytes_read))
                 num_characters_in_part.append(characters_read)
             else:
-                line_start_byte = f.tell()
                 line = f.readline()
                 success = False
                 while line:
                     if '<page' in line:
-                        ind = len(line[:line.index('<page')].encode('utf-8')) + line_start_byte
+                        ind = len(line[:line.index('<page')].encode('utf-8')) + bytes_read + last_byte_border
                         byte_borders.append((last_byte_border, ind))
                         num_characters_in_part.append(characters_read + len(line))
                         last_byte_border = ind
                         success = True
                         break
-                    line_start_byte = f.tell()
                     characters_read += len(line)
+                    bytes_read += len(line.encode('utf-8'))
                     line = f.readline()
                 if not success:
-                    byte_borders.append((last_byte_border, f.tell()))
+                    byte_borders.append((last_byte_border, last_byte_border + bytes_read))
                     num_characters_in_part.append(characters_read)
     return byte_borders, num_characters_in_part
 
@@ -598,8 +602,10 @@ def preprocess_wikipedia_parallel(
     start_file_i=0,
     nltk_tokenization=True,
 ):
+    logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
     logging.info(f"Found borders for multiprocessing: {byte_borders}")
+    logging.info(f"Number of characters in parts:", {num_characters_in_part})
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in byte_borders]
     start_out_file_i = list(accumulate(num_output_files, initial=start_file_i))[:-1]
     start_doc_id = list(
@@ -607,9 +613,12 @@ def preprocess_wikipedia_parallel(
     )[:-1]
     manager = mp.Manager()
     progress_queue = manager.Queue()
+    logging.info("Creating progress process")
     progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path)))
+    logging.info("Starting progress process")
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
+        logging.info("Launching multiprocessing pool")
         result = pool.map(
             preprocess_wikipedia,
             list(
@@ -640,27 +649,27 @@ def preprocess_wikipedia_parallel(
     return tuple(list(result[0]) + [start_file_i + sum(num_output_files)])
 
 
-def file_line_generator(fd, buffer_size, total_to_read):
-    read = 0
-    last_line = None
-    while read < total_to_read:
-        buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
-        if not buffer:
-            if last_line is not None and last_line:
-                yield last_line
-            return
-        read += len(buffer)
-        split = buffer.splitlines(True)
-        if last_line is not None:
-            if last_line[-1] in POSSIBLE_LINE_ENDS:
-                yield last_line
-            else:
-                split[0] = last_line + split[0]
-        for i in range(len(split) - 1):
-            yield split[i]
-        last_line = split[-1]
-    if last_line is not None:
-        yield last_line
+# def file_line_generator(fd, buffer_size, total_to_read):
+#     read = 0
+#     last_line = None
+#     while read < total_to_read:
+#         buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
+#         if not buffer:
+#             if last_line is not None and last_line:
+#                 yield last_line
+#             return
+#         read += len(buffer)
+#         split = buffer.splitlines(True)
+#         if last_line is not None:
+#             if last_line[-1] in POSSIBLE_LINE_ENDS:
+#                 yield last_line
+#             else:
+#                 split[0] = last_line + split[0]
+#         for i in range(len(split) - 1):
+#             yield split[i]
+#         last_line = split[-1]
+#     if last_line is not None:
+#         yield last_line
 
 
 def preprocess_wikipedia(args):
