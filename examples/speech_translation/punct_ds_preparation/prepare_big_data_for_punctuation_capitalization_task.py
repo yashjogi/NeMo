@@ -524,6 +524,24 @@ def count_pages_in_file(file_path, start, num_characters):
     return count
 
 
+def count_in_file_segments(file_path, segment_num_characters, pattern):
+    result = [0] * len(segment_num_characters)
+    num_preceding_characters_for_segment = list(accumulate(segment_num_characters, initial=0))[:-1]
+    current_segment_i = 0
+    characters_read = 0
+    buffer = 'filler'
+    with file_path.open() as f:
+        while buffer and num_preceding_characters_for_segment[current_segment_i] > characters_read:
+            buffer = f.read(min(BUFFER_SIZE, num_preceding_characters_for_segment[current_segment_i] - characters_read))
+            characters_read += len(buffer)
+            result[current_segment_i] += buffer.count(pattern)
+            if characters_read >= num_preceding_characters_for_segment[current_segment_i]:
+                current_segment_i += 1
+                if current_segment_i >= len(segment_num_characters):
+                    break
+    return result
+
+
 # def eof(fd):
 #     s = fd.read(1)
 #     fd.seek(fd.tell() - len(s.encode('utf-8')))
@@ -591,6 +609,8 @@ def show_prog(q, total_num_lines):
     while True:
         try:
             to_add = q.get(timeout=1)
+            if to_add < 0:
+                return
             prog.n += to_add
             prog.update(0)
             if prog.n >= total_num_lines:
@@ -621,14 +641,16 @@ def preprocess_wikipedia_parallel(
     logging.info(f"Calculating starting document ids for processes...")
     start_doc_ids = list(
         accumulate(
-            [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            # [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            count_in_file_segments(file_path, num_characters_in_part, '<page'),
             initial=start_doc_id
         )
     )[:-1]
     logging.info(f"Calculating starting lines for processes...")
     start_line_ids = list(
         accumulate(
-            [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            # [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            count_in_file_segments(file_path, num_characters_in_part, '\n'),
             initial=0
         )
     )[:-1]
@@ -663,6 +685,7 @@ def preprocess_wikipedia_parallel(
                 )
             )
         )
+        progress_queue.put(-1)
         progress_process.join()
         for i in range(1, len(result)):
             for k, v in result[i][0].items():
