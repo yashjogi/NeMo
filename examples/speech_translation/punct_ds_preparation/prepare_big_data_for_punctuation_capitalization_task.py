@@ -1069,6 +1069,8 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
             sentences_by_number_of_words[k] += v
         sentence_len_by_docs.update(r[1])
         doc_id_to_file_i.update(r[2])
+    print("File with id 472 is in `doc_id_to_file_i`:", 472 in doc_id_to_file_i)
+    print("File with id 472 is in `sentence_len_by_docs`:", 472 in sentence_len_by_docs)
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
@@ -1178,11 +1180,10 @@ def main():
         shuffle_file_lines(sorted_text_file, shuffled_text_file)
     # order = np.random.permutation(result.shape[0])
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    test_size = int(args.size * args.test_ratio / 100)
-    if test_size > 0:
+    if args.test_size > 0:
         logging.info("Writing test dataset...")
         write_dataset(
-            [0, test_size],
+            [0, args.test_size],
             sorted_text_file,
             args.output_dir / Path("test"),
             args.create_model_input,
@@ -1195,7 +1196,7 @@ def main():
     if args.dev_size > 0:
         logging.info("Writing dev dataset...")
         write_dataset(
-            [test_size, test_size + args.dev_size],
+            [args.test_size, args.test_size + args.dev_size],
             sorted_text_file,
             args.output_dir / Path("dev"),
             args.create_model_input,
@@ -1207,7 +1208,7 @@ def main():
         )
     logging.info("Writing train dataset...")
     write_dataset(
-        [test_size + args.dev_size, args.size],
+        [args.test_size + args.dev_size, args.size],
         sorted_text_file,
         args.output_dir / Path("train"),
         args.create_model_input,
