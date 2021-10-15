@@ -561,10 +561,13 @@ def get_borders_with_documents_intact(file_path, num_parts):
                 success = False
                 while line:
                     if '<page' in line:
-                        ind = len(line[:line.index('<page')].encode('utf-8')) + bytes_read + last_byte_border
-                        byte_borders.append((last_byte_border, ind))
-                        num_characters_in_part.append(characters_read + len(line))
-                        last_byte_border = ind
+                        line = line[:line.index('<page')]
+                        characters_read += len(line)
+                        bytes_read += len(line.encode('utf-8'))
+                        new_byte_border = last_byte_border + bytes_read
+                        byte_borders.append((last_byte_border, new_byte_border))
+                        num_characters_in_part.append(characters_read)
+                        last_byte_border = new_byte_border
                         success = True
                         break
                     characters_read += len(line)
@@ -573,6 +576,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
                 if not success:
                     byte_borders.append((last_byte_border, last_byte_border + bytes_read))
                     num_characters_in_part.append(characters_read)
+            total_characters_read += characters_read
     return byte_borders, num_characters_in_part
 
 
