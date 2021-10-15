@@ -589,8 +589,8 @@ def get_borders_with_documents_intact(file_path, num_parts):
     return byte_borders, num_characters_in_part
 
 
-def show_prog(q, total_num_lines):
-    prog = tqdm(total=total_num_lines, desc="Total", unit='Lines', unit_scale=True)
+def show_prog(q, total_num_lines, name):
+    prog = tqdm(total=total_num_lines, desc="Total", unit=name, unit_scale=True)
     while True:
         try:
             to_add = q.get(timeout=1)
@@ -644,7 +644,7 @@ def preprocess_wikipedia_parallel(
     manager = mp.Manager()
     progress_queue = manager.Queue()
     logging.info("Creating progress process...")
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path)))
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path), "Lines"))
     logging.info("Starting progress process...")
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
@@ -1046,11 +1046,11 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
     )
     manager = mp.Manager()
     progress_queue = manager.Queue()
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, len(files)))
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, len(files), "Files"))
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
         result = pool.map(
-            preprocess_wikipedia,
+            collect_info_about_preprocessed_data,
             list(
                 zip(
                     range(num_jobs),
