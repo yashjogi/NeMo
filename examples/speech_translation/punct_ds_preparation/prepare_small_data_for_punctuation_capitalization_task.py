@@ -611,6 +611,8 @@ def remove_wrong_lang_docs(docs, lang, model_path, max_fraction, max_length):
 
 
 def arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, values_to_prepend):
+    if not isinstance(doc, (list, tuple)):
+        raise ValueError(f"Parameter `doc` has to `list` or `tuple`, give {type(doc)}.")
     result = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
     lengths = [len(WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in doc]
     for start_sentence_i, sentence in enumerate(doc):
