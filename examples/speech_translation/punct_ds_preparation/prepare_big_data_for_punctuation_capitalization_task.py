@@ -491,17 +491,21 @@ def start_normalize_process(lang):
 
 def count_in_blocks(files, size=BUFFER_SIZE, specific_to_count=None, num_characters=None):
     total_num_characters = 0
+    finished = False
     while True:
         b = files.read(size)
         if not b:
             break
         if num_characters is not None:
-            if total_num_characters + len(b) > num_characters:
+            if total_num_characters + len(b) >= num_characters:
                 b = b[:num_characters - total_num_characters]
+                finished = True
         if specific_to_count is None:
             yield len(b)
         else:
             yield b.count(specific_to_count)
+        if finished:
+            break
 
 
 def count_lines_in_file(file_path, start=0, num_characters=None):
@@ -524,9 +528,9 @@ def count_pages_in_file(file_path, start, num_characters):
     return count
 
 
-def count_in_file_segments(file_path, segment_num_characters, pattern):
-    result = [0] * len(segment_num_characters)
-    num_preceding_characters_for_segment = list(accumulate(segment_num_characters, initial=0))[:-1]
+def count_in_file_parts(file_path, part_num_characters, pattern):
+    result = [0] * len(part_num_characters)
+    num_preceding_characters_for_segment = list(accumulate(part_num_characters))
     current_segment_i = 0
     characters_read = 0
     buffer = 'filler'
@@ -537,7 +541,7 @@ def count_in_file_segments(file_path, segment_num_characters, pattern):
             result[current_segment_i] += buffer.count(pattern)
             if characters_read >= num_preceding_characters_for_segment[current_segment_i]:
                 current_segment_i += 1
-                if current_segment_i >= len(segment_num_characters):
+                if current_segment_i >= len(part_num_characters):
                     break
     return result
 
@@ -642,15 +646,16 @@ def preprocess_wikipedia_parallel(
     start_doc_ids = list(
         accumulate(
             # [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
-            count_in_file_segments(file_path, num_characters_in_part, '<page'),
+            count_in_file_parts(file_path, num_characters_in_part, '<page'),
             initial=start_doc_id
         )
     )[:-1]
+    logging.info(f"Starting document ids for processes are: {start_doc_ids}")
     logging.info(f"Calculating starting lines for processes...")
     start_line_ids = list(
         accumulate(
             # [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
-            count_in_file_segments(file_path, num_characters_in_part, '\n'),
+            count_in_file_parts(file_path, num_characters_in_part, '\n'),
             initial=0
         )
     )[:-1]
