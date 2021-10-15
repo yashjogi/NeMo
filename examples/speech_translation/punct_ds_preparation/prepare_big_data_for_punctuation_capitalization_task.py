@@ -125,7 +125,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[
 SPACE_NEW_LINE = re.compile(' \n')
 
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 7
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
 BUFFER_SIZE = 2 ** 24
 POSSIBLE_LINE_ENDS = {'\n', '\r', '\v', '\f', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029'}
 
@@ -546,12 +546,6 @@ def count_in_file_parts(file_path, part_num_characters, pattern):
     return result
 
 
-# def eof(fd):
-#     s = fd.read(1)
-#     fd.seek(fd.tell() - len(s.encode('utf-8')))
-#     return not bool(s)
-
-
 def move_by_n_characters_in_file(fd, n, buffer_size):
     characters_read = 0
     bytes_read = 0
@@ -701,29 +695,6 @@ def preprocess_wikipedia_parallel(
     return tuple(list(result[0]) + [start_file_i + sum(num_output_files)])
 
 
-# def file_line_generator(fd, buffer_size, total_to_read):
-#     read = 0
-#     last_line = None
-#     while read < total_to_read:
-#         buffer = fd.read(buffer_size if total_to_read - read > buffer_size else total_to_read - read)
-#         if not buffer:
-#             if last_line is not None and last_line:
-#                 yield last_line
-#             return
-#         read += len(buffer)
-#         split = buffer.splitlines(True)
-#         if last_line is not None:
-#             if last_line[-1] in POSSIBLE_LINE_ENDS:
-#                 yield last_line
-#             else:
-#                 split[0] = last_line + split[0]
-#         for i in range(len(split) - 1):
-#             yield split[i]
-#         last_line = split[-1]
-#     if last_line is not None:
-#         yield last_line
-
-
 def preprocess_wikipedia(args):
     (
         rank,
@@ -761,10 +732,6 @@ def preprocess_wikipedia(args):
     file_text = ""
     with file_path.open(buffering=BUFFER_SIZE) as in_f:
         in_f.seek(byte_borders[0])
-        # for i, line in enumerate(
-        #     file_line_generator(in_f, BUFFER_SIZE, num_characters_in_part),
-        #     num_lines_processed_when_progress_was_reported_last_time,
-        # ):
         num_read_characters = 0
         for i, line in enumerate(in_f, num_lines_processed_when_progress_was_reported_last_time):
             if len(line) > num_characters_in_part - num_read_characters:
