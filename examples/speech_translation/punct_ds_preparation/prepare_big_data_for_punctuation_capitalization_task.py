@@ -547,36 +547,43 @@ def get_borders_with_documents_intact(file_path, num_parts):
     part_size = length // num_parts
     last_byte_border = 0
     total_characters_read = 0
+    remainder = ""
     with file_path.open(buffering=BUFFER_SIZE) as f:
         for i in range(num_parts):
-            characters_read, bytes_read = move_by_n_characters_in_file(
+            characters_in_part, bytes_read = move_by_n_characters_in_file(
                 f, part_size * (i + 1) - total_characters_read, BUFFER_SIZE
             )
+            characters_in_part += len(remainder)
+            bytes_read += len(remainder.encode('utf-8'))
             # f.seek(part_size + f.tell())
             if eof(f):
                 byte_borders.append((last_byte_border, last_byte_border + bytes_read))
-                num_characters_in_part.append(characters_read)
+                num_characters_in_part.append(characters_in_part)
             else:
                 line = f.readline()
+                total_characters_read += len(line)
                 success = False
                 while line:
                     if '<page' in line:
-                        line = line[:line.index('<page')]
-                        characters_read += len(line)
+                        new_page_start = line.index('<page')
+                        remainder = line[new_page_start:]
+                        line = line[:new_page_start]
+                        characters_in_part += len(line)
                         bytes_read += len(line.encode('utf-8'))
                         new_byte_border = last_byte_border + bytes_read
                         byte_borders.append((last_byte_border, new_byte_border))
-                        num_characters_in_part.append(characters_read)
+                        num_characters_in_part.append(characters_in_part)
                         last_byte_border = new_byte_border
                         success = True
                         break
-                    characters_read += len(line)
+                    characters_in_part += len(line)
                     bytes_read += len(line.encode('utf-8'))
                     line = f.readline()
+                    total_characters_read += len(line)
                 if not success:
                     byte_borders.append((last_byte_border, last_byte_border + bytes_read))
-                    num_characters_in_part.append(characters_read)
-            total_characters_read += characters_read
+                    num_characters_in_part.append(characters_in_part)
+
     return byte_borders, num_characters_in_part
 
 
@@ -746,57 +753,58 @@ def preprocess_wikipedia(args):
             if page_in_progress:
                 page += line
             if '</page' in line:
-                if PAGE_CLOSING_NORMAL_TAG.match(line) is None:
-                    logging.warning(
-                        f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}.'
-                    )
-                if not page_in_progress:
+                if page_in_progress:
+                    if PAGE_CLOSING_NORMAL_TAG.match(line) is None:
+                        logging.warning(
+                            f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}.'
+                        )
+                    elif page.count('\n') == 1:
+                        logging.warning(
+                            f"Encountered a page which takes only one line. Line: {i}. Line {repr(line)} in process"
+                            f"{rank}."
+                        )
+                    end_line = i
+                    title = TITLE_OF_PAGE.search(page)
+                    if title is None:
+                        logging.warning(f"Title of page {page_i} from line {start_line} to {end_line} is not found.")
+                        title = None
+                    else:
+                        title = title.group(1)
+                    if COLON_TITLES.match(title) is None and '(disambiguation)' not in title:
+                        text = TEXT_OF_PAGE.search(page)
+                        if text is None:
+                            logging.warning(
+                                f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} "
+                                f"in process {rank} is not found. Skipping page.."
+                            )
+                        else:
+                            pos_info = [file_path, start_line, end_line]
+                            text, tok_chars, untok_chars = get_wiki_text_lines(
+                                text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
+                            )
+                            if text:
+                                file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
+                                out_f.write(file_text)
+                                arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
+                                    text, sequence_length_range, [file_i, doc_id]
+                                )
+                                for k, v in arrangement.items():
+                                    sentences_by_number_of_words[k] += v
+                                sentence_len_by_docs[doc_id] = np.array(line_num_words)
+                                doc_id_to_file_i[doc_id] = file_i
+                                doc_id += 1
+                                total_number_of_characters_from_original_text_in_current_file += len(file_text)
+                                if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
+                                    out_f.close()
+                                    file_i += 1
+                                    current_file_path = output_dir / Path(str(file_i) + '.xml')
+                                    out_f = current_file_path.open('w')
+                                    total_number_of_characters_from_original_text_in_current_file = 0
+                else:
                     logging.warning(
                         f'Encountered closing page tag without opening tag. Line number: {i}. Line {repr(line)} in '
                         f'process {rank}.'
                     )
-                elif not page:
-                    logging.warning(
-                        f"Encountered a page which takes only one line. Line: {i}. Line {repr(line)} in process"
-                        f"{rank}."
-                    )
-                end_line = i
-                title = TITLE_OF_PAGE.search(page)
-                if title is None:
-                    logging.warning(f"Title of page {page_i} from line {start_line} to {end_line} is not found.")
-                    title = None
-                else:
-                    title = title.group(1)
-                if COLON_TITLES.match(title) is None and '(disambiguation)' not in title:
-                    text = TEXT_OF_PAGE.search(page)
-                    if text is None:
-                        logging.warning(
-                            f"Text tag is not found on a page {page_i} from line {start_line} to {end_line} in process "
-                            f"{rank} is not found. Skipping page.."
-                        )
-                    else:
-                        pos_info = [file_path, start_line, end_line]
-                        text, tok_chars, untok_chars = get_wiki_text_lines(
-                            text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
-                        )
-                        if text:
-                            file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
-                            out_f.write(file_text)
-                            arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
-                                text, sequence_length_range, [file_i, doc_id]
-                            )
-                            for k, v in arrangement.items():
-                                sentences_by_number_of_words[k] += v
-                            sentence_len_by_docs[doc_id] = np.array(line_num_words)
-                            doc_id_to_file_i[doc_id] = file_i
-                            doc_id += 1
-                            total_number_of_characters_from_original_text_in_current_file += len(file_text)
-                            if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
-                                out_f.close()
-                                file_i += 1
-                                current_file_path = output_dir / Path(str(file_i) + '.xml')
-                                out_f = current_file_path.open('w')
-                                total_number_of_characters_from_original_text_in_current_file = 0
                 page = ""
                 page_i += 1
                 start_line = None
