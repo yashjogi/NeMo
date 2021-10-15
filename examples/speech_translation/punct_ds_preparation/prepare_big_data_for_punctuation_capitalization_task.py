@@ -602,7 +602,7 @@ def preprocess_wikipedia_parallel(
     lang,
     tokenizer,
     sequence_length_range,
-    start_doc_ids=0,
+    start_doc_id=0,
     start_file_i=0,
     nltk_tokenization=True,
 ):
@@ -612,17 +612,17 @@ def preprocess_wikipedia_parallel(
     logging.info(f"Number of characters in parts: {num_characters_in_part}")
     num_output_files = [int(np.ceil(n / MAX_NUM_CHARACTERS_IN_1_FILE)) for n in num_characters_in_part]
     start_out_file_ids = list(accumulate(num_output_files, initial=start_file_i))[:-1]
-    logging.info(f"Counting starting document ids for processes")
+    logging.info(f"Calculating starting document ids for processes")
     start_doc_ids = list(
         accumulate(
             [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
-            initial=start_doc_ids
+            initial=start_doc_id
         )
     )[:-1]
     start_line_ids = list(
         accumulate(
             [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
-            initial=start_doc_ids
+            initial=0
         )
     )[:-1]
     manager = mp.Manager()
