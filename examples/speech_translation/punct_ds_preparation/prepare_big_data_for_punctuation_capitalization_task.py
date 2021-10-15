@@ -725,7 +725,7 @@ def preprocess_wikipedia(args):
     doc_id = start_doc_id
     output_dir.mkdir(exist_ok=True, parents=True)
     current_file_path = output_dir / Path(str(file_i) + '.xml')
-    out_f = current_file_path.open('w')
+    out_f = current_file_path.open('w', buffering=BUFFER_SIZE)
     tok_chars, untok_chars = {'\n', ' '}, set()
     num_lines_processed_when_progress_was_reported_last_time = start_line_id
     start_line, end_line = None, None
@@ -799,7 +799,7 @@ def preprocess_wikipedia(args):
                                     out_f.close()
                                     file_i += 1
                                     current_file_path = output_dir / Path(str(file_i) + '.xml')
-                                    out_f = current_file_path.open('w')
+                                    out_f = current_file_path.open('w', buffering=BUFFER_SIZE)
                                     total_number_of_characters_from_original_text_in_current_file = 0
                 else:
                     logging.warning(
@@ -813,10 +813,11 @@ def preprocess_wikipedia(args):
                 page_in_progress = False
             if num_read_characters >= num_characters_in_part:
                 break
-        assert len(
-            page) == 0, f"The page {page_i} with title {title} in file {file_path} between lines {start_line} and " \
-                        f"{end_line} is not finished in process {rank}. Current position in file: {in_f.tell()}. " \
-                        f"Accumulated page text:\n{page}"
+        if len(page) != 0:
+            logging.warning(
+                f"The page {page_i} with title {title} in file {file_path} between lines {start_line} and {end_line} "
+                f"is not finished in process {rank}."
+            )
     progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
     if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
