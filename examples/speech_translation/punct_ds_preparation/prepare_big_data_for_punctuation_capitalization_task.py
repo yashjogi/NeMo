@@ -928,7 +928,7 @@ def cut_and_save(segments, doc_dir, output_file):
             if current_doc_id != doc_id:
                 line = 'FILLER'
                 count = 0
-                while line and not line.startswith(f'<doc doc_id="{doc_id}"'):
+                while line and not line.startswith(f'<doc docid="{doc_id}"'):
                     line = current_fd.readline()
                     count += 1
                     line_i += 1
@@ -949,7 +949,7 @@ def read_docs_from_file(file_path):
     current_doc = ""
     curr_doc_id = None
     docs = {}
-    with file_path.open() as f:
+    with file_path.open(buffering=BUFFER_SIZE) as f:
         for i, line in enumerate(f):
             start = DOC_HEAD.match(line)
             if start is not None:
@@ -1061,6 +1061,7 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
                 )
             )
         )
+        logging.info("Stopping tqdm process...")
         progress_queue.put(-1)
         progress_process.join()
     for r in result:
