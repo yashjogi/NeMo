@@ -672,13 +672,13 @@ def preprocess_wikipedia_parallel(
                 )
             )
         )
-        progress_queue.put(-1)
-        progress_process.join()
-        for i in range(1, len(result)):
-            for k, v in result[i][0].items():
-                result[0][0][k] += v
-            result[0][1].update(result[i][1])
-            result[0][2].update(result[i][2])
+    progress_queue.put(-1)
+    progress_process.join()
+    for i in range(1, len(result)):
+        for k, v in result[i][0].items():
+            result[0][0][k] += v
+        result[0][1].update(result[i][1])
+        result[0][2].update(result[i][2])
     return tuple(list(result[0]) + [start_file_i + sum(num_output_files)])
 
 
@@ -922,7 +922,7 @@ def cut_and_save(segments, doc_dir, output_file):
                 current_file_i = file_i
                 if current_fd is not None:
                     current_fd.close()
-                current_fd = (doc_dir / str(current_file_i) + '.xml').open()
+                current_fd = (doc_dir / (str(current_file_i) + '.xml')).open()
                 current_doc_id = -1
                 line_i = 0
             if current_doc_id != doc_id:
@@ -1011,12 +1011,12 @@ def shuffle_file_lines(input_file, output_file):
     run(['shuf', str(input_file), '>', str(output_file)], capture_output=False)
 
 
-def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
+def collect_info_about_preprocessed_data(rank, progresss_queue, files, sequence_length_range):
     sentences_by_number_of_words = {
         n: [] for n in range(sequence_length_range[0], sequence_length_range[1])
     }
     sentence_len_by_docs, doc_id_to_file_i = {}, {}
-    for p in tqdm(document_dir.iterdir(), total=len(list(document_dir.iterdir()))):
+    for p in files:
         if is_int(p.stem) and p.suffixes == ['.xml']:
             file_i = int(p.stem)
             docs = read_docs_from_file(p)
@@ -1028,6 +1028,45 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
                     sentences_by_number_of_words[k] += v
+        progresss_queue.put(1)
+    return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
+
+
+def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_range, num_jobs):
+    sentences_by_number_of_words = {
+        n: [] for n in range(sequence_length_range[0], sequence_length_range[1])
+    }
+    sentence_len_by_docs, doc_id_to_file_i = {}, {}
+    files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
+    num_jobs = max(num_jobs, len(files))
+    num_files_per_job = len(files) // num_jobs
+    distributed_files = (
+        [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
+        + files[(num_jobs - 1) * num_files_per_job :]
+    )
+    manager = mp.Manager()
+    progress_queue = manager.Queue()
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, len(files)))
+    progress_process.start()
+    with mp.Pool(num_jobs) as pool:
+        result = pool.map(
+            preprocess_wikipedia,
+            list(
+                zip(
+                    range(num_jobs),
+                    [progress_queue] * num_jobs,
+                    distributed_files,
+                    [sequence_length_range] * num_jobs,
+                )
+            )
+        )
+        progress_queue.put(-1)
+        progress_process.join()
+    for r in result:
+        for k, v in r[0].items():
+            sentences_by_number_of_words[k] += v
+        sentence_len_by_docs.update(r[1])
+        doc_id_to_file_i.update(r[2])
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
@@ -1074,9 +1113,8 @@ def main():
             )
     else:
         logging.info(f"Loading stats and info about dataset in directory '{document_dir}'...")
-        sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = collect_info_about_preprocessed_data(
-            document_dir, args.sequence_length_range
-        )
+        sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
+            collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
     number_of_sentences_in_input = sum([len(e) for e in sentences_by_number_of_words.values()])
     if args.size is None:
         args.size = number_of_sentences_in_input

@@ -760,9 +760,6 @@ def create_not_whole_sentence_segments(
         f"len(result)={len(result)}, size={size}, "
         f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}",
     )
-    np_result = np.array(result)
-    print("shape:", np_result.shape)
-    print("type:", np_result.dtype)
     return result
 
 
