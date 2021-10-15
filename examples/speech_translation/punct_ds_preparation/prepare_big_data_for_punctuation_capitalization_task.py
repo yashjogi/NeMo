@@ -641,7 +641,7 @@ def preprocess_wikipedia_parallel(
     logging.info(f"Found borders for multiprocessing: {byte_borders}")
     logging.info(f"Number of characters in parts: {num_characters_in_part}")
     num_output_files = [int(np.ceil(n / MAX_NUM_CHARACTERS_IN_1_FILE)) for n in num_characters_in_part]
-    start_out_file_ids = list(accumulate(num_output_files, initial=start_file_i))[:-1]
+    out_file_ids = list(accumulate(num_output_files, initial=start_file_i))
     logging.info(f"Calculating starting document ids for processes...")
     start_doc_ids = list(
         accumulate(
@@ -677,7 +677,8 @@ def preprocess_wikipedia_parallel(
                     [file_path] * num_jobs,
                     byte_borders,
                     num_characters_in_part,
-                    start_out_file_ids,
+                    out_file_ids[:-1],
+                    out_file_ids[1:],
                     num_output_files,
                     [output_dir] * num_jobs,
                     [lang] * num_jobs,
@@ -731,6 +732,7 @@ def preprocess_wikipedia(args):
         byte_borders,
         num_characters_in_part,
         start_out_file_i,
+        first_forbidden_out_file_i,
         num_out_files,
         output_dir,
         lang,
@@ -752,11 +754,11 @@ def preprocess_wikipedia(args):
     file_i = start_out_file_i
     doc_id = start_doc_id
     output_dir.mkdir(exist_ok=True, parents=True)
-    current_file_path = output_dir / Path(str(file_i) + '.xml')
-    out_f = current_file_path.open('w', buffering=BUFFER_SIZE)
+    current_file_path = output_dir / (str(file_i) + '.xml')
     tok_chars, untok_chars = {'\n', ' '}, set()
     num_lines_processed_when_progress_was_reported_last_time = start_line_id
     start_line, end_line = None, None
+    file_text = ""
     with file_path.open(buffering=BUFFER_SIZE) as in_f:
         in_f.seek(byte_borders[0])
         # for i, line in enumerate(
@@ -812,8 +814,7 @@ def preprocess_wikipedia(args):
                                 text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
                             )
                             if text:
-                                file_text = doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
-                                out_f.write(file_text)
+                                file_text += doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
                                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
                                     text, sequence_length_range, [file_i, doc_id]
                                 )
@@ -822,12 +823,15 @@ def preprocess_wikipedia(args):
                                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                                 doc_id_to_file_i[doc_id] = file_i
                                 doc_id += 1
-                                total_number_of_characters_from_original_text_in_current_file += len(file_text)
                                 if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
-                                    out_f.close()
+                                    assert file_i < first_forbidden_out_file_i, f"File you are going to write into " \
+                                        f"is probably filled in other process. There is an error in distribution of " \
+                                        f"data between processes."
+                                    with current_file_path.open('w') as out_f:
+                                        out_f.write(file_text)
+                                    file_text = ""
                                     file_i += 1
                                     current_file_path = output_dir / (str(file_i) + '.xml')
-                                    out_f = current_file_path.open('w', buffering=BUFFER_SIZE)
                                     total_number_of_characters_from_original_text_in_current_file = 0
                 else:
                     logging.warning(
@@ -848,7 +852,10 @@ def preprocess_wikipedia(args):
             )
     progress_queue.put(i + 1 - num_lines_processed_when_progress_was_reported_last_time)
     if total_number_of_characters_from_original_text_in_current_file:
-        out_f.close()
+        assert file_i < first_forbidden_out_file_i, f"File you are going to write into is probably filled in other " \
+            f"process. There is an error in distribution of data between processes."
+        with current_file_path.open('w') as out_f:
+            out_f.write(file_text)
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
