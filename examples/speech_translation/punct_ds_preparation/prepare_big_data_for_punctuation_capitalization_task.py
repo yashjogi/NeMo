@@ -504,10 +504,10 @@ def count_in_blocks(files, size=65536, specific_to_count=None, num_characters=No
             yield b.count(specific_to_count)
 
 
-def count_lines_in_file(file_path, start=0, end=None):
+def count_lines_in_file(file_path, start=0, num_characters=None):
     with file_path.open() as f:
         f.seek(start)
-        count = sum(count_in_blocks(f, specific_to_count='\n', num_characters=None if end is None else end - start))
+        count = sum(count_in_blocks(f, specific_to_count='\n', num_characters=num_characters))
     return count
 
 
@@ -517,10 +517,10 @@ def count_characters_in_file(file_path):
     return count
 
 
-def count_pages_in_file(file_path, start, end):
+def count_pages_in_file(file_path, start, num_characters):
     with file_path.open() as f:
         f.seek(start)
-        count = sum(count_in_blocks(f, specific_to_count='<page', num_characters=end - start))
+        count = sum(count_in_blocks(f, specific_to_count='<page', num_characters=num_characters))
     return count
 
 
@@ -602,7 +602,7 @@ def preprocess_wikipedia_parallel(
     lang,
     tokenizer,
     sequence_length_range,
-    start_doc_id=0,
+    start_doc_ids=0,
     start_file_i=0,
     nltk_tokenization=True,
 ):
@@ -610,10 +610,20 @@ def preprocess_wikipedia_parallel(
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
     logging.info(f"Found borders for multiprocessing: {byte_borders}")
     logging.info(f"Number of characters in parts: {num_characters_in_part}")
-    num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in byte_borders]
-    start_out_file_i = list(accumulate(num_output_files, initial=start_file_i))[:-1]
-    start_doc_id = list(
-        accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in byte_borders], initial=start_doc_id)
+    num_output_files = [int(np.ceil(n / MAX_NUM_CHARACTERS_IN_1_FILE)) for n in num_characters_in_part]
+    start_out_file_ids = list(accumulate(num_output_files, initial=start_file_i))[:-1]
+    logging.info(f"Counting starting document ids for processes")
+    start_doc_ids = list(
+        accumulate(
+            [count_pages_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            initial=start_doc_ids
+        )
+    )[:-1]
+    start_line_ids = list(
+        accumulate(
+            [count_lines_in_file(file_path, b[0], n) for b, n in zip(byte_borders, num_characters_in_part)],
+            initial=start_doc_ids
+        )
     )[:-1]
     manager = mp.Manager()
     progress_queue = manager.Queue()
@@ -632,13 +642,14 @@ def preprocess_wikipedia_parallel(
                     [file_path] * num_jobs,
                     byte_borders,
                     num_characters_in_part,
-                    start_out_file_i,
+                    start_out_file_ids,
                     num_output_files,
                     [output_dir] * num_jobs,
                     [lang] * num_jobs,
                     [tokenizer] * num_jobs,
                     [sequence_length_range] * num_jobs,
-                    start_doc_id,
+                    start_doc_ids,
+                    start_line_ids,
                     [nltk_tokenization] * num_jobs,
                     [5000] * num_jobs,
                 )
@@ -690,6 +701,7 @@ def preprocess_wikipedia(args):
         tokenizer,
         sequence_length_range,
         start_doc_id,
+        start_line_id,
         nltk_tokenization,
         report_progress_every_n_lines
     ) = args
@@ -697,7 +709,7 @@ def preprocess_wikipedia(args):
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
     page = ""
-    page_i = count_pages_in_file(file_path, 0, byte_borders[0])
+    page_i = start_doc_id
     page_in_progress = False
     characters_for_1_file = num_characters_in_part // num_out_files
     total_number_of_characters_from_original_text_in_current_file = 0
@@ -707,7 +719,7 @@ def preprocess_wikipedia(args):
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
-    num_lines_processed_when_progress_was_reported_last_time = count_lines_in_file(file_path, 0, byte_borders[0])
+    num_lines_processed_when_progress_was_reported_last_time = start_line_id
     start_line, end_line = None, None
     with file_path.open(buffering=BUFFER_SIZE) as in_f:
         in_f.seek(byte_borders[0])
@@ -736,17 +748,17 @@ def preprocess_wikipedia(args):
             if '</page' in line:
                 if PAGE_CLOSING_NORMAL_TAG.match(line) is None:
                     logging.warning(
-                        f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}'
+                        f'Encountered an unusual page opening tag in line {i} {repr(line)} in process {rank}.'
                     )
                 if not page_in_progress:
                     logging.warning(
                         f'Encountered closing page tag without opening tag. Line number: {i}. Line {repr(line)} in '
-                        f'process {rank}'
+                        f'process {rank}.'
                     )
                 elif not page:
                     logging.warning(
                         f"Encountered a page which takes only one line. Line: {i}. Line {repr(line)} in process"
-                        f"{rank}"
+                        f"{rank}."
                     )
                 end_line = i
                 title = TITLE_OF_PAGE.search(page)
