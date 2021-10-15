@@ -37,12 +37,14 @@ def main(cfg) -> None:
     logging.info(f'\n{OmegaConf.to_yaml(cfg)}')
 
     trainer = None
-    if cfg.trainer.precision == 32:
+    if cfg.trainer.precision == 16:
         trainer = Trainer(
             plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes), NLPNativeMixedPrecisionPlugin()], **cfg.trainer
         )
     else:
         trainer = Trainer(plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes), NLPPrecisionPlugin()], **cfg.trainer)
+
+    exp_manager(trainer, cfg.exp_manager)
 
     app_state = AppState()
     app_state.model_parallel_size = cfg.model.tensor_model_parallel_size
@@ -51,14 +53,14 @@ def main(cfg) -> None:
 
 
     model = MegatronGPTModel.restore_from(
-        '/NeMo/datasets/models/megatron_gpt_rank2.nemo', trainer=trainer
+        '/raid/purnendu/models/megatron_gpt_rank2.nemo', trainer=trainer
     )
 
     model.cfg.data.data_prefix = cfg.model.data.data_prefix
 
     model.cfg.data.splits_string = cfg.model.data.splits_string
 
-    model.cfg.data.seq_length = 1536
+    model.cfg.data.seq_length = 2048
 
     model.cfg.tensor_model_parallel_size = 1
 
