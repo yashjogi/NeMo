@@ -1043,7 +1043,7 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
     num_files_per_job = len(files) // num_jobs
     distributed_files = (
         [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
-        + files[(num_jobs - 1) * num_files_per_job :]
+        + [files[(num_jobs - 1) * num_files_per_job:]]
     )
     manager = mp.Manager()
     progress_queue = manager.Queue()
