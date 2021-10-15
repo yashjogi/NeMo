@@ -196,14 +196,6 @@ def remove_tag_with_content_nested(text, start_re, end_re, start_or_end_re, remo
                 last_end = m.span()[1]
                 if section_border > 0:
                     result += text[last_end: section_border]
-                # logging.warning(
-                #     f"Encountered closing tag {repr(m.group(0))} in position {m.span()[0]} before starting tag. "
-                #     f"10 characters and 10 characters after: {repr(text[max(m.span()[0] - 10, 0): m.span()[1] + 10])}. "
-                #     f"Probably the tag is multiline or there is an error in page markup. start_re={start_re}, "
-                #     f"end_re={end_re}. Document is in file {pos_info[0]} lines between {pos_info[1]} and "
-                #     f"{pos_info[2]}. Discarding the document after position {last_end}."
-                # )
-                # return result
             else:
                 num_opened -= 1
                 if num_opened == 0:
@@ -228,12 +220,6 @@ def remove_double_square_brackets_specials(text, pos_info):
         while num_openings > 0:
             mm = SPECIAL_SQUARE_BRACKETS_BORDER.search(text, search_start)
             if mm is None:
-                # logging.warning(
-                #     f"Encountered special square brackets without closing starting in position {start} of document in "
-                #     f"file {pos_info[0]} located in lines between {pos_info[1]} and {pos_info[2]}. Match +- 20 "
-                #     f"characters: {repr(text[max(m.span()[0] - 20, 0) : m.span()[1] + 20])}. The part of the "
-                #     f"document starting from position {start} will be discarded."
-                # )
                 return result
             if mm.group(0) == ']]':
                 num_openings -= 1
@@ -828,7 +814,16 @@ def preprocess_wikipedia(args):
 
 
 def prepend_file_i(not_whole_segments, doc_id_to_file_i):
-    return np.concatenate([np.vectorize(doc_id_to_file_i.get)(not_whole_segments[:, 0]), not_whole_segments], 1)
+    return np.concatenate(
+        [
+            np.expand_dims(
+                np.vectorize(doc_id_to_file_i.get)(not_whole_segments[:, 0]),
+                1
+            ),
+            not_whole_segments
+        ],
+        1
+    )
 
 
 def is_int(s):

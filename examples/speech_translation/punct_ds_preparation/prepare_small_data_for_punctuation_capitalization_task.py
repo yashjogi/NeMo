@@ -716,7 +716,7 @@ def create_not_whole_sentence_segments(
     nw_i = 0
     done = not bool(yet_to_cut_by_number_of_words)
     while not done:
-        for doc_id, remaining in tqdm(remaining_by_docs.items(), total=len(remaining_by_docs)):
+        for doc_id, remaining in remaining_by_docs.items():
             next_sentence_i = -1
             for i in remaining:
                 len_ = sentence_len_by_docs[doc_id][i]
