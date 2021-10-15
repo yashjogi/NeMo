@@ -632,7 +632,7 @@ def file_line_generator(fd, buffer_size, total_to_read):
         if not buffer:
             if last_line is not None and last_line:
                 yield last_line
-                return
+            return
         read += len(buffer)
         split = buffer.splitlines(True)
         if last_line is not None:
