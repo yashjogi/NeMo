@@ -916,13 +916,13 @@ def cut_and_save(segments, doc_dir, output_file):
         for segment in tqdm(segments):
             file_i = segment[0]
             doc_id = segment[1]
-            if current_doc_id + 1 != doc_id:
-                logging.warning(f"Documents are not in order: current_doc_id={current_doc_id}, doc_id={doc_id}")
+            if current_doc_id > doc_id:
+                logging.warning(f"Documents are not in order: current_doc_id={current_doc_id}, next doc_id={doc_id}")
             if current_file_i != file_i:
                 current_file_i = file_i
                 if current_fd is not None:
                     current_fd.close()
-                current_fd = (doc_dir / Path(str(current_file_i) + '.xml')).open()
+                current_fd = (doc_dir / str(current_file_i) + '.xml').open()
                 current_doc_id = -1
                 line_i = 0
             if current_doc_id != doc_id:
@@ -938,6 +938,7 @@ def cut_and_save(segments, doc_dir, output_file):
                         f"file_i={file_i} current_doc_id={current_doc_id} doc_id={doc_id} count={count} line_i={line_i}"
                     )
                 current_doc = read_doc(current_fd)
+                current_doc_id = doc_id
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
             f.write(text_seg)
