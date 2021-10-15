@@ -529,6 +529,14 @@ def eof(fd):
     return not bool(s)
 
 
+def move_by_n_characters_in_file(fd, n, buffer_size):
+    read = 0
+    while n - read >= buffer_size:
+        fd.read(buffer_size)
+        read += buffer_size
+    fd.read(n - read)
+
+
 def get_borders_with_documents_intact(file_path, num_parts):
     borders = []
     length = count_characters_in_file(file_path)
@@ -536,7 +544,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
     current_pos = 0
     with file_path.open() as f:
         for i in range(num_parts):
-            f.read(part_size)
+            move_by_n_characters_in_file(f, part_size, BUFFER_SIZE)
             # f.seek(part_size + f.tell())
             if eof(f):
                 borders.append((current_pos, length))
