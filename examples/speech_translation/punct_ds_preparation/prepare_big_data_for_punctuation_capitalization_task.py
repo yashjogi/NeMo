@@ -1011,7 +1011,8 @@ def shuffle_file_lines(input_file, output_file):
     run(['shuf', str(input_file), '>', str(output_file)], capture_output=False)
 
 
-def collect_info_about_preprocessed_data(rank, progresss_queue, files, sequence_length_range):
+def collect_info_about_preprocessed_data(args):
+    (rank, progresss_queue, files, sequence_length_range) = args
     sentences_by_number_of_words = {
         n: [] for n in range(sequence_length_range[0], sequence_length_range[1])
     }
