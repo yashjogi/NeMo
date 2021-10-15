@@ -125,7 +125,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[
 SPACE_NEW_LINE = re.compile(' \n')
 
 
-MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 8
+MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 7
 BUFFER_SIZE = 2 ** 24
 POSSIBLE_LINE_ENDS = {'\n', '\r', '\v', '\f', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029'}
 
@@ -845,7 +845,7 @@ def preprocess_wikipedia(args):
                 f"The page {page_i} with title {title} in file {file_path} between lines {start_line} and {end_line} "
                 f"is not finished in process {rank}."
             )
-    progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
+    progress_queue.put(i + 1 - num_lines_processed_when_progress_was_reported_last_time)
     if total_number_of_characters_from_original_text_in_current_file:
         out_f.close()
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
