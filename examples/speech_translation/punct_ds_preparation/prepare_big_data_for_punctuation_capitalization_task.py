@@ -605,7 +605,7 @@ def preprocess_wikipedia_parallel(
     logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
     logging.info(f"Found borders for multiprocessing: {byte_borders}")
-    logging.info(f"Number of characters in parts:", {num_characters_in_part})
+    logging.info(f"Number of characters in parts: {num_characters_in_part}")
     num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in byte_borders]
     start_out_file_i = list(accumulate(num_output_files, initial=start_file_i))[:-1]
     start_doc_id = list(
