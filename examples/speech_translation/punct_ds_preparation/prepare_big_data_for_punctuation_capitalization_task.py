@@ -822,7 +822,6 @@ def preprocess_wikipedia(args):
                                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                                 doc_id_to_file_i[doc_id] = file_i
                                 doc_id += 1
-                                total_number_of_characters_from_original_text_in_current_file += len(file_text)
                                 if total_number_of_characters_from_original_text_in_current_file > characters_for_1_file:
                                     out_f.close()
                                     file_i += 1
