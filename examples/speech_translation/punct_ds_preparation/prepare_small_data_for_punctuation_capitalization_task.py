@@ -11,6 +11,7 @@ from math import ceil
 from pathlib import Path
 
 import fasttext
+import numpy as np
 import requests
 from bs4 import BeautifulSoup, NavigableString
 from tqdm import tqdm
@@ -742,14 +743,6 @@ def create_not_whole_sentence_segments(
                                 number_of_words[nw_i],
                             ]
                         )
-                        if doc_id == 0:
-                            print([
-                                doc_id,
-                                start_sentence_i,
-                                next_sentence_i,
-                                shift,
-                                number_of_words[nw_i],
-                            ])
                         yet_to_cut_by_number_of_words[number_of_words[nw_i]] -= 1
                         if yet_to_cut_by_number_of_words[number_of_words[nw_i]] == 0:
                             del yet_to_cut_by_number_of_words[number_of_words[nw_i]]
@@ -767,6 +760,9 @@ def create_not_whole_sentence_segments(
         f"len(result)={len(result)}, size={size}, "
         f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}",
     )
+    np_result = np.array(result)
+    print("shape:", np_result.shape)
+    print("type:", np_result.dtype)
     return result
 
 
