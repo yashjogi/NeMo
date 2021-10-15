@@ -696,12 +696,17 @@ def preprocess_wikipedia(args):
     tok_chars, untok_chars = {'\n', ' '}, set()
     num_lines_processed_when_progress_was_reported_last_time = count_lines_in_file(file_path, 0, byte_borders[0])
     start_line, end_line = None, None
-    with file_path.open() as in_f:
+    with file_path.open(buffering=BUFFER_SIZE) as in_f:
         in_f.seek(byte_borders[0])
-        for i, line in enumerate(
-            file_line_generator(in_f, BUFFER_SIZE, num_characters_in_part),
-            num_lines_processed_when_progress_was_reported_last_time,
-        ):
+        # for i, line in enumerate(
+        #     file_line_generator(in_f, BUFFER_SIZE, num_characters_in_part),
+        #     num_lines_processed_when_progress_was_reported_last_time,
+        # ):
+        num_read_characters = 0
+        for i, line in enumerate(in_f, num_lines_processed_when_progress_was_reported_last_time):
+            if len(line) > num_characters_in_part - num_read_characters:
+                line = line[:num_characters_in_part - num_read_characters]
+            num_read_characters += len(line)
             if i % report_progress_every_n_lines == 0:
                 progress_queue.put(i - num_lines_processed_when_progress_was_reported_last_time)
                 num_lines_processed_when_progress_was_reported_last_time = i
@@ -772,6 +777,8 @@ def preprocess_wikipedia(args):
                 start_line = None
                 end_line = None
                 page_in_progress = False
+            if num_read_characters >= num_characters_in_part:
+                break
         assert len(
             page) == 0, f"The page {page_i} with title {title} in file {file_path} between lines {start_line} and " \
                         f"{end_line} is not finished in process {rank}. Current position in file: {in_f.tell()}. " \
