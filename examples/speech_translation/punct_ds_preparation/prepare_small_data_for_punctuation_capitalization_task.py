@@ -637,7 +637,8 @@ def select_close_to_uniform_distribution(
     sentences_by_number_of_words,
     planned_number_of_segments,
     percentage_of_segments_with_intact_sentences,
-    number_of_sentences_by_docs
+    number_of_sentences_by_docs,
+    doc_id_field_i=0,
 ):
     result = []
     remaining_by_docs = {doc_id: set(range(num)) for doc_id, num in number_of_sentences_by_docs.items()}
@@ -665,7 +666,9 @@ def select_close_to_uniform_distribution(
             tmp = random.sample(sentences_by_number_of_words[len_], min_number_of_sentences_for_sentence_len)
         result += tmp
         number_of_words_stats.append((len_, len(tmp)))
-        for doc_id, start_i, end_i in tmp:
+        for res in tmp:
+            start_i, end_i = res[-2:]
+            doc_id = res[doc_id_field_i]
             if doc_id not in remaining_by_docs:
                 remaining_by_docs[doc_id] = set()
             remaining_by_docs[doc_id].difference_update(range(start_i, end_i))

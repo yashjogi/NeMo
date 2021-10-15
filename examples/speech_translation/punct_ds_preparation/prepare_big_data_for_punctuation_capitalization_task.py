@@ -1101,7 +1101,8 @@ def main():
             sentences_by_number_of_words,
             args.size,
             args.percentage_segments_with_intact_sentences,
-            {k: len(v) for k, v in sentence_len_by_docs.items()}
+            {k: len(v) for k, v in sentence_len_by_docs.items()},
+            1,
         )
         result = np.array(result)
         result = np.concatenate(
