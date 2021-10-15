@@ -536,7 +536,8 @@ def get_borders_with_documents_intact(file_path, num_parts):
     current_pos = 0
     with file_path.open() as f:
         for i in range(num_parts):
-            f.seek(part_size + f.tell())
+            f.read(part_size)
+            # f.seek(part_size + f.tell())
             if eof(f):
                 borders.append((current_pos, length))
             else:
@@ -545,7 +546,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
                 success = False
                 while line:
                     if '<page' in line:
-                        ind = line.index('<page') + begin_pos
+                        ind = len(line[:line.index('<page')].encode('utf-8')) + begin_pos
                         borders.append((current_pos, ind))
                         current_pos = ind
                         success = True
