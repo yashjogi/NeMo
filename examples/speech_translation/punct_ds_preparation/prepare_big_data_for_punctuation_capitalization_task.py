@@ -530,40 +530,46 @@ def eof(fd):
 
 
 def move_by_n_characters_in_file(fd, n, buffer_size):
-    read = 0
-    while n - read >= buffer_size:
-        fd.read(buffer_size)
-        read += buffer_size
-    fd.read(n - read)
+    characters_read = 0
+    buffer = 'filler'
+    while buffer and n > characters_read:
+        buffer = fd.read(buffer_size)
+        characters_read += len(buffer)
+    return characters_read
 
 
 def get_borders_with_documents_intact(file_path, num_parts):
-    borders = []
+    byte_borders = []
+    num_characters_in_part = []
     length = count_characters_in_file(file_path)
     part_size = length // num_parts
-    current_pos = 0
+    last_byte_border = 0
     with file_path.open() as f:
         for i in range(num_parts):
-            move_by_n_characters_in_file(f, part_size, BUFFER_SIZE)
+            characters_read = move_by_n_characters_in_file(f, part_size, BUFFER_SIZE)
             # f.seek(part_size + f.tell())
             if eof(f):
-                borders.append((current_pos, length))
+                byte_borders.append((last_byte_border, f.tell()))
+                num_characters_in_part.append(characters_read)
             else:
-                begin_pos = f.tell()
+                line_start_byte = f.tell()
                 line = f.readline()
                 success = False
                 while line:
                     if '<page' in line:
-                        ind = len(line[:line.index('<page')].encode('utf-8')) + begin_pos
-                        borders.append((current_pos, ind))
-                        current_pos = ind
+                        ind = len(line[:line.index('<page')].encode('utf-8')) + line_start_byte
+                        byte_borders.append((last_byte_border, ind))
+                        num_characters_in_part.append(characters_read + len(line))
+                        last_byte_border = ind
                         success = True
                         break
-                    begin_pos = f.tell()
+                    line_start_byte = f.tell()
+                    characters_read += len(line)
                     line = f.readline()
                 if not success:
-                    borders.append((current_pos, length))
-    return borders
+                    byte_borders.append((last_byte_border, f.tell()))
+                    num_characters_in_part.append(characters_read)
+    return byte_borders, num_characters_in_part
 
 
 def show_prog(q, total_num_lines):
@@ -592,12 +598,12 @@ def preprocess_wikipedia_parallel(
     start_file_i=0,
     nltk_tokenization=True,
 ):
-    borders = get_borders_with_documents_intact(file_path, num_jobs)
-    logging.info(f"Found borders for multiprocessing: {borders}")
-    num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in borders]
+    byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
+    logging.info(f"Found borders for multiprocessing: {byte_borders}")
+    num_output_files = [int(np.ceil((b[1] - b[0]) / MAX_NUM_CHARACTERS_IN_1_FILE)) for b in byte_borders]
     start_out_file_i = list(accumulate(num_output_files, initial=start_file_i))[:-1]
     start_doc_id = list(
-        accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in borders], initial=start_doc_id)
+        accumulate([count_pages_in_file(file_path, b[0], b[1]) for b in byte_borders], initial=start_doc_id)
     )[:-1]
     manager = mp.Manager()
     progress_queue = manager.Queue()
@@ -611,7 +617,8 @@ def preprocess_wikipedia_parallel(
                     range(num_jobs),
                     [progress_queue] * num_jobs,
                     [file_path] * num_jobs,
-                    borders,
+                    byte_borders,
+                    num_characters_in_part,
                     start_out_file_i,
                     num_output_files,
                     [output_dir] * num_jobs,
@@ -661,7 +668,8 @@ def preprocess_wikipedia(args):
         rank,
         progress_queue,
         file_path,
-        borders,
+        byte_borders,
+        num_characters_in_part,
         start_out_file_i,
         num_out_files,
         output_dir,
@@ -676,9 +684,9 @@ def preprocess_wikipedia(args):
     sentence_len_by_docs = {}
     doc_id_to_file_i = {}
     page = ""
-    page_i = count_pages_in_file(file_path, 0, borders[0])
+    page_i = count_pages_in_file(file_path, 0, byte_borders[0])
     page_in_progress = False
-    characters_for_1_file = (borders[1] - borders[0]) // num_out_files
+    characters_for_1_file = num_characters_in_part // num_out_files
     total_number_of_characters_from_original_text_in_current_file = 0
     file_i = start_out_file_i
     doc_id = start_doc_id
@@ -686,12 +694,12 @@ def preprocess_wikipedia(args):
     current_file_path = output_dir / Path(str(file_i) + '.xml')
     out_f = current_file_path.open('w')
     tok_chars, untok_chars = {'\n', ' '}, set()
-    num_lines_processed_when_progress_was_reported_last_time = count_lines_in_file(file_path, 0, borders[0])
+    num_lines_processed_when_progress_was_reported_last_time = count_lines_in_file(file_path, 0, byte_borders[0])
     start_line, end_line = None, None
     with file_path.open() as in_f:
-        in_f.seek(borders[0])
+        in_f.seek(byte_borders[0])
         for i, line in enumerate(
-            file_line_generator(in_f, BUFFER_SIZE, borders[1] - borders[0]),
+            file_line_generator(in_f, BUFFER_SIZE, num_characters_in_part),
             num_lines_processed_when_progress_was_reported_last_time,
         ):
             if i % report_progress_every_n_lines == 0:
