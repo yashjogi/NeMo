@@ -1021,16 +1021,13 @@ def collect_info_about_preprocessed_data(document_dir, sequence_length_range):
     sentence_len_by_docs, doc_id_to_file_i = {}, {}
     for p in tqdm(document_dir.iterdir(), total=len(list(document_dir.iterdir()))):
         if is_int(p.stem) and p.suffixes == ['.xml']:
-            print("processing file")
             file_i = int(p.stem)
             docs = read_docs_from_file(p)
-            print(f"read {len(docs)} docs")
             for doc_id, doc in docs.items():
                 doc_id_to_file_i[doc_id] = file_i
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
                     doc['text'].splitlines(), sequence_length_range, [file_i, doc_id]
                 )
-                print("len(arrangement):", [len(v) for v in arrangement.values()])
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
                     sentences_by_number_of_words[k] += v
