@@ -605,6 +605,7 @@ def show_prog(q, total_num_lines, name):
             continue
         except Empty:
             continue
+    print("Finishing. prog.n:", prog.n)
 
 
 def preprocess_wikipedia_parallel(
@@ -1168,7 +1169,7 @@ def main():
                 result,
                 np.zeros([result.shape[0], 1], dtype=result.dtype),
                 np.vectorize(
-                    join_sentence_len, otypes=[result.dtype]
+                    join_sentence_len, otypes=[result.dtype], signature='(n)->()',
                 )(result[:, 1:], sentence_len_by_docs).expand_dims(1),
                 # np.full([result.shape[0], 1], -1, dtype=result.dtype),
             ],
