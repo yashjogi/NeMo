@@ -1022,6 +1022,8 @@ def collect_info_about_preprocessed_data(args):
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
                     doc['text'].splitlines(), sequence_length_range, [file_i, doc_id]
                 )
+                if doc_id == 2219:
+                    print("(collect_info_about_preprocessed_data)line_num_words:", line_num_words)
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
                     sentences_by_number_of_words[k] += v
