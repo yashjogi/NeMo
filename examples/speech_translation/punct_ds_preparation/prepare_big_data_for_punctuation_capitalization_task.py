@@ -1,13 +1,12 @@
 import html
 import logging
 import multiprocessing as mp
-import os
 import random
 import re
 from itertools import accumulate
 from pathlib import Path
 from queue import Empty
-from subprocess import PIPE, Popen, run
+from subprocess import run
 from time import sleep
 
 import numpy as np
@@ -467,14 +466,6 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     else:
         stripped = [sent.strip() for sent in text.split('\n')]
     return [sent for sent in stripped if sent], tok_chars, untok_chars
-
-
-def start_normalize_process(lang):
-    cwd = os.getcwd()
-    os.chdir(Path(__file__).parent)
-    normalize_process = Popen(['./normalize-punctuation.perl', '-l', lang], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-    os.chdir(cwd)
-    return normalize_process
 
 
 def count_in_blocks(files, size=BUFFER_SIZE, specific_to_count=None, num_characters=None):
@@ -948,16 +939,17 @@ def cut_and_save(segments, doc_dir, output_file):
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
             if len(text_seg) < 2:
-                print(
-                    "(cut_and_save)len(current_doc), s_i, segment, source text:",
-                    len(current_doc),
-                    s_i,
-                    segment,
-                    [len(s) for s in current_doc],
-                    ' '.join(current_doc[segment[2] : segment[3]])
-                )
-            if segment[3] > len(current_doc):
-                print("(cut_and_save)len(current_doc), s_i, segment:", len(current_doc), s_i, segment)
+                if segment[1] == 2219:
+                    print(
+                        "(cut_and_save)len(current_doc), s_i, segment, source text:",
+                        len(current_doc),
+                        s_i,
+                        segment,
+                        [len(s) for s in current_doc],
+                        ' '.join(current_doc[segment[2] : segment[3]])
+                    )
+            # if segment[3] > len(current_doc):
+            #     print("(cut_and_save)len(current_doc), s_i, segment:", len(current_doc), s_i, segment)
             f.write(text_seg)
             current_pos += len(text_seg)
 
@@ -1008,20 +1000,6 @@ def write_docs_to_file(docs, file_path):
     with file_path.open('w') as f:
         for k, v in docs.items():
             f.write(doc_to_str(k, v['source'], v["title"], v["start_line"], v["end_line"], v["text"]))
-
-
-def normalize_punctuation_in_all_documents(document_dir, output_idr, lang):
-    output_idr.mkdir(exist_ok=True, parents=True)
-    normalize_process = start_normalize_process(lang)
-    for p in tqdm(list(document_dir.iterdir())):
-        if is_int(p.stem) and p.suffixes == ['.xml']:
-            file_docs = read_docs_from_file(p)
-            outs, errs = normalize_process.communicate(
-                '\n\n\n'.join([doc['text'] for doc in file_docs.values()]).encode('utf-8')
-            )
-            for k, text in zip(file_docs, outs.decode('utf-8').split('\n\n\n')):
-                file_docs[k]["text"] = text
-            write_docs_to_file(file_docs, output_idr / p.name)
 
 
 def shuffle_file_lines(input_file, output_file):
@@ -1142,6 +1120,7 @@ def main():
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
     number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
+    print("sentence_len_by_docs[2219]:", sentence_len_by_docs[2219])
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
