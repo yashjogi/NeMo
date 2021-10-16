@@ -763,6 +763,7 @@ def create_not_whole_sentence_segments(
     print("(create_not_whole_sentence_segments)size before last check:", size)
     print("(create_not_whole_sentence_segments)number_of_words_stats before last check:",
           sum(number_of_words_stats.values()))
+    print("(create_not_whole_sentence_segments)len(result):", len(result))
     assert (
         len(result) == size - sum(number_of_words_stats.values()),
         f"len(result)={len(result)}, size={size}, "
