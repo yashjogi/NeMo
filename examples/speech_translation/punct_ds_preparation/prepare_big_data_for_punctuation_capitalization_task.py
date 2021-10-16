@@ -943,7 +943,7 @@ def cut_and_save(segments, doc_dir, output_file):
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
             if len(text_seg) < 2:
-                print("(cut_and_save)s_i, segment:", s_i, segment)
+                print("(cut_and_save)s_i, segment, source text:", s_i, segment, ' '.join(current_doc[segment[2] : segment[3]]))
             f.write(text_seg)
             current_pos += len(text_seg)
 
