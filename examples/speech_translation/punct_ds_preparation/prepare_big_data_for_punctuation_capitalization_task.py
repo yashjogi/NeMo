@@ -969,7 +969,11 @@ def read_docs_from_file(file_path):
                     )
                 curr_source, curr_title = start.group(2), start.group(3)
                 curr_doc_id, curr_start_line, curr_end_line = [int(start.group(i)) for i in [1, 4, 5]]
+                if curr_doc_id == 2219:
+                    print("start_line, end_line:", curr_start_line, curr_end_line)
             if line.startswith("</doc>"):
+                if curr_doc_id == 2219:
+                    print("First 40 characters of text:", repr(current_doc[:40]))
                 if curr_doc_id is None:
                     raise ValueError(
                         f"Encountered end of document on line {i} in file {file_path} while there is no document in "
@@ -1023,6 +1027,7 @@ def collect_info_about_preprocessed_data(args):
                     doc['text'].splitlines(), sequence_length_range, [file_i, doc_id]
                 )
                 if doc_id == 2219:
+                    print("(collect_info_about_preprocessed_data)p:", p)
                     print("(collect_info_about_preprocessed_data)line_num_words:", line_num_words)
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
