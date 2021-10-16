@@ -938,16 +938,16 @@ def cut_and_save(segments, doc_dir, output_file):
                 current_doc_id = doc_id
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
-            if len(text_seg) < 2:
-                if segment[1] == 2219:
-                    print(
-                        "(cut_and_save)len(current_doc), s_i, segment, source text:",
-                        len(current_doc),
-                        s_i,
-                        segment,
-                        [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in current_doc],
-                        ' '.join(current_doc[segment[2] : segment[3]])
-                    )
+            # if len(text_seg) < 2:
+            #     if segment[1] == 2219:
+            #         print(
+            #             "(cut_and_save)len(current_doc), s_i, segment, source text:",
+            #             len(current_doc),
+            #             s_i,
+            #             segment,
+            #             [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in current_doc],
+            #             ' '.join(current_doc[segment[2] : segment[3]])
+            #         )
             # if segment[3] > len(current_doc):
             #     print("(cut_and_save)len(current_doc), s_i, segment:", len(current_doc), s_i, segment)
             f.write(text_seg)
@@ -969,11 +969,7 @@ def read_docs_from_file(file_path):
                     )
                 curr_source, curr_title = start.group(2), start.group(3)
                 curr_doc_id, curr_start_line, curr_end_line = [int(start.group(i)) for i in [1, 4, 5]]
-                if curr_doc_id == 2219:
-                    print("start_line, end_line:", curr_start_line, curr_end_line)
             if line.startswith("</doc>"):
-                if curr_doc_id == 2219:
-                    print("First 40 characters of text:", repr(current_doc[:40]))
                 if curr_doc_id is None:
                     raise ValueError(
                         f"Encountered end of document on line {i} in file {file_path} while there is no document in "
@@ -988,7 +984,7 @@ def read_docs_from_file(file_path):
                 }
                 current_doc = ""
                 curr_doc_id = None
-            if curr_doc_id is not None:
+            if curr_doc_id is not None and start is None:
                 current_doc += line
     return docs
 
@@ -1026,9 +1022,6 @@ def collect_info_about_preprocessed_data(args):
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
                     doc['text'].splitlines(), sequence_length_range, [file_i, doc_id]
                 )
-                if doc_id == 2219:
-                    print("(collect_info_about_preprocessed_data)p:", p)
-                    print("(collect_info_about_preprocessed_data)line_num_words:", line_num_words)
                 sentence_len_by_docs[doc_id] = np.array(line_num_words)
                 for k, v in arrangement.items():
                     sentences_by_number_of_words[k] += v
@@ -1072,8 +1065,6 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
             sentences_by_number_of_words[k] += v
         sentence_len_by_docs.update(r[1])
         doc_id_to_file_i.update(r[2])
-    print("Document with id 472 is in `doc_id_to_file_i`:", 472 in doc_id_to_file_i)
-    print("Document with id 472 is in `sentence_len_by_docs`:", 472 in sentence_len_by_docs)
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
@@ -1127,7 +1118,6 @@ def main():
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
     number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
-    print("sentence_len_by_docs[2219]:", sentence_len_by_docs[2219])
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
@@ -1151,7 +1141,6 @@ def main():
             {k: len(v) for k, v in sentence_len_by_docs.items()},
             1,
         )
-        print("Document with id 472 is in `remaining_by_docs`:", 472 in remaining_by_docs)
         result = np.array(result)
         result = np.concatenate(
             [
