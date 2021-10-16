@@ -702,11 +702,16 @@ def calculate_how_many_remain_to_cut(number_of_words_stats, size, percentage_seg
 def create_not_whole_sentence_segments(
     sentence_len_by_docs, remaining_by_docs, number_of_words_stats, size, percentage_segments_with_intact_sentences
 ):
+    print("(create_not_whole_sentence_segments)size in the beginning:", size)
     result = []
     remaining_by_docs = deepcopy(remaining_by_docs)
     yet_to_cut_by_number_of_words = calculate_how_many_remain_to_cut(
         number_of_words_stats, size, percentage_segments_with_intact_sentences
     )
+    print("(create_not_whole_sentence_segments)number_of_words_stats before first check:",
+          sum(number_of_words_stats.values()))
+    print("(create_not_whole_sentence_segments)yet_to_cut_by_number_of_words before first check:",
+          sum(yet_to_cut_by_number_of_words.values()))
     assert (
         size == sum(number_of_words_stats.values()) + sum(yet_to_cut_by_number_of_words.values()),
         f"size={size},"
@@ -755,6 +760,9 @@ def create_not_whole_sentence_segments(
             if done:
                 break
         remaining_by_docs = {doc_id: set(range(len(doc))) for doc_id, doc in sentence_len_by_docs.items()}
+    print("(create_not_whole_sentence_segments)size before last check:", size)
+    print("(create_not_whole_sentence_segments)number_of_words_stats before last check:",
+          sum(number_of_words_stats.values()))
     assert (
         len(result) == size - sum(number_of_words_stats.values()),
         f"len(result)={len(result)}, size={size}, "
