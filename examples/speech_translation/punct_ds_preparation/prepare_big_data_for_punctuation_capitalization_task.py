@@ -952,6 +952,8 @@ def cut_and_save(segments, doc_dir, output_file):
                     [len(s) for s in current_doc],
                     ' '.join(current_doc[segment[2] : segment[3]])
                 )
+            if segment[3] > len(current_doc):
+                print("(cut_and_save)len(current_doc), s_i, segment:", len(current_doc), s_i, segment)
             f.write(text_seg)
             current_pos += len(text_seg)
 
@@ -1086,6 +1088,10 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
+def join_sentence_len(di_ss_se, sentence_len_by_docs):
+    return sum(sentence_len_by_docs[di_ss_se[0]][di_ss_se[1]: di_ss_se[2]])
+
+
 def main():
     args = small.get_args(
         SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True, add_resume_argument=True, add_num_jobs=True)
@@ -1161,7 +1167,10 @@ def main():
             [
                 result,
                 np.zeros([result.shape[0], 1], dtype=result.dtype),
-                np.full([result.shape[0], 1], -1, dtype=result.dtype),
+                np.vectorize(
+                    join_sentence_len, otypes=[result.dtype]
+                )(result[:, 1:], sentence_len_by_docs).expand_dims(1),
+                # np.full([result.shape[0], 1], -1, dtype=result.dtype),
             ],
             1,
         )
