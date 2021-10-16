@@ -712,12 +712,10 @@ def create_not_whole_sentence_segments(
           sum(number_of_words_stats.values()))
     print("(create_not_whole_sentence_segments)yet_to_cut_by_number_of_words before first check:",
           sum(yet_to_cut_by_number_of_words.values()))
-    assert (
-        size == sum(number_of_words_stats.values()) + sum(yet_to_cut_by_number_of_words.values()),
-        f"size={size},"
-        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())},"
-        f"sum(yet_to_cut_by_number_of_words.values())={sum(yet_to_cut_by_number_of_words.values())}",
-    )
+    assert size == sum(number_of_words_stats.values()) + sum(yet_to_cut_by_number_of_words.values()), \
+        f"size={size}," \
+        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}," \
+        f"sum(yet_to_cut_by_number_of_words.values())={sum(yet_to_cut_by_number_of_words.values())}"
     nw_i = 0
     done = not bool(yet_to_cut_by_number_of_words)
     while not done:
@@ -764,11 +762,9 @@ def create_not_whole_sentence_segments(
     print("(create_not_whole_sentence_segments)number_of_words_stats before last check:",
           sum(number_of_words_stats.values()))
     print("(create_not_whole_sentence_segments)len(result):", len(result))
-    assert (
-        len(result) == size - sum(number_of_words_stats.values()),
-        f"len(result)={len(result)}, size={size}, "
-        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}",
-    )
+    assert len(result) == size - sum(number_of_words_stats.values()), \
+        f"len(result)={len(result)}, size={size}, " \
+        f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}"
     return result
 
 
