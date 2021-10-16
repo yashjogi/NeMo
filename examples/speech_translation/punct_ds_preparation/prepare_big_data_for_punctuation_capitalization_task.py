@@ -1135,6 +1135,8 @@ def main():
             1,
         )
         result = np.array(result)
+        print("result.shape only with intact sentences:", result.shape)
+        print("Total number of words in `number_of_words_stats`:", sum(number_of_words_stats.values()))
         result = np.concatenate(
             [
                 result,
@@ -1166,6 +1168,7 @@ def main():
                 )
             ]
         )
+        print("result.shape after adding not whole sentences:", result.shape)
         result = result[np.argsort(result[:, 0])]  # sort by file index
         result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
         logging.info("Cutting segments...")
