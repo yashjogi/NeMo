@@ -945,7 +945,7 @@ def cut_and_save(segments, doc_dir, output_file):
                         len(current_doc),
                         s_i,
                         segment,
-                        [len(s) for s in current_doc],
+                        [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in current_doc],
                         ' '.join(current_doc[segment[2] : segment[3]])
                     )
             # if segment[3] > len(current_doc):
