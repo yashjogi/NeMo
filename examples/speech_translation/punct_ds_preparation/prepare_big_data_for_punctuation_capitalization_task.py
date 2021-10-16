@@ -865,6 +865,7 @@ def write_dataset(
     only_first_punctuation_character_after_word_in_autoregressive,
     no_label_if_all_characters_are_upper_case,
 ):
+    output_dir.mkdir(parents=True, exist_ok=True)
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
     with input_file.open() as in_f, \
@@ -1008,7 +1009,8 @@ def normalize_punctuation_in_all_documents(document_dir, output_idr, lang):
 
 
 def shuffle_file_lines(input_file, output_file):
-    run(['shuf', str(input_file), '>', str(output_file)], capture_output=False)
+    with output_file.open('w') as f:
+        run(['shuf', str(input_file)], stdout=f)
 
 
 def collect_info_about_preprocessed_data(args):
@@ -1069,8 +1071,8 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
             sentences_by_number_of_words[k] += v
         sentence_len_by_docs.update(r[1])
         doc_id_to_file_i.update(r[2])
-    print("File with id 472 is in `doc_id_to_file_i`:", 472 in doc_id_to_file_i)
-    print("File with id 472 is in `sentence_len_by_docs`:", 472 in sentence_len_by_docs)
+    print("Document with id 472 is in `doc_id_to_file_i`:", 472 in doc_id_to_file_i)
+    print("Document with id 472 is in `sentence_len_by_docs`:", 472 in sentence_len_by_docs)
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
 
 
@@ -1119,7 +1121,7 @@ def main():
         logging.info(f"Loading stats and info about dataset in directory '{document_dir}'...")
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
-    number_of_sentences_in_input = sum([len(e) for e in sentences_by_number_of_words.values()])
+    number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
@@ -1132,8 +1134,8 @@ def main():
         ):
             raise ValueError(
                 f"Cannot find enough segments consisting of whole sentences to build dataset with {args.size} segments "
-                f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole sentences. "
-                f"Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
+                f"and at least {args.percentage_segments_with_intact_sentences}% segments consisting of whole "
+                f"sentences. Try to reduce dataset size of parameter `--percentage_segments_with_intact_sentences"
             )
         logging.info(f"Selecting segments with intact sentences...")
         result, number_of_words_stats, remaining_by_docs = small.select_close_to_uniform_distribution(
@@ -1143,6 +1145,7 @@ def main():
             {k: len(v) for k, v in sentence_len_by_docs.items()},
             1,
         )
+        print("Document with id 472 is in `remaining_by_docs`:", 472 in remaining_by_docs)
         result = np.array(result)
         result = np.concatenate(
             [
@@ -1184,7 +1187,7 @@ def main():
         logging.info("Writing test dataset...")
         write_dataset(
             [0, args.test_size],
-            sorted_text_file,
+            shuffled_text_file,
             args.output_dir / Path("test"),
             args.create_model_input,
             args.bert_labels,
