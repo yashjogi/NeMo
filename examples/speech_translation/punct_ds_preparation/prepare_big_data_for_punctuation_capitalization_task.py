@@ -938,18 +938,6 @@ def cut_and_save(segments, doc_dir, output_file):
                 current_doc_id = doc_id
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
-            # if len(text_seg) < 2:
-            #     if segment[1] == 2219:
-            #         print(
-            #             "(cut_and_save)len(current_doc), s_i, segment, source text:",
-            #             len(current_doc),
-            #             s_i,
-            #             segment,
-            #             [len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(sent)) for sent in current_doc],
-            #             ' '.join(current_doc[segment[2] : segment[3]])
-            #         )
-            # if segment[3] > len(current_doc):
-            #     print("(cut_and_save)len(current_doc), s_i, segment:", len(current_doc), s_i, segment)
             f.write(text_seg)
             current_pos += len(text_seg)
 
@@ -1060,9 +1048,13 @@ def collect_info_about_preprocessed_data_parallel(document_dir, sequence_length_
         logging.info("Stopping tqdm process...")
         progress_queue.put(-1)
         progress_process.join()
+    found_documents = set()
     for r in result:
         for k, v in r[0].items():
             sentences_by_number_of_words[k] += v
+        new_doc_ids = set(r[1])
+        if found_documents & new_doc_ids:
+            raise ValueError(f"Found duplicate documents with ids {found_documents & new_doc_ids}")
         sentence_len_by_docs.update(r[1])
         doc_id_to_file_i.update(r[2])
     return sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i
@@ -1118,6 +1110,7 @@ def main():
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
     number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
+    print("number_of_sentences_in_input:", number_of_sentences_in_input)
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
@@ -1152,7 +1145,6 @@ def main():
                     )(result[:, 1:], sentence_len_by_docs),
                     1,
                 ),
-                # np.full([result.shape[0], 1], -1, dtype=result.dtype),
             ],
             1,
         )
@@ -1182,7 +1174,6 @@ def main():
     if args.resume_from is None or args.resume_from in ["normalization", "cutting", "shuffling"]:
         logging.info("shuffling segments...")
         shuffle_file_lines(sorted_text_file, shuffled_text_file)
-    # order = np.random.permutation(result.shape[0])
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
