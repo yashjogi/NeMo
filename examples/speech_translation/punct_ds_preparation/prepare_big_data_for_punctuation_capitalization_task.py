@@ -8,6 +8,7 @@ from itertools import accumulate
 from pathlib import Path
 from queue import Empty
 from subprocess import PIPE, Popen, run
+from time import sleep
 
 import numpy as np
 from tqdm import tqdm
@@ -596,6 +597,7 @@ def show_prog(q, total_num_lines, name):
             to_add = q.get(timeout=1)
             if to_add < 0:
                 print("Interruption. prog.n:", prog.n)
+                sleep(0.001)
                 return
             prog.n += to_add
             prog.update(0)
@@ -605,6 +607,7 @@ def show_prog(q, total_num_lines, name):
             continue
         except Empty:
             continue
+        sleep(0.001)
     print("Finishing. prog.n:", prog.n)
 
 
@@ -1170,7 +1173,7 @@ def main():
                 np.zeros([result.shape[0], 1], dtype=result.dtype),
                 np.vectorize(
                     join_sentence_len, otypes=[result.dtype], signature='(n),()->()',
-                )(result[:, 1:], sentence_len_by_docs).expand_dims(1),
+                )(result[:, 1:], sentence_len_by_docs).expand_dim(1),
                 # np.full([result.shape[0], 1], -1, dtype=result.dtype),
             ],
             1,
