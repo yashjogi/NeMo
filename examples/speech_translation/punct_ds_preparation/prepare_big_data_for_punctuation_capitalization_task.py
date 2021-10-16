@@ -607,7 +607,7 @@ def show_prog(q, total_num_lines, name):
             continue
         except Empty:
             continue
-        sleep(0.001)
+    sleep(0.001)
     print("Finishing. prog.n:", prog.n)
 
 
@@ -1171,9 +1171,12 @@ def main():
             [
                 result,
                 np.zeros([result.shape[0], 1], dtype=result.dtype),
-                np.vectorize(
-                    join_sentence_len, otypes=[result.dtype], signature='(n),()->()',
-                )(result[:, 1:], sentence_len_by_docs).expand_dim(1),
+                np.expand_dims(
+                    np.vectorize(
+                        join_sentence_len, otypes=[result.dtype], signature='(n),()->()',
+                    )(result[:, 1:], sentence_len_by_docs),
+                    1,
+                ),
                 # np.full([result.shape[0], 1], -1, dtype=result.dtype),
             ],
             1,
