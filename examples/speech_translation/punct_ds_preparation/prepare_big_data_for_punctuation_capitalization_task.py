@@ -810,6 +810,7 @@ def preprocess_wikipedia(args):
 
 
 def prepend_file_i(not_whole_segments, doc_id_to_file_i):
+    print("not_whole_segments.shape:", not_whole_segments.shape)
     return np.concatenate(
         [
             np.expand_dims(
@@ -870,8 +871,14 @@ def write_dataset(
             bert_fn.open('w', buffering=BUFFER_SIZE) as bf, \
             ar_fn.open('w', buffering=BUFFER_SIZE) as af:
         move_to_line(in_f, borders[0])
-        for _ in tqdm(range(borders[1] - borders[0])):
+        for l_i in tqdm(range(borders[1] - borders[0])):
             line = in_f.readline().strip()
+            if not line:
+                raise ValueError(
+                    f"Line number {l_i} in file {input_file} is empty, where as all lines in file for cutting has "
+                    f"to be not empty. You have to either check second element in `borders` parameter or check "
+                    f"creation of {input_file}."
+                )
             tf.write(line + '\n')
             line = [s for s in small.WORD.split(line) if s]
             if create_model_input:
@@ -1151,6 +1158,7 @@ def main():
             1,
         )
         logging.info("Selecting segments with not intact sentences...")
+        print("args.size before creating not whole segments:", args.size)
         result = np.concatenate(
             [
                 result,
