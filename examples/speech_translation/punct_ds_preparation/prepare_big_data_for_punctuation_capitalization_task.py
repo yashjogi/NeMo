@@ -864,11 +864,11 @@ def write_dataset(
     output_dir.mkdir(parents=True, exist_ok=True)
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
-    with input_file.open() as in_f, \
-            text_fn.open('w') as tf, \
-            input_fn.open('w') as inp_f, \
-            bert_fn.open('w') as bf, \
-            ar_fn.open('w') as af:
+    with input_file.open(buffering=BUFFER_SIZE) as in_f, \
+            text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
+            input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
+            bert_fn.open('w', buffering=BUFFER_SIZE) as bf, \
+            ar_fn.open('w', buffering=BUFFER_SIZE) as af:
         move_to_line(in_f, borders[0])
         for _ in tqdm(range(borders[1] - borders[0])):
             line = in_f.readline().strip()
@@ -910,7 +910,7 @@ def cut_and_save(segments, doc_dir, output_file):
     current_doc_id = -1
     line_i = 0
     with output_file.open('w') as f:
-        for s_i, segment in tqdm(enumerate(segments)):
+        for s_i, segment in tqdm(enumerate(segments), total=len(segments)):
             file_i = segment[0]
             doc_id = segment[1]
             if current_doc_id > doc_id:
