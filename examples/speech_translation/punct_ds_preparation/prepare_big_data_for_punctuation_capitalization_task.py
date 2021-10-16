@@ -914,7 +914,7 @@ def cut_and_save(segments, doc_dir, output_file):
     current_doc_id = -1
     line_i = 0
     with output_file.open('w') as f:
-        for segment in tqdm(segments):
+        for s_i, segment in tqdm(enumerate(segments)):
             file_i = segment[0]
             doc_id = segment[1]
             if current_doc_id > doc_id:
@@ -942,6 +942,8 @@ def cut_and_save(segments, doc_dir, output_file):
                 current_doc_id = doc_id
                 line_i += len(current_doc)
             text_seg = small.cut_words(' '.join(current_doc[segment[2] : segment[3]]), segment[4], segment[5]) + '\n'
+            if len(text_seg) < 2:
+                print("(cut_and_save)s_i, segment:", s_i, segment)
             f.write(text_seg)
             current_pos += len(text_seg)
 
@@ -1200,7 +1202,7 @@ def main():
         logging.info("Writing dev dataset...")
         write_dataset(
             [args.test_size, args.test_size + args.dev_size],
-            sorted_text_file,
+            shuffled_text_file,
             args.output_dir / Path("dev"),
             args.create_model_input,
             args.bert_labels,
@@ -1212,7 +1214,7 @@ def main():
     logging.info("Writing train dataset...")
     write_dataset(
         [args.test_size + args.dev_size, args.size],
-        sorted_text_file,
+        shuffled_text_file,
         args.output_dir / Path("train"),
         args.create_model_input,
         args.bert_labels,
