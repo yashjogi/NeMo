@@ -619,8 +619,10 @@ def arrange_sentences_by_number_of_words_in_1_doc(doc, sequence_length_range, va
     for start_sentence_i, sentence in enumerate(doc):
         for end_sentence_i in range(start_sentence_i + 1, len(doc) + 1):
             n_words = sum(lengths[start_sentence_i : end_sentence_i])
-            if n_words >= sequence_length_range[1] or n_words < sequence_length_range[0]:
+            if n_words >= sequence_length_range[1]:
                 break
+            elif n_words < sequence_length_range[0]:
+                continue
             result[n_words].append(values_to_prepend + [start_sentence_i, end_sentence_i])
     return result, lengths
 
