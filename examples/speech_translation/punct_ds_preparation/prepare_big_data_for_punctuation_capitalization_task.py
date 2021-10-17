@@ -1118,7 +1118,7 @@ def main():
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
     for k, v in sentences_by_number_of_words.items():
         for e in v:
-            if v[0] == 0 and v[1] == 259:
+            if v[0] == 0 and v[1] == 260:
                 print(f"length={k} segment={e}")
     number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
     if args.size is None:
