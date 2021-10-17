@@ -332,8 +332,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         not_pad_mask = ~pad_mask
         not_enough_words = num_generated_words.lt(tgt_num_words)
         enough_words = ~not_enough_words
-        assert (
-            torch.all(not_pad_mask[not_enough_words])
+        assert torch.all(
+            not_pad_mask[not_enough_words]
         ), (
             f"Pad mask includes results which do not have enough words. "
             f"not_pad_mask: {not_pad_mask}, not_enough_words: {not_enough_words}"
