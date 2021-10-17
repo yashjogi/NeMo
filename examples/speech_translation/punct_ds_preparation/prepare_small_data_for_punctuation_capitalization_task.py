@@ -682,8 +682,10 @@ def select_close_to_uniform_distribution(
 
 
 def calculate_how_many_remain_to_cut(number_of_words_stats, size, percentage_segments_with_intact_sentences):
+    num_ready = sum(number_of_words_stats.values())
     if percentage_segments_with_intact_sentences > 0:
-        factor = (100 - percentage_segments_with_intact_sentences) / percentage_segments_with_intact_sentences
+        #factor = (100 - percentage_segments_with_intact_sentences) / percentage_segments_with_intact_sentences
+        factor = (size - num_ready) / num_ready
         result = {k: ceil(v * factor) for k, v in number_of_words_stats.items()}
     else:
         n = ceil(size / len(number_of_words_stats))
