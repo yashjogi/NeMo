@@ -675,6 +675,8 @@ def select_close_to_uniform_distribution(
             if doc_id not in remaining_by_docs:
                 remaining_by_docs[doc_id] = set()
             remaining_by_docs[doc_id].difference_update(range(start_i, end_i))
+    for len_, n in number_of_words_stats:
+        print(len_, n, len(sentences_by_number_of_words[len_]))
     return result, dict(sorted(number_of_words_stats)), remaining_by_docs
 
 
