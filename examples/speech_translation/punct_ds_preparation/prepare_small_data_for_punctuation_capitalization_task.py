@@ -659,12 +659,13 @@ def select_close_to_uniform_distribution(
             # Readjust planned number of segments for remaining sentences lengths taking into account that for current
             # length there will be less sentences
             planned_number_of_segments -= len(tmp) * int(100 / percentage_of_segments_with_intact_sentences)
-            min_number_of_sentences_for_sentence_len = ceil(
-                planned_number_of_segments
-                / (len(sentences_by_number_of_words) - i)
-                / 100
-                * percentage_of_segments_with_intact_sentences
-            )
+            if i < len(sentences_by_number_of_words) - 1:
+                min_number_of_sentences_for_sentence_len = ceil(
+                    planned_number_of_segments
+                    / (len(sentences_by_number_of_words) - i - 1)
+                    / 100
+                    * percentage_of_segments_with_intact_sentences
+                )
         else:
             tmp = random.sample(sentences_by_number_of_words[len_], min_number_of_sentences_for_sentence_len)
         result += tmp
