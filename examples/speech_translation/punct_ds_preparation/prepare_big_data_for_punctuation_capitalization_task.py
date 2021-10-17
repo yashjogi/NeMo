@@ -1116,8 +1116,11 @@ def main():
         logging.info(f"Loading stats and info about dataset in directory '{document_dir}'...")
         sentences_by_number_of_words, sentence_len_by_docs, doc_id_to_file_i = \
             collect_info_about_preprocessed_data_parallel(document_dir, args.sequence_length_range, args.num_jobs)
+    for k, v in sentences_by_number_of_words.items():
+        for e in v:
+            if v[0] == 0 and v[1] == 259:
+                print(f"length={k} segment={e}")
     number_of_sentences_in_input = sum([len(e) for e in sentence_len_by_docs.values()])
-    print("number_of_sentences_in_input:", number_of_sentences_in_input)
     if args.size is None:
         args.size = number_of_sentences_in_input
         if args.dev_size > args.size:
@@ -1142,8 +1145,6 @@ def main():
             1,
         )
         result = np.array(result)
-        print("result.shape only with intact sentences:", result.shape)
-        print("Total number of words in `number_of_words_stats`:", sum(number_of_words_stats.values()))
         result = np.concatenate(
             [
                 result,
@@ -1158,7 +1159,6 @@ def main():
             1,
         )
         logging.info("Selecting segments with not intact sentences...")
-        print("args.size before creating not whole segments:", args.size)
         result = np.concatenate(
             [
                 result,
@@ -1176,7 +1176,6 @@ def main():
                 )
             ]
         )
-        print("result.shape after adding not whole sentences:", result.shape)
         result = result[np.argsort(result[:, 0])]  # sort by file index
         result = result[np.argsort(result[:, 1], kind='stable')]  # sort by document index
         logging.info("Cutting segments...")
