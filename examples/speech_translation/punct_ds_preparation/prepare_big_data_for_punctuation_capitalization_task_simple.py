@@ -599,7 +599,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
-        big.write_dataset_sub(
+        big.write_dataset(
             [0, args.test_size],
             shuffled_text_file,
             args.output_dir / Path("test"),
@@ -612,7 +612,7 @@ def main():
         )
     if args.dev_size > 0:
         logging.info("Writing dev dataset...")
-        big.write_dataset_sub(
+        big.write_dataset(
             [args.test_size, args.test_size + args.dev_size],
             shuffled_text_file,
             args.output_dir / Path("dev"),
@@ -624,7 +624,7 @@ def main():
             args.no_label_if_all_characters_are_upper_case,
         )
     logging.info("Writing train dataset...")
-    big.write_dataset_sub(
+    big.write_dataset(
         [args.test_size + args.dev_size, args.size],
         shuffled_text_file,
         args.output_dir / Path("train"),
@@ -635,7 +635,6 @@ def main():
         args.only_first_punctuation_character_after_word_in_autoregressive,
         args.no_label_if_all_characters_are_upper_case,
     )
-    logging.info("Finished creating training dataset...")
 
 
 def get_args(
