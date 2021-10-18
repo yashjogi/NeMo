@@ -907,17 +907,17 @@ def write_dataset_fast(
                     if punctuation:
                         if punctuation[0] in allowed_punctuation:
                             autoregressive_text += punctuation[0]
-                        autoregressive_labels += '\n' if '\n' in punctuation else ' '
+                        autoregressive_text += '\n' if '\n' in punctuation else ' '
                     else:
-                        autoregressive_labels += ' '
+                        autoregressive_text += ' '
                 else:
-                    autoregressive_labels += punctuation
-    autoregressive_labels = autoregressive_labels.rstrip(' ')
+                    autoregressive_text += punctuation
+    autoregressive_text = autoregressive_text.rstrip(' ')
     if not only_first_punctuation_character_after_word_in_autoregressive:
         wrong_characters = re.compile('[^' + ''.join(allowed_punctuation + set(' \nUOu')) + ']+')
-        autoregressive_labels = wrong_characters.sub('', autoregressive_labels)
+        autoregressive_text = wrong_characters.sub('', autoregressive_text)
     with ar_fn.open('w') as af:
-        af.write(autoregressive_labels)
+        af.write(autoregressive_text)
 
 
 def write_dataset(

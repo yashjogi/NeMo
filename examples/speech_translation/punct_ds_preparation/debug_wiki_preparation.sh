@@ -10,4 +10,4 @@ python prepare_big_data_for_punctuation_capitalization_task_simple.py \
   --input_files ~/data/small_enwiki.txt \
   -n \
   --num_jobs 23 \
-  --resume_from cutting
+  --resume_from writing
