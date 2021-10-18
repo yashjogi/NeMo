@@ -855,6 +855,71 @@ def move_to_line(fd, line_i, read_size=65536):
     return True
 
 
+def get_capitalization_label(word, no_label_if_all_characters_are_upper_case):
+    if no_label_if_all_characters_are_upper_case:
+        if word[0].isupper():
+            return 'U'
+    else:
+        if len(word) > 1 and word.isupper():
+            return 'U'
+        if word[0].isupper():
+            return 'u'
+    return 'O'
+
+
+def write_dataset_fast(
+    borders,
+    input_file,
+    output_dir,
+    create_model_input,
+    bert_labels,
+    autoregressive_labels,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word_in_autoregressive,
+    no_label_if_all_characters_are_upper_case,
+):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
+    bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
+    autoregressive_text = ""
+    input_text = ""
+    with input_file.open(buffering=BUFFER_SIZE) as in_f:
+        move_to_line(in_f, borders[0])
+        for l_i in tqdm(range(borders[1] - borders[0])):
+            input_text += in_f.readline()
+    with text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
+            input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
+            bert_fn.open('w', buffering=BUFFER_SIZE) as bf:
+        for m in small.WORD_WITH_FOLLOWING_PUNCTUATION.finditer(input_text):
+            tf.write(m.group(0))
+            word, punctuation = m.group(1), m.group(2)
+            punctuation = m.group(2)
+            if create_model_input:
+                inp_f.write(word + ('\n' if '\n' in punctuation else ' '))
+            if bert_labels:
+                lbl = get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
+                lbl += punctuation[0] if punctuation and punctuation[0] in allowed_punctuation else 'O'
+                lbl += '\n' if '\n' in punctuation else ' '
+                bf.write(lbl)
+            if autoregressive_labels:
+                autoregressive_text += get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
+                if only_first_punctuation_character_after_word_in_autoregressive:
+                    if punctuation:
+                        if punctuation[0] in allowed_punctuation:
+                            autoregressive_text += punctuation[0]
+                        autoregressive_labels += '\n' if '\n' in punctuation else ' '
+                    else:
+                        autoregressive_labels += ' '
+                else:
+                    autoregressive_labels += punctuation
+    autoregressive_labels = autoregressive_labels.rstrip(' ')
+    if not only_first_punctuation_character_after_word_in_autoregressive:
+        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation + set(' \nUOu')) + ']+')
+        autoregressive_labels = wrong_characters.sub('', autoregressive_labels)
+    with ar_fn.open('w') as af:
+        af.write(autoregressive_labels)
+
+
 def write_dataset(
     borders,
     input_file,

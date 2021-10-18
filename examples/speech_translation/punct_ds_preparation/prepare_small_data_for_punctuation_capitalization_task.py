@@ -31,6 +31,7 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
 # For splitting text into words and punctuation
 WORD = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
+WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)(\W*)")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
 SPACE_DUP = re.compile(r" {2,}")
@@ -862,8 +863,8 @@ def create_autoregressive_labels(
                     if c in allowed_punctuation | {' '}:
                         labels += c
                         num_added += 1
-                if num_added == 0:
-                    labels += ' '
+                # if num_added == 0:
+                #     labels += ' '
     labels = SPACE_DUP.sub(' ', labels)
     if no_label_if_all_characters_are_upper_case:
         labels = labels.replace('u', 'U')
