@@ -904,7 +904,7 @@ def write_dataset_sub(
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
         return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
-            + (p[c_i] if p and p[c_i] in allowed_punctuation else 'O') \
+            + (p[c_i] if p and c_i < len(p) else 'O') \
             + ('\n' if '\n' in p else ' ')
 
     def bert_repl2(match):
@@ -914,7 +914,7 @@ def write_dataset_sub(
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
         return ('U' if match.group(1)[0].isupper() else 'O') \
-            + (p[c_i] if p and p[c_i] in allowed_punctuation else 'O') \
+            + (p[c_i] if p and c_i < len(p) else 'O') \
             + ('\n' if '\n' in p else ' ')
 
     def autoregressive_repl1(match):
@@ -925,7 +925,7 @@ def write_dataset_sub(
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
         return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
-            + (p[c_i] if p and p[c_i] in allowed_punctuation else '') \
+            + (p[c_i] if p and c_i < len(p) else '') \
             + ('\n' if '\n' in p else ' ') if p else ' '
 
     def autoregressive_repl2(match):
@@ -935,7 +935,7 @@ def write_dataset_sub(
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
         return ('U' if match.group(1)[0].isupper() else 'O') \
-            + (p[c_i] if p and p[c_i] in allowed_punctuation else '') \
+            + (p[c_i] if p and c_i < len(p) else '') \
             + ('\n' if '\n' in p else ' ') if p else ' '
 
     def model_input_repl(match):
@@ -1009,7 +1009,7 @@ def write_dataset_fast(
                         c_i = 0
                         while c_i < len(punctuation) and punctuation[c_i] not in allowed_punctuation:
                             c_i += 1
-                        if punctuation[c_i] in allowed_punctuation:
+                        if c_i < len(punctuation):
                             autoregressive_text += punctuation[c_i]
                         autoregressive_text += '\n' if '\n' in punctuation else ' '
                     else:

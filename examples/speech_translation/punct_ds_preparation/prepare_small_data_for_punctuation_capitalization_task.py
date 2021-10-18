@@ -829,7 +829,7 @@ def create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are
             c_i = 0
             while c_i < len(line[w_i + 1]) and line[w_i + 1][c_i] not in allowed_punctuation:
                 c_i += 1
-            labels += line[w_i + 1][c_i] if w_i < len(line) - 1 and line[w_i + 1][c_i] in allowed_punctuation else 'O'
+            labels += line[w_i + 1][c_i] if w_i < len(line) - 1 and c_i < len(line[w_i + 1]) else 'O'
             labels += ' '
     return labels.rstrip(' ')
 
