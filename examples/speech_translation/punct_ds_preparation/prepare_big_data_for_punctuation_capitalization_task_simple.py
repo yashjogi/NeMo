@@ -511,7 +511,6 @@ def get_how_many_segments_to_cut_by_files(files, size):
 
 def estimate_number_of_segments(rank, progress_queue, files, sequence_length_range):
     num_words = 0
-    logging.info("Estimating number of segments in the resulting dataset...")
     for file_path in files:
         with file_path.open() as f:
             text = f.read()
@@ -526,7 +525,7 @@ def estimate_number_of_segments(rank, progress_queue, files, sequence_length_ran
 
 def count_total_number_of_characters(files):
     num_characters = 0
-    logging.info("Estimating number of segments in files...")
+    logging.info("Estimating number of characters in files...")
     for file_path in tqdm(files, unit='file'):
         with file_path.open() as f:
             num_characters += len(f.read())
@@ -534,6 +533,7 @@ def count_total_number_of_characters(files):
 
 
 def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs):
+    logging.info("Estimating number of segments in the resulting dataset...")
     num_jobs = min(num_jobs, len(files))
     num_files_per_job = len(files) // num_jobs
     distributed_files = (
@@ -644,6 +644,7 @@ def main():
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
         logging.info("shuffling segments...")
         shuffle_file_lines(sorted_text_file, shuffled_text_file)
+    args.size = count_lines_in_file(sorted_text_file)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
