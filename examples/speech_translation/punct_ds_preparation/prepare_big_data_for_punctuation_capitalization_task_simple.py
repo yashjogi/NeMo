@@ -756,7 +756,6 @@ def get_args(
             f"{len(args.corpus_types)} of corpus types {args.corpus_types}."
         )
     args.output_dir = args.output_dir.expanduser()
-    args.clean_data_dir = args.clean_data_dir.expanduser()
     if args.allowed_punctuation - small.SUPPORTED_BERT_PUNCTUATION:
         logging.warning(
             f"Punctuation marks {args.allowed_punctuation - small.SUPPORTED_BERT_PUNCTUATION} are not allowed for BERT "
