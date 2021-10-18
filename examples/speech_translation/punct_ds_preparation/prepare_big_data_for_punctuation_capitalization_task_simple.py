@@ -23,6 +23,7 @@ random.seed(42)
 
 
 FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(r'^[^\w]+')
+WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)(\W*)")
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -380,55 +381,55 @@ def move_to_line(fd, line_i, read_size=65536):
         i += 1
     fd.seek(num_blocks * read_size + j)
     return True
-
-
-def write_dataset(
-    borders,
-    input_file,
-    output_dir,
-    create_model_input,
-    bert_labels,
-    autoregressive_labels,
-    allowed_punctuation,
-    only_first_punctuation_character_after_word_in_autoregressive,
-    no_label_if_all_characters_are_upper_case,
-):
-    output_dir.mkdir(parents=True, exist_ok=True)
-    text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
-    bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
-    with input_file.open(buffering=BUFFER_SIZE) as in_f, \
-            text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
-            input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
-            bert_fn.open('w', buffering=BUFFER_SIZE) as bf, \
-            ar_fn.open('w', buffering=BUFFER_SIZE) as af:
-        move_to_line(in_f, borders[0])
-        for l_i in tqdm(range(borders[1] - borders[0])):
-            line = in_f.readline().strip()
-            if not line:
-                raise ValueError(
-                    f"Line number {l_i} in file {input_file} is empty, where as all lines in file for cutting has "
-                    f"to be not empty. You have to either check second element in `borders` parameter or check "
-                    f"creation of {input_file}."
-                )
-            tf.write(line + '\n')
-            line = [s for s in small.WORD.split(line) if s]
-            if create_model_input:
-                inp_f.write(' '.join([s.lower() for s in line if small.WORD.match(s)]) + '\n')
-            if bert_labels:
-                bf.write(
-                    small.create_bert_labels(
-                        line, allowed_punctuation, no_label_if_all_characters_are_upper_case
-                    ) + '\n'
-                )
-            if autoregressive_labels:
-                af.write(
-                    small.create_autoregressive_labels(
-                        line,
-                        allowed_punctuation,
-                        only_first_punctuation_character_after_word_in_autoregressive,
-                        no_label_if_all_characters_are_upper_case,
-                    ) + '\n'
-                )
+#
+#
+# def write_dataset(
+#     borders,
+#     input_file,
+#     output_dir,
+#     create_model_input,
+#     bert_labels,
+#     autoregressive_labels,
+#     allowed_punctuation,
+#     only_first_punctuation_character_after_word_in_autoregressive,
+#     no_label_if_all_characters_are_upper_case,
+# ):
+#     output_dir.mkdir(parents=True, exist_ok=True)
+#     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
+#     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
+#     with input_file.open(buffering=BUFFER_SIZE) as in_f, \
+#             text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
+#             input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
+#             bert_fn.open('w', buffering=BUFFER_SIZE) as bf, \
+#             ar_fn.open('w', buffering=BUFFER_SIZE) as af:
+#         move_to_line(in_f, borders[0])
+#         for l_i in tqdm(range(borders[1] - borders[0])):
+#             line = in_f.readline().strip()
+#             if not line:
+#                 raise ValueError(
+#                     f"Line number {l_i} in file {input_file} is empty, where as all lines in file for cutting has "
+#                     f"to be not empty. You have to either check second element in `borders` parameter or check "
+#                     f"creation of {input_file}."
+#                 )
+#             tf.write(line + '\n')
+#             line = [s for s in small.WORD.split(line) if s]
+#             if create_model_input:
+#                 inp_f.write(' '.join([s.lower() for s in line if small.WORD.match(s)]) + '\n')
+#             if bert_labels:
+#                 bf.write(
+#                     small.create_bert_labels(
+#                         line, allowed_punctuation, no_label_if_all_characters_are_upper_case
+#                     ) + '\n'
+#                 )
+#             if autoregressive_labels:
+#                 af.write(
+#                     small.create_autoregressive_labels(
+#                         line,
+#                         allowed_punctuation,
+#                         only_first_punctuation_character_after_word_in_autoregressive,
+#                         no_label_if_all_characters_are_upper_case,
+#                     ) + '\n'
+#                 )
 
 
 def read_doc(fd):
@@ -648,7 +649,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
-        write_dataset(
+        big.write_dataset(
             [0, args.test_size],
             shuffled_text_file,
             args.output_dir / Path("test"),
@@ -661,7 +662,7 @@ def main():
         )
     if args.dev_size > 0:
         logging.info("Writing dev dataset...")
-        write_dataset(
+        big.write_dataset(
             [args.test_size, args.test_size + args.dev_size],
             shuffled_text_file,
             args.output_dir / Path("dev"),
@@ -673,7 +674,7 @@ def main():
             args.no_label_if_all_characters_are_upper_case,
         )
     logging.info("Writing train dataset...")
-    write_dataset(
+    big.write_dataset(
         [args.test_size + args.dev_size, args.size],
         shuffled_text_file,
         args.output_dir / Path("train"),
