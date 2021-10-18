@@ -999,7 +999,16 @@ def write_dataset_fast(
                 inp_f.write(word + ('\n' if '\n' in punctuation else ' '))
             if bert_labels:
                 lbl = get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
-                lbl += punctuation[0] if punctuation and punctuation[0] in allowed_punctuation else 'O'
+                if punctuation:
+                    c_i = 0
+                    while c_i < len(punctuation) and punctuation[c_i] not in allowed_punctuation:
+                        c_i += 1
+                    if c_i < len(punctuation):
+                        lbl += punctuation[c_i]
+                    else:
+                        lbl += 'O'
+                else:
+                    lbl += 'O'
                 lbl += '\n' if '\n' in punctuation else ' '
                 bf.write(lbl)
             if autoregressive_labels:
