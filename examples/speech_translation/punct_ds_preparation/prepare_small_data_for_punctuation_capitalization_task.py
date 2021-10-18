@@ -7,6 +7,7 @@ import string
 import subprocess
 from copy import deepcopy
 from io import StringIO
+from itertools import chain
 from math import ceil
 from pathlib import Path
 
@@ -28,8 +29,8 @@ WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua8
     '\uffe5\uffe6' \
     + ''.join(
         [
-            chr(i) for i in sum(
-                [list(r) for r in [range(0x0a2, 0x0a6), range(0x20a1, 0x20c0), range(0x11fdd, 0x11fe1)]]
+            chr(i) for i in chain(
+                *[list(r) for r in [range(0x0a2, 0x0a6), range(0x20a1, 0x20c0), range(0x11fdd, 0x11fe1)]]
             )
         ]
     )
