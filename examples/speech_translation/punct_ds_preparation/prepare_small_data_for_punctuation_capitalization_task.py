@@ -32,7 +32,7 @@ WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)
 # For splitting text into words and punctuation
 WORD = re.compile("(\\w+'\\w+|\\w+(?:[./]\\w+)*|(?:(?<=[ \n\"()])-|^-)\\d+(?:\\.\\d+)*|\\d+(?:[.,]\\d+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    "(\\w+(?:[./']\\w+)*|\\b-?\\d+(?:[.,]\\d+)*)([\\W]*(?!\\d)|-(?=-)|[\\W]*[^ \n\"()]-)"
+    "(\\w+(?:[./']\\w+)*|\\b-?\\d+(?:[.,]\\d+)*)([\\W]*(?!\\d)|[^\\w-]*|-\\W*|[\\W]*[^ \n\"()]-)"
 )
 PUNCTUATION = re.compile(r"\W+")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")

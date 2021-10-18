@@ -108,7 +108,7 @@ NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 GOOD_LINE_START = re.compile(r'[\w"]')
 SUSPICIOUS_LINE = re.compile(
-    r'^[^\w"]|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$' + "| '", flags=re.MULTILINE
+    r'^[^\w"]|http:/|www.\w|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$' + "| '", flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
 LONG_HYPHEN = re.compile(r'—')
@@ -1027,7 +1027,7 @@ def write_dataset_fast(
                     autoregressive_text += punctuation
     autoregressive_text = autoregressive_text.rstrip(' ')
     if not only_first_punctuation_character_after_word_in_autoregressive:
-        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu')) + ']+')
+        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu/.,')) + ']+')
         autoregressive_text = wrong_characters.sub('', autoregressive_text)
     with ar_fn.open('w') as af:
         af.write(autoregressive_text)
