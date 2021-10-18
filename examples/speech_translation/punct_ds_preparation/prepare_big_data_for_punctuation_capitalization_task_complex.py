@@ -928,7 +928,7 @@ def write_dataset_sub(
     if create_model_input:
         with input_fn.open('w') as inp_f:
             inp_f.write(small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(model_input_repl, original_text))
-    wrong_characters = re.compile('[^' + ''.join(allowed_punctuation + set(' \nUOu')) + ']+')
+    wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu')) + ']+')
     if bert_labels:
         with bert_fn.open('w') as bf:
             repl = bert_repl2 if no_label_if_all_characters_are_upper_case else bert_repl1
@@ -1002,7 +1002,7 @@ def write_dataset_fast(
                     autoregressive_text += punctuation
     autoregressive_text = autoregressive_text.rstrip(' ')
     if not only_first_punctuation_character_after_word_in_autoregressive:
-        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation + set(' \nUOu')) + ']+')
+        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu')) + ']+')
         autoregressive_text = wrong_characters.sub('', autoregressive_text)
     with ar_fn.open('w') as af:
         af.write(autoregressive_text)
