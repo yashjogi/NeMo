@@ -30,9 +30,9 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
 # For splitting text into words and punctuation
-WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[.,/']\\w+)*)")
+WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,/]\\d+)*\\w*|\\w+(?:[.,/']\\w+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    "((?<=[ \n\"()])-\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)"
+    "((?<=[ \n\"()])-\\d+(?:[.,/]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)"
     "(\\W*[ \n\*()](?=\\d)|\\W*)"
     #"([\\W]*[^\\w-]|-(?=\\w)|[\\W]+-(?!\\d)|[\\W]*[^ \n\"()]-)"
 )
