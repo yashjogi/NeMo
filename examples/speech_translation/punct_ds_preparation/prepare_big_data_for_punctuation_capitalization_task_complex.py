@@ -893,8 +893,9 @@ def write_dataset_fast(
             input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
             bert_fn.open('w', buffering=BUFFER_SIZE) as bf:
         for m in small.WORD_WITH_FOLLOWING_PUNCTUATION.finditer(input_text):
-            tf.write(m.group(0))
-            prog.n += len(m.group(0))
+            all_text = m.group(0)
+            tf.write(all_text)
+            prog.n += len(all_text)
             if prog.n % 10000 == 0:
                 prog.update()
             word, punctuation = m.group(1), m.group(2)
