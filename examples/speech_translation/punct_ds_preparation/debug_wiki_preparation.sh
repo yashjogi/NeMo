@@ -9,5 +9,5 @@ python prepare_big_data_for_punctuation_capitalization_task_simple.py \
   --no_label_if_all_characters_are_upper_case \
   --input_files ~/data/small_enwiki.txt \
   -n \
-  --num_jobs 23 \
-  --resume_from writing
+  --num_jobs 23 #\
+  #--resume_from writing
