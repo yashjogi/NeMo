@@ -450,8 +450,8 @@ def strip_segment(segment):
 
 def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, max_num_segments):
     permutation = random.sample(num_words_in_segments, len(num_words_in_segments))
-    print("permutation:", permutation)
-    p_i = -1
+    # print("permutation:", permutation)
+    p_i = 0
     start_match = None
     num_in_segment = 0
     progress_report = 0
@@ -460,7 +460,6 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
     for m in small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.finditer(text):
         if start_match is None:
             start_match = m
-            p_i += 1
         num_in_segment += 1
         if num_in_segment == permutation[p_i]:
             out_f.write(strip_segment(text[start_match.span()[0]: m.span()[1]]) + '\n')
