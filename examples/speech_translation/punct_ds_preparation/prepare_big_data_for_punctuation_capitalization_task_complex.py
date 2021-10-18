@@ -1,3 +1,7 @@
+# TODO: exclude overlaps in in intact sentences segments
+# TODO: parallelize cutting
+# TODO: parallelize writing into file
+
 import html
 import logging
 import multiprocessing as mp
