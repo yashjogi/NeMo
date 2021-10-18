@@ -589,7 +589,7 @@ def main():
                 )
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting"]:
-        cut_and_save_parallel(document_dir, sorted_text_file,args.sequence_length_range, args.num_jobs)
+        cut_and_save_parallel(document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs)
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
         logging.info("shuffling segments...")
