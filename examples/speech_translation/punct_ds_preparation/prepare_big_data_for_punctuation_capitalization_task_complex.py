@@ -878,6 +878,7 @@ def write_dataset_fast(
     only_first_punctuation_character_after_word_in_autoregressive,
     no_label_if_all_characters_are_upper_case,
 ):
+
     output_dir.mkdir(parents=True, exist_ok=True)
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
@@ -885,13 +886,17 @@ def write_dataset_fast(
     input_text = ""
     with input_file.open(buffering=BUFFER_SIZE) as in_f:
         move_to_line(in_f, borders[0])
-        for l_i in tqdm(range(borders[1] - borders[0])):
+        for l_i in range(borders[1] - borders[0]):
             input_text += in_f.readline()
+    prog = tqdm(total=len(input_text), desc="Total", unit='char', unit_scale=True)
     with text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
             input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
             bert_fn.open('w', buffering=BUFFER_SIZE) as bf:
         for m in small.WORD_WITH_FOLLOWING_PUNCTUATION.finditer(input_text):
             tf.write(m.group(0))
+            prog.n += len(m.group(0))
+            if prog.n % 10000 == 0:
+                prog.update()
             word, punctuation = m.group(1), m.group(2)
             punctuation = m.group(2)
             if create_model_input:
