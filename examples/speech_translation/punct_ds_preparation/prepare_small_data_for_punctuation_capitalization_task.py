@@ -46,12 +46,12 @@ WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
     f"([^{WC}]*[ \n\*()](?=\\d)|[^{WC}]*)"
     #f"([^{WC}]*[^{WC}-]|-(?=[{WC}])|[^{WC}]+-(?!\\d)|[^{WC}]*[^ \n\"()]-)"
 )
-PUNCTUATION = re.compile(r"[^{WC}]+")
+PUNCTUATION = re.compile(f"[^{WC}]+")
 NOT_WORD_CHARACTERS = re.compile(f"[^{WC}%/@#°]")
 WORD_CHARACTER = re.compile(f"[{WC}]")
 SPACE_DUP = re.compile(r" {2,}")
-STRIP_START = re.compile(r"^[^{WC}]+")
-STRIP_END = re.compile(r"[^{WC}]+$")
+STRIP_START = re.compile(f"^[^{WC}]+")
+STRIP_END = re.compile(f"[^{WC}]+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!\";:,)"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")
