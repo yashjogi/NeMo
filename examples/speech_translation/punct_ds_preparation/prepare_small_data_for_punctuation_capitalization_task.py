@@ -812,16 +812,20 @@ def create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are
     allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
     for w_i, word in enumerate(line):
         if WORD.match(word):
-            if len(word) > 0 and word.isupper():
-                labels += 'U'
-            elif word[0].isupper():
-                labels += 'u'
+            if no_label_if_all_characters_are_upper_case:
+                if word[0].isupper():
+                    labels += 'U'
+                else:
+                    labels += 'O'
             else:
-                labels += "O"
+                if len(word) > 0 and word.isupper():
+                    labels += 'U'
+                elif word[0].isupper():
+                    labels += 'u'
+                else:
+                    labels += "O"
             labels += line[w_i + 1][0] if w_i < len(line) - 1 and line[w_i + 1][0] in allowed_punctuation else 'O'
             labels += ' '
-    if no_label_if_all_characters_are_upper_case:
-        labels = labels.replace('u', 'U')
     return labels.rstrip(' ')
 
 
@@ -834,12 +838,18 @@ def create_autoregressive_labels(
     labels = ""
     for w_i, word in enumerate(line):
         if WORD.match(word):
-            if len(word) > 1 and word.isupper():
-                labels += 'U'
-            elif word[0].isupper():
-                labels += 'u'
+            if no_label_if_all_characters_are_upper_case:
+                if word[0].isupper():
+                    labels += 'U'
+                else:
+                    labels += 'O'
             else:
-                labels += 'O'
+                if len(word) > 0 and word.isupper():
+                    labels += 'U'
+                elif word[0].isupper():
+                    labels += 'u'
+                else:
+                    labels += "O"
         else:
             if only_first_punctuation_character_after_word:
                 num_added = 0
