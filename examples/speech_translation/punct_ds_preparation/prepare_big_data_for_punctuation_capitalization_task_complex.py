@@ -121,6 +121,7 @@ CLOSING_PARENTHESES_NO_SPACE = re.compile(r'\)\b')
 CLOSING_PARENTHESES_SPACE_PUNCTUATION_MARK = re.compile(r'\) ([.!:?;,…])')
 PUNCTUATION_MARK_OPENING_PARENTHESES = re.compile(r'([.!:?;,…])\(')
 SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
+ELLIPSIS_WITHOUT_SPACE = re.compile(r'\.\.([\w(])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[^\\w"][^)(]*\\)|\\( *…? *\\)')
@@ -341,6 +342,7 @@ def normalize_punctuation(text, lang):
     text = DIGIT_SPACE_PERCENT.sub(r'\1% ', text)
     text = SPACE_PUNCTUATION_MARK.sub(r'\1', text)
     text = text.replace('…', '...')
+    text = ELLIPSIS_WITHOUT_SPACE.sub(r'.. \1', text)
     text = text.replace('ː', ':')
     # if lang == 'en':
     #     # English "quotation"

@@ -854,24 +854,28 @@ def create_autoregressive_labels(
                     labels += "O"
         else:
             if only_first_punctuation_character_after_word:
-                num_added = 0
+                # num_added = 0
                 for c_i, c in enumerate(word):
-                    if (
-                        c in allowed_punctuation | {' '}
-                        and (
-                            num_added == 0
-                            or num_added == 1
-                            and labels
-                            and labels[-1] != ' '
-                            and c == ' '
-                        )
-                    ):
-                        num_added += 1
+                    # if (
+                    #     c in allowed_punctuation | {' '}
+                    #     and (
+                    #         num_added == 0
+                    #         or num_added == 1
+                    #         and labels
+                    #         and labels[-1] != ' '
+                    #         and c == ' '
+                    #     )
+                    # ):
+                    #     num_added += 1
+                    #     labels += c
+                    #     if num_added > 1:
+                    #         break
+                    if c in allowed_punctuation:
                         labels += c
-                        if num_added > 1:
-                            break
-                if num_added == 0:
-                    labels += ' '
+                        break
+                # if num_added == 0:
+                #     labels += ' '
+                labels += ' '
             else:
                 num_added = 0
                 for c in word:
