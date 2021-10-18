@@ -511,7 +511,8 @@ def get_how_many_segments_to_cut_by_files(files, size):
 
 def estimate_number_of_segments(files, sequence_length_range):
     num_words = 0
-    for file_path in files:
+    logging.info("Estimating number of segments in the resulting dataset...")
+    for file_path in tqdm(files):
         with file_path.open() as f:
             num_words += len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(f.read()))
     return (
@@ -559,7 +560,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     with sorted_text_file.open('w') as out_f:
         run(
             f'cat '
-            + ' '.join([str(p.resolve()) for p in output_dir.iterdir() if is_int(p.stem) and p.suffixes == ['.xml']]),
+            + ' '.join([str(p.resolve()) for p in output_dir.iterdir() if is_int(p.stem) and p.suffixes == ['.txt']]),
             stdout=out_f,
         )
 
