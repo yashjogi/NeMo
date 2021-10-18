@@ -5,7 +5,6 @@ python prepare_big_data_for_punctuation_capitalization_task_simple.py \
   --bert_labels \
   --autoregressive_labels \
   --allowed_punctuation '.,?' \
-  --fasttext_model lid.176.bin \
   --only_first_punctuation_character_after_word_in_autoregressive \
   --no_label_if_all_characters_are_upper_case \
   --input_files ~/data/small_enwiki.txt \
