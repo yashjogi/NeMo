@@ -483,7 +483,7 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
 
 def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range):
     num_words_in_segments = list(range(sequence_range[0], sequence_range[1]))
-    for f_i in enumerate(files):
+    for f_i, f in enumerate(files):
         out_file = output_dir / (f.stem + '.txt')
         text = list(big.read_docs_from_file(f).items())
         random.shuffle(text)
@@ -493,7 +493,7 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
         else:
             n = 0
-            with out_file.open('w') as f:
+            with out_file.open('w') as out_f:
                 while n < num_to_cut_by_files[f_i]:
                     n += cut_and_save_one_pass(
                         text, out_f, progress_queue, num_words_in_segments, num_to_cut_by_files[f_i]
@@ -507,6 +507,18 @@ def get_how_many_segments_to_cut_by_files(files, size):
     sizes = [round(f * size) for f in fracs[:-1]]
     sizes += [size - sum(sizes)]
     return sizes
+
+
+def estimate_number_of_segments(files, sequence_length_range):
+    num_words = 0
+    for file_path in files:
+        with file_path.open() as f:
+            num_words += len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(f.read()))
+    return (
+        num_words
+        // sum(range(sequence_length_range[0], sequence_length_range[1]))
+        * (sequence_length_range[1] - sequence_length_range[0])
+    )
 
 
 def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
@@ -523,7 +535,8 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     )
     manager = mp.Manager()
     progress_queue = manager.Queue()
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, len(files), "File"))
+    size = estimate_number_of_segments(files, sequence_length_range) if size is None else size
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "File"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
     with mp.Pool(num_jobs) as pool:
