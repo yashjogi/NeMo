@@ -22,7 +22,7 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 random.seed(42)
 
 
-FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(r'^[^\w(]+')
+FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(r'^[^\w]+')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -559,8 +559,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
         progress_process.join()
     with sorted_text_file.open('w') as out_f:
         run(
-            f'cat '
-            + ' '.join([str(p.resolve()) for p in output_dir.iterdir() if is_int(p.stem) and p.suffixes == ['.txt']]),
+            [f'cat'] + [str(p.resolve()) for p in output_dir.iterdir() if is_int(p.stem) and p.suffixes == ['.txt']],
             stdout=out_f,
         )
 
