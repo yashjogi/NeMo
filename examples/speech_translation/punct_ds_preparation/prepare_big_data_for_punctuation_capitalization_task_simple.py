@@ -450,6 +450,7 @@ def strip_segment(segment):
 
 def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, max_num_segments):
     permutation = random.sample(num_words_in_segments, len(num_words_in_segments))
+    print("permutation:", permutation)
     p_i = -1
     start_match = None
     num_in_segment = 0
