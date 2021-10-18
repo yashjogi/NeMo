@@ -32,8 +32,9 @@ WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)
 # For splitting text into words and punctuation
 WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[.,/']\\w+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    "((?<=[ \n\"()])-\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)"  # word
-    "([\\W]*[^\\w-]|-(?=\\w)|[\\W]+-(?!\\d)|[\\W]*[^ \n\"()]-)"  # punctuation
+    "((?<=[ \n\"()])-\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)"
+    "(\\W*[ \n\*()](?=\\d)|\\W*)"
+    #"([\\W]*[^\\w-]|-(?=\\w)|[\\W]+-(?!\\d)|[\\W]*[^ \n\"()]-)"
 )
 PUNCTUATION = re.compile(r"\W+")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
@@ -867,6 +868,8 @@ def create_autoregressive_labels(
                     ):
                         num_added += 1
                         labels += c
+                        if num_added > 1:
+                            break
                 if num_added == 0:
                     labels += ' '
             else:
@@ -877,9 +880,7 @@ def create_autoregressive_labels(
                         num_added += 1
                 # if num_added == 0:
                 #     labels += ' '
-    labels = SPACE_DUP.sub(' ', labels)
-    if no_label_if_all_characters_are_upper_case:
-        labels = labels.replace('u', 'U')
+    labels = SPACE_DUP.sub(' ', labels.rstrip(' '))
     return labels
 
 
