@@ -30,9 +30,9 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
 # For splitting text into words and punctuation
-WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:\\.\\d+)*|\\d+(?:[.,]\\d+)*|\\w+'\\w+|\\w+(?:[./]\\w+)*)")
+WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[.,/']\\w+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    "(\\b-?\\d+(?:[.,]\\d+)*|\\w+(?:[./']\\w+)*)([\\W]*[^\\w-]|[\\W]*-(?!\\d)|[\\W]*[^ \n\"()]-)"
+    "((?<=[ \n\"()])-\\d+(?:[.,]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)([\\W]*[^\\w-]|[\\W]*-(?!\\d)|[\\W]*[^ \n\"()]-)"
 )
 PUNCTUATION = re.compile(r"\W+")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
@@ -713,16 +713,11 @@ def calculate_how_many_remain_to_cut(number_of_words_stats, size, percentage_seg
 def create_not_whole_sentence_segments(
     sentence_len_by_docs, remaining_by_docs, number_of_words_stats, size, percentage_segments_with_intact_sentences
 ):
-    print("(create_not_whole_sentence_segments)size in the beginning:", size)
     result = []
     remaining_by_docs = deepcopy(remaining_by_docs)
     yet_to_cut_by_number_of_words = calculate_how_many_remain_to_cut(
         number_of_words_stats, size, percentage_segments_with_intact_sentences
     )
-    print("(create_not_whole_sentence_segments)number_of_words_stats before first check:",
-          sum(number_of_words_stats.values()))
-    print("(create_not_whole_sentence_segments)yet_to_cut_by_number_of_words before first check:",
-          sum(yet_to_cut_by_number_of_words.values()))
     assert size == sum(number_of_words_stats.values()) + sum(yet_to_cut_by_number_of_words.values()), \
         f"size={size}," \
         f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}," \
@@ -769,10 +764,6 @@ def create_not_whole_sentence_segments(
             if done:
                 break
         remaining_by_docs = {doc_id: set(range(len(doc))) for doc_id, doc in sentence_len_by_docs.items()}
-    print("(create_not_whole_sentence_segments)size before last check:", size)
-    print("(create_not_whole_sentence_segments)number_of_words_stats before last check:",
-          sum(number_of_words_stats.values()))
-    print("(create_not_whole_sentence_segments)len(result):", len(result))
     assert len(result) == size - sum(number_of_words_stats.values()), \
         f"len(result)={len(result)}, size={size}, " \
         f"sum(number_of_words_stats.values())={sum(number_of_words_stats.values())}"
