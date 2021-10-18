@@ -932,18 +932,12 @@ def write_dataset_sub(
     if bert_labels:
         with bert_fn.open('w') as bf:
             repl = bert_repl2 if no_label_if_all_characters_are_upper_case else bert_repl1
-            bf.write(
-                wrong_characters.sub('', small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.sub(repl, original_text))
-            )
+            bf.write(wrong_characters.sub('', small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(repl, original_text)))
     if autoregressive_labels:
         with ar_fn.open('w') as af:
             if only_first_punctuation_character_after_word_in_autoregressive:
                 repl = autoregressive_repl2 if no_label_if_all_characters_are_upper_case else autoregressive_repl1
-                af.write(
-                    wrong_characters.sub(
-                        '', small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.sub(repl, original_text)
-                    )
-                )
+                af.write(wrong_characters.sub('', small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(repl, original_text)))
             else:
                 repl = word_repl2 if no_label_if_all_characters_are_upper_case else word_repl1
                 af.write(wrong_characters.sub('', small.WORD.sub(repl, original_text)))
