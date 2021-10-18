@@ -635,6 +635,7 @@ def main():
         args.only_first_punctuation_character_after_word_in_autoregressive,
         args.no_label_if_all_characters_are_upper_case,
     )
+    logging.info("Finished creating training dataset...")
 
 
 def get_args(
