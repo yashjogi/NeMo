@@ -12,7 +12,6 @@ from math import ceil
 from pathlib import Path
 
 import fasttext
-import numpy as np
 import requests
 from bs4 import BeautifulSoup, NavigableString
 from tqdm import tqdm
