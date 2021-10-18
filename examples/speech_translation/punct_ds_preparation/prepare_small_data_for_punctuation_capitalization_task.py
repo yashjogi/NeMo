@@ -24,24 +24,34 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 
 random.seed(42)
 
+WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua838\ufdfc\ufe69\uff04\uffe0\uffe1' \
+    '\uffe5\uffe6' \
+    + ''.join(
+        [
+            chr(i) for i in sum(
+                [list(r) for r in [range(0x0a2, 0x0a6), range(0x20a1, 0x20c0), range(0x11fdd, 0x11fe1)]]
+            )
+        ]
+    )
+
 
 EUROPARL_LINE = re.compile(r"^(.+)(ep(?:-[0-9]{2}){3}(?:-[0-9]{3})?)")
 NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
-WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
+WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(rf"[^{WC}]*\b[{WC}]+(?:[-.][{WC}]+)*(?:'[{WC}]+)?\b[^{WC}]*")
 # For splitting text into words and punctuation
-WORD = re.compile("((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,/]\\d+)*\\w*|\\w+(?:[.,/']\\w+)*)")
+WORD = re.compile(f"((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,/]\\d+)*[{WC}]*|[{WC}]+(?:[.,/'][{WC}]+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    "((?<=[ \n\"()])-\\d+(?:[.,/]\\d+)*\\w*|\\w+(?:[,./']\\w+)*)"
-    "(\\W*[ \n\*()](?=\\d)|\\W*)"
-    #"([\\W]*[^\\w-]|-(?=\\w)|[\\W]+-(?!\\d)|[\\W]*[^ \n\"()]-)"
+    f"((?<=[ \n\"()])-\\d+(?:[.,/]\\d+)*[{WC}]*|[{WC}]+(?:[,./'][{WC}]+)*)"
+    f"([^{WC}]*[ \n\*()](?=\\d)|[^{WC}]*)"
+    #f"([^{WC}]*[^{WC}-]|-(?=[{WC}])|[^{WC}]+-(?!\\d)|[^{WC}]*[^ \n\"()]-)"
 )
-PUNCTUATION = re.compile(r"\W+")
-NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
-WORD_CHARACTER = re.compile(r"\w")
+PUNCTUATION = re.compile(r"[^{WC}]+")
+NOT_WORD_CHARACTERS = re.compile(f"[^{WC}%/@#°]")
+WORD_CHARACTER = re.compile(f"[{WC}]")
 SPACE_DUP = re.compile(r" {2,}")
-STRIP_START = re.compile(r"^\W+")
-STRIP_END = re.compile(r"\W+$")
+STRIP_START = re.compile(r"^[^{WC}]+")
+STRIP_END = re.compile(r"[^{WC}]+$")
 SUPPORTED_CORPUS_TYPES = ["europarl", "news-commentary", "TED", "rapid"]
 SENTENCE_ENDINGS = ".?!\";:,)"
 SUPPORTED_BERT_PUNCTUATION = set("!,.:;?")

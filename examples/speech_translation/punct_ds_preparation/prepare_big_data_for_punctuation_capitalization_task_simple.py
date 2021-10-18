@@ -16,13 +16,14 @@ from nemo.collections.nlp.modules import get_tokenizer
 
 import prepare_big_data_for_punctuation_capitalization_task_complex as big
 import prepare_small_data_for_punctuation_capitalization_task as small
+from prepare_small_data_for_punctuation_capitalization_task import WC
 
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
 random.seed(42)
 
 
-FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(r'^[^\w]+')
+FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(f'^[^{WC}]+')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9

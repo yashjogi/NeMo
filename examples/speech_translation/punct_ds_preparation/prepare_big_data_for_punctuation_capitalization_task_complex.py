@@ -20,6 +20,7 @@ import nltk
 from nemo.collections.nlp.modules import get_tokenizer
 
 import prepare_small_data_for_punctuation_capitalization_task as small
+from prepare_small_data_for_punctuation_capitalization_task import WC
 
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
@@ -38,7 +39,7 @@ def create_triplet(tag):
 PAGE_OPENING_NORMAL_TAG = re.compile(r'^ *<page>$', flags=re.I)
 PAGE_CLOSING_NORMAL_TAG = re.compile(r'^ *</page>$', flags=re.I)
 TITLE_OF_PAGE = re.compile(r'<title>(.+)</title>', flags=re.I)
-COLON_TITLES = re.compile(r'\w+:\w')
+COLON_TITLES = re.compile(f'[{WC}]+:[{WC}]')
 TEXT_OF_PAGE = re.compile(r'<text[^>]*>(.+)</text>', flags=re.DOTALL | re.I)
 QUOTES = re.compile('"\'')
 REDIRECT = re.compile(r'^\s*#REDIRECT *\[\[[^]]*]]', flags=re.I)
@@ -106,9 +107,10 @@ TAG = re.compile('<[a-z]+(?: [^>\n]+)?/?>')
 XML_HEADER = re.compile('<\\?xml[^>\n]*\\?>', flags=re.I)
 NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
-GOOD_LINE_START = re.compile(r'[\w"]')
+GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
-    r'^[^\w"]|http:/|www.\w|[,.;:-] ?[,!;:]|\w"\w|\)\w|\w\(|[=*^\\~<>|{}]|[^?!.\u2026)"]$' + "| '", flags=re.MULTILINE
+    rf'^[^{WC}"]|http:/|www.\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\)[{WC}]|[{WC}]\(|[=*^\\~<>|{{}}]|[^?!.\u2026)"]$' + "| '",
+    flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
 LONG_HYPHEN = re.compile(r'—')
@@ -121,10 +123,10 @@ CLOSING_PARENTHESES_NO_SPACE = re.compile(r'\)\b')
 CLOSING_PARENTHESES_SPACE_PUNCTUATION_MARK = re.compile(r'\) ([.!:?;,…])')
 PUNCTUATION_MARK_OPENING_PARENTHESES = re.compile(r'([.!:?;,…])\(')
 SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
-ELLIPSIS_WITHOUT_SPACE = re.compile(r'\.\.([\w(])')
+ELLIPSIS_WITHOUT_SPACE = re.compile(rf'\.\.([{WC}(])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
-BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^\\w!?."\'] *\\)|\\( *[^\\w"][^)(]*\\)|\\( *…? *\\)')
+BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)')
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n')
