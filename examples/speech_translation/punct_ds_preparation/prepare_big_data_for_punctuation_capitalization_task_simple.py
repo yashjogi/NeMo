@@ -489,11 +489,11 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
         random.shuffle(text)
         text = small.SPACE_DUP.sub(' ', ' '.join([doc[1]['text'] for doc in text]).replace('\n', ' '))
         if num_to_cut_by_files is None:
-            with out_file.open('w') as out_f:
+            with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
         else:
             n = 0
-            with out_file.open('w') as out_f:
+            with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 while n < num_to_cut_by_files[f_i]:
                     n += cut_and_save_one_pass(
                         text, out_f, progress_queue, num_words_in_segments, num_to_cut_by_files[f_i]
@@ -509,17 +509,53 @@ def get_how_many_segments_to_cut_by_files(files, size):
     return sizes
 
 
-def estimate_number_of_segments(files, sequence_length_range):
+def estimate_number_of_segments(rank, progress_queue, files, sequence_length_range):
     num_words = 0
     logging.info("Estimating number of segments in the resulting dataset...")
-    for file_path in tqdm(files):
+    for file_path in files:
         with file_path.open() as f:
-            num_words += len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(f.read()))
+            text = f.read()
+            num_words += len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(text))
+            progress_queue.put(len(text))
     return (
         num_words
         // sum(range(sequence_length_range[0], sequence_length_range[1]))
         * (sequence_length_range[1] - sequence_length_range[0])
     )
+
+
+def count_total_number_of_characters(files):
+    num_characters = 0
+    logging.info("Estimating number of segments in files...")
+    for file_path in tqdm(files, unit='file'):
+        with file_path.open() as f:
+            num_characters += len(f.read())
+    return num_characters
+
+
+def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs):
+    num_jobs = min(num_jobs, len(files))
+    num_files_per_job = len(files) // num_jobs
+    distributed_files = (
+        [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
+        + [files[(num_jobs - 1) * num_files_per_job:]]
+    )
+    manager = mp.Manager()
+    progress_queue = manager.Queue()
+    progress_process = mp.Process(
+        target=show_prog, args=(progress_queue, count_total_number_of_characters(files), "File")
+    )
+    progress_process.start()
+    with mp.Pool(num_jobs) as pool:
+        res = pool.starmap(
+            estimate_number_of_segments,
+            list(
+                zip(
+                    range(num_jobs), [progress_queue] * num_jobs, distributed_files, [sequence_length_range] * num_jobs
+                )
+            )
+        )
+    return sum(res)
 
 
 def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
@@ -536,7 +572,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     )
     manager = mp.Manager()
     progress_queue = manager.Queue()
-    size = estimate_number_of_segments(files, sequence_length_range) if size is None else size
+    size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs) if size is None else size
     progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "File"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
