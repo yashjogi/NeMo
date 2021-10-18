@@ -899,27 +899,43 @@ def write_dataset_sub(
     def bert_repl1(match):
         w = match.group(1)
         p = match.group(2)
+        if p:
+            c_i = 0
+            while c_i < len(p) and p[c_i] not in allowed_punctuation:
+                c_i += 1
         return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
-            + (p[0] if p and p[0] in allowed_punctuation else 'O') \
+            + (p[c_i] if p and p[c_i] in allowed_punctuation else 'O') \
             + ('\n' if '\n' in p else ' ')
 
     def bert_repl2(match):
         p = match.group(0)
+        if p:
+            c_i = 0
+            while c_i < len(p) and p[c_i] not in allowed_punctuation:
+                c_i += 1
         return ('U' if match.group(1)[0].isupper() else 'O') \
-            + (p[0] if p and p[0] in allowed_punctuation else 'O') \
+            + (p[c_i] if p and p[c_i] in allowed_punctuation else 'O') \
             + ('\n' if '\n' in p else ' ')
 
     def autoregressive_repl1(match):
         w = match.group(1)
         p = match.group(2)
+        if p:
+            c_i = 0
+            while c_i < len(p) and p[c_i] not in allowed_punctuation:
+                c_i += 1
         return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
-            + (p[0] if p and p[0] in allowed_punctuation else '') \
+            + (p[c_i] if p and p[c_i] in allowed_punctuation else '') \
             + ('\n' if '\n' in p else ' ') if p else ' '
 
     def autoregressive_repl2(match):
         p = match.group(2)
+        if p:
+            c_i = 0
+            while c_i < len(p) and p[c_i] not in allowed_punctuation:
+                c_i += 1
         return ('U' if match.group(1)[0].isupper() else 'O') \
-            + (p[0] if p and p[0] in allowed_punctuation else '') \
+            + (p[c_i] if p and p[c_i] in allowed_punctuation else '') \
             + ('\n' if '\n' in p else ' ') if p else ' '
 
     def model_input_repl(match):
@@ -990,8 +1006,11 @@ def write_dataset_fast(
                 autoregressive_text += get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
                 if only_first_punctuation_character_after_word_in_autoregressive:
                     if punctuation:
-                        if punctuation[0] in allowed_punctuation:
-                            autoregressive_text += punctuation[0]
+                        c_i = 0
+                        while c_i < len(punctuation) and punctuation[c_i] not in allowed_punctuation:
+                            c_i += 1
+                        if punctuation[c_i] in allowed_punctuation:
+                            autoregressive_text += punctuation[c_i]
                         autoregressive_text += '\n' if '\n' in punctuation else ' '
                     else:
                         autoregressive_text += ' '
