@@ -539,6 +539,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "File"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
+    output_dir.mkdir(parents=True, exist_ok=True)
     with mp.Pool(num_jobs) as pool:
         pool.starmap(
             cut_and_save,
