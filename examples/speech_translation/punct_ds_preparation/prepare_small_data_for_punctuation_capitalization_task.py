@@ -31,7 +31,7 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(r"\W*\b\w+(?:[-.]\w+)*(?:'\w+)?\b\W*")
 # For splitting text into words and punctuation
 WORD = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)")
-WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(r"(\w+'\w+|\w+(?:[./]\w+)*|\b-?\d+(?:\.\d+)*)(\W*)")
+WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(r"(\w+(?:[./']\w+)*|\b-?\d+(?:\.\d+)*)(\W*)")
 PUNCTUATION = re.compile(r"\W+")
 NOT_WORD_CHARACTERS = re.compile(r"[^\w%/$@#°]")
 WORD_CHARACTER = re.compile(r"\w")
