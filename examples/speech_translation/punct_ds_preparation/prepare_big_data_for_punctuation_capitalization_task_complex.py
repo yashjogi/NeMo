@@ -867,6 +867,88 @@ def get_capitalization_label(word, no_label_if_all_characters_are_upper_case):
     return 'O'
 
 
+def write_dataset_sub(
+    borders,
+    orig_file,
+    output_dir,
+    create_model_input,
+    bert_labels,
+    autoregressive_labels,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word_in_autoregressive,
+    no_label_if_all_characters_are_upper_case,
+):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
+    bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
+    original_text = ""
+    with orig_file.open(buffering=BUFFER_SIZE) as in_f:
+        move_to_line(in_f, borders[0])
+        for l_i in range(borders[1] - borders[0]):
+            original_text += in_f.readline()
+    with text_fn.open('w', buffering=BUFFER_SIZE) as tf:
+        tf.write(original_text)
+
+    def word_repl1(match):
+        w = match.group(0)
+        return 'U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')
+
+    def word_repl2(match):
+        return 'U' if match.group(1)[0].isupper() else 'O'
+
+    def bert_repl1(match):
+        w = match.group(1)
+        p = match.group(2)
+        return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
+            + (p[0] if p and p in allowed_punctuation else 'O') \
+            + ('\n' if '\n' in p else ' ')
+
+    def bert_repl2(match):
+        p = match.group(0)
+        return ('U' if match.group(1)[0].isupper() else 'O') \
+            + (p[0] if p and p in allowed_punctuation else 'O') \
+            + ('\n' if '\n' in p else ' ')
+
+    def autoregressive_repl1(match):
+        w = match.group(1)
+        p = match.group(2)
+        return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
+            + (p[0] if p[0] in allowed_punctuation else '') \
+            + ('\n' if '\n' in p else ' ') if p else ' '
+
+    def autoregressive_repl2(match):
+        p = match.group(2)
+        return ('U' if match.group(1)[0].isupper() else 'O') \
+            + (p[0] if p[0] in allowed_punctuation else '') \
+            + ('\n' if '\n' in p else ' ') if p else ' '
+
+    def model_input_repl(match):
+        return match.group(1).lower() + ' '
+
+    if create_model_input:
+        with input_fn.open('w') as inp_f:
+            inp_f.write(small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(model_input_repl, original_text))
+    wrong_characters = re.compile('[^' + ''.join(allowed_punctuation + set(' \nUOu')) + ']+')
+    if bert_labels:
+        with bert_fn.open('w') as bf:
+            repl = bert_repl2 if no_label_if_all_characters_are_upper_case else bert_repl1
+            bf.write(
+                wrong_characters.sub('', small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.sub(repl, original_text))
+            )
+    if autoregressive_labels:
+        with ar_fn.open('w') as af:
+            if only_first_punctuation_character_after_word_in_autoregressive:
+                repl = autoregressive_repl2 if no_label_if_all_characters_are_upper_case else autoregressive_repl1
+                af.write(
+                    wrong_characters.sub(
+                        '', small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.sub(repl, original_text)
+                    )
+                )
+            else:
+                repl = word_repl2 if no_label_if_all_characters_are_upper_case else word_repl1
+                af.write(wrong_characters.sub('', small.WORD.sub(repl, original_text)))
+
+
 def write_dataset_fast(
     borders,
     input_file,
