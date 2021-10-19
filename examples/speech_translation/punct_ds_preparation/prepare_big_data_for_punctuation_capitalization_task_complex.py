@@ -856,13 +856,15 @@ def move_to_line(fd, line_i, read_size=65536):
     new_line_count = 0
     block = 'FILLER'
     num_blocks = -1
-    while block and new_line_count <= line_i:
+    last_block_count = 0
+    pos_before_last_block = fd.tell()
+    while block and new_line_count < line_i:
         pos_before_last_block = fd.tell()
         block = fd.read(read_size)
         last_block_count = block.count('\n')
         new_line_count += last_block_count
         num_blocks += 1
-    if new_line_count is None:
+    if new_line_count < line_i:
         return False
     i = 0
     j = 0
