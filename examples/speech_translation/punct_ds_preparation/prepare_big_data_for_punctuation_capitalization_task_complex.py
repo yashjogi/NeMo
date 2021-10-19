@@ -110,7 +110,7 @@ LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=
 GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
     rf'^[^{WC}"]|http:/|www.\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\)[{WC}]|[{WC}]\(|'
-    rf'[=*^\\~<>|{{}}]|[^?!.\u2026)"]|\([^")]*"[^")]*\)$' + "| '",
+    rf'[=*^\\~<>|{{}}]|[^?!.\u2026)"]|\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\)$' + "| '",
     flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
