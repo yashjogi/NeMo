@@ -990,6 +990,21 @@ def write_dataset_sub(
                 af.write(wrong_characters.sub('', small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(repl, original_text)))
 
 
+def write_dataset_parallel(
+    borders,
+    input_file,
+    output_dir,
+    create_model_input,
+    bert_labels,
+    autoregressive_labels,
+    allowed_punctuation,
+    only_first_punctuation_character_after_word_in_autoregressive,
+    no_label_if_all_characters_are_upper_case,
+    num_jobs,
+):
+    pass
+
+
 def write_dataset_fast(
     borders,
     input_file,

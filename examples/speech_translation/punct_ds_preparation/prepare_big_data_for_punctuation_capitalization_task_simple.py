@@ -576,8 +576,7 @@ def join_sentence_len(di_ss_se, sentence_len_by_docs):
 
 
 def main():
-    args = get_args(
-        big.SUPPORTED_CORPUS_TYPES, add_nltk_tokenization_parameter=True, add_resume_argument=True, add_num_jobs=True)
+    args = get_args(big.SUPPORTED_CORPUS_TYPES, add_resume_argument=True)
     document_dir = args.output_dir / Path("documents")
     if args.resume_from is None:
         tokenizer = get_tokenizer(args.tokenizer)
@@ -654,7 +653,7 @@ def main():
 
 
 def get_args(
-    supported_corpus_types, add_nltk_tokenization_parameter=False, add_resume_argument=False, add_num_jobs=False
+    supported_corpus_types, add_resume_argument=False,
 ):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument(
@@ -748,21 +747,18 @@ def get_args(
         "are marked as 'u'.",
         action="store_true",
     )
-    if add_nltk_tokenization_parameter:
-        parser.add_argument(
-            "--nltk_tokenization",
-            "-n",
-            help="Tokenize lines into sentences using NLTK tokenization.",
-            action="store_true",
-        )
-    if add_resume_argument:
-        parser.add_argument(
-            "--resume_from",
-            choices=["cutting", "shuffling", "writing"],
-            help="From which stage big dataset preparation is started."
-        )
-    if add_num_jobs:
-        parser.add_argument("--num_jobs", default=1, type=int)
+    parser.add_argument(
+        "--nltk_tokenization",
+        "-n",
+        help="Tokenize lines into sentences using NLTK tokenization.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--resume_from",
+        choices=["cutting", "shuffling", "writing"],
+        help="From which stage big dataset preparation is started."
+    )
+    parser.add_argument("--num_jobs", default=1, type=int)
     args = parser.parse_args()
     if args.size is not None:
         if args.dev_size > args.size:
