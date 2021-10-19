@@ -130,7 +130,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
-SPACE_NEW_LINE = re.compile(' \n')
+SPACE_NEW_LINE = re.compile(' \n ?')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9

@@ -172,7 +172,6 @@ def preprocess_wikipedia_parallel(
     start_doc_id=0,
     start_file_i=0,
     nltk_tokenization=True,
-    remove_parentheses=False,
 ):
     logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
@@ -224,7 +223,6 @@ def preprocess_wikipedia_parallel(
                     start_doc_ids,
                     start_line_ids,
                     [nltk_tokenization] * num_jobs,
-                    [remove_parentheses] * num_jobs,
                 )
             )
         )
@@ -250,7 +248,6 @@ def preprocess_wikipedia(
     start_doc_id,
     start_line_id,
     nltk_tokenization,
-    remove_parentheses,
 ):
     doc_id_to_file_i = {}
     page = ""
@@ -321,7 +318,7 @@ def preprocess_wikipedia(
                                 untok_chars,
                                 pos_info,
                                 nltk_tokenization,
-                                remove_parentheses,
+                                False,
                             )
                             if text:
                                 file_text += big.doc_to_str(
@@ -443,13 +440,17 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
     return num_cut_segments
 
 
-def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range):
+def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range, remove_parentheses):
     num_words_in_segments = list(range(sequence_range[0], sequence_range[1]))
     for f_i, f in enumerate(files):
         out_file = output_dir / (f.stem + '.txt')
         text = list(big.read_docs_from_file(f).items())
         random.shuffle(text)
         text = small.SPACE_DUP.sub(' ', ' '.join([doc[1]['text'] for doc in text]).replace('\n', ' '))
+        if remove_parentheses:
+            text = big.ALL_PARENTHESES.sub(' ', text)
+            text = small.SPACE_DUP.sub(' ', text)
+            text = big.SPACE_NEW_LINE('\n', text)
         if num_to_cut_by_files is None:
             with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
@@ -520,7 +521,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     return sum(res)
 
 
-def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
+def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs, remove_parentheses):
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     if size is None:
         num_to_cut_by_files = [None] * len(files)
@@ -550,6 +551,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
                     num_to_cut_by_files,
                     [output_dir] * num_jobs,
                     [sequence_length_range] * num_jobs,
+                    [remove_parentheses] * num_jobs,
                 )
             )
         )
@@ -591,7 +593,6 @@ def main():
                     start_doc_id,
                     start_file_id,
                     args.nltk_tokenization,
-                    '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
                 )
                 doc_id_to_file_i.update(corpus_doc_id_to_file_i)
                 start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1
@@ -602,7 +603,8 @@ def main():
                 )
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting"]:
-        cut_and_save_parallel(document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs)
+        rp = '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
+        cut_and_save_parallel(document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs, rp)
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
         logging.info("shuffling segments...")
