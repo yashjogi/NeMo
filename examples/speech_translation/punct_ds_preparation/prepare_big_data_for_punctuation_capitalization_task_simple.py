@@ -172,6 +172,7 @@ def preprocess_wikipedia_parallel(
     start_doc_id=0,
     start_file_i=0,
     nltk_tokenization=True,
+    remove_parentheses=False,
 ):
     logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
@@ -223,6 +224,7 @@ def preprocess_wikipedia_parallel(
                     start_doc_ids,
                     start_line_ids,
                     [nltk_tokenization] * num_jobs,
+                    [remove_parentheses] * num_jobs,
                 )
             )
         )
@@ -248,6 +250,7 @@ def preprocess_wikipedia(
     start_doc_id,
     start_line_id,
     nltk_tokenization,
+    remove_parentheses,
 ):
     doc_id_to_file_i = {}
     page = ""
@@ -311,7 +314,14 @@ def preprocess_wikipedia(
                         else:
                             pos_info = [file_path, start_line, end_line]
                             text, tok_chars, untok_chars = big.get_wiki_text_lines(
-                                text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
+                                text.group(1),
+                                lang,
+                                tokenizer,
+                                tok_chars,
+                                untok_chars,
+                                pos_info,
+                                nltk_tokenization,
+                                remove_parentheses,
                             )
                             if text:
                                 file_text += big.doc_to_str(
@@ -580,7 +590,8 @@ def main():
                     tokenizer,
                     start_doc_id,
                     start_file_id,
-                    args.nltk_tokenization
+                    args.nltk_tokenization,
+                    '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
                 )
                 doc_id_to_file_i.update(corpus_doc_id_to_file_i)
                 start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1

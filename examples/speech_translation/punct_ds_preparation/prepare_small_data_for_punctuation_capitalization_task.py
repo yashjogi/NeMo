@@ -40,11 +40,10 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 # For counting number of words in a sentence
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(rf"[^{WC}]*\b[{WC}]+(?:[-.][{WC}]+)*(?:'[{WC}]+)?\b[^{WC}]*")
 # For splitting text into words and punctuation
-WORD = re.compile(f"((?:(?<=[ \n\"()])-|^-)\\d+(?:[.,/]\\d+)*[{WC}]*|[{WC}]+(?:[.,/'][{WC}]+)*)")
+WORD = re.compile(f"((?:(?<=[ \n\"()])[+-]|^[+-])\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[.,/'][{WC}]+)*)")
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    f"((?<=[ \n\"()])-\\d+(?:[.,/]\\d+)*[{WC}]*|[{WC}]+(?:[,./'][{WC}]+)*)"
-    f"([^{WC}]*[ \n\*()](?=\\d)|[^{WC}]*)"
-    #f"([^{WC}]*[^{WC}-]|-(?=[{WC}])|[^{WC}]+-(?!\\d)|[^{WC}]*[^ \n\"()]-)"
+    f"((?<=[ \n\"()])[+-]\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[,./'][{WC}]+)*)"
+    f"([^{WC}]*[ \n\"()](?=[+-]\\d)|[^{WC}]*)"
 )
 PUNCTUATION = re.compile(f"[^{WC}]+")
 NOT_WORD_CHARACTERS = re.compile(f"[^{WC}%/@#°]")

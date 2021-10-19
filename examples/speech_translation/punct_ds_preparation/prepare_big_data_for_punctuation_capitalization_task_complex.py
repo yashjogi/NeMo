@@ -357,7 +357,7 @@ def normalize_punctuation(text, lang):
     return text
 
 
-def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization):
+def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization, remove_parentheses):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
@@ -449,7 +449,7 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
         text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars, True
         )
-    text = BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
+    text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
     text = normalize_punctuation(after_suspicious_removal, lang)
@@ -621,6 +621,7 @@ def preprocess_wikipedia_parallel(
     start_doc_id=0,
     start_file_i=0,
     nltk_tokenization=True,
+    remove_parentheses=False,
 ):
     logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
@@ -673,6 +674,7 @@ def preprocess_wikipedia_parallel(
                     start_doc_ids,
                     start_line_ids,
                     [nltk_tokenization] * num_jobs,
+                    [remove_parentheses] * num_jobs,
                     [5000] * num_jobs,
                 )
             )
@@ -704,6 +706,7 @@ def preprocess_wikipedia(args):
         start_doc_id,
         start_line_id,
         nltk_tokenization,
+        remove_parentheses,
         report_progress_every_n_lines
     ) = args
     sentences_by_number_of_words = {n: [] for n in range(sequence_length_range[0], sequence_length_range[1])}
@@ -770,7 +773,14 @@ def preprocess_wikipedia(args):
                         else:
                             pos_info = [file_path, start_line, end_line]
                             text, tok_chars, untok_chars = get_wiki_text_lines(
-                                text.group(1), lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization
+                                text.group(1),
+                                lang,
+                                tokenizer,
+                                tok_chars,
+                                untok_chars,
+                                pos_info,
+                                nltk_tokenization,
+                                remove_parentheses,
                             )
                             if text:
                                 file_text += doc_to_str(doc_id, file_path, title, start_line, end_line, '\n'.join(text))
@@ -883,6 +893,7 @@ def write_dataset_sub(
     only_first_punctuation_character_after_word_in_autoregressive,
     no_label_if_all_characters_are_upper_case,
 ):
+    extended_punctuation = allowed_punctuation | {' ', '\n'}
     output_dir.mkdir(parents=True, exist_ok=True)
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
@@ -894,12 +905,24 @@ def write_dataset_sub(
     with text_fn.open('w', buffering=BUFFER_SIZE) as tf:
         tf.write(original_text)
 
-    def word_repl1(match):
-        w = match.group(0)
-        return 'U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')
+    def autoregressive_repl3(match):
+        w = match.group(1)
+        p = match.group(2)
+        plbl = ''
+        if p:
+            for c in p:
+                if c in extended_punctuation:
+                    plbl += c
+        return 'U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O') + plbl
 
-    def word_repl2(match):
-        return 'U' if match.group(1)[0].isupper() else 'O'
+    def autoregressive_repl4(match):
+        p = match.group(2)
+        plbl = ''
+        if p:
+            for c in p:
+                if c in extended_punctuation:
+                    plbl += c
+        return 'U' if match.group(1)[0].isupper() else 'O' + plbl
 
     def bert_repl1(match):
         w = match.group(1)
@@ -950,7 +973,7 @@ def write_dataset_sub(
         logging.info("    Creating model input...")
         with input_fn.open('w') as inp_f:
             inp_f.write(small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(model_input_repl, original_text))
-    wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \n/.,UOu-')) + ']+')
+    wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \n/.,UOu+-')) + ']+')
     if bert_labels:
         logging.info("    Creating Evelina labels...")
         with bert_fn.open('w') as bf:
@@ -963,8 +986,8 @@ def write_dataset_sub(
                 repl = autoregressive_repl2 if no_label_if_all_characters_are_upper_case else autoregressive_repl1
                 af.write(wrong_characters.sub('', small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(repl, original_text)))
             else:
-                repl = word_repl2 if no_label_if_all_characters_are_upper_case else word_repl1
-                af.write(wrong_characters.sub('', small.WORD.sub(repl, original_text)))
+                repl = autoregressive_repl4 if no_label_if_all_characters_are_upper_case else autoregressive_repl3
+                af.write(wrong_characters.sub('', small.WORD_WITH_FOLLOWING_PUNCTUATION.sub(repl, original_text)))
 
 
 def write_dataset_fast(
@@ -978,7 +1001,7 @@ def write_dataset_fast(
     only_first_punctuation_character_after_word_in_autoregressive,
     no_label_if_all_characters_are_upper_case,
 ):
-
+    extended_punctuation = allowed_punctuation | {' ', '\n'}
     output_dir.mkdir(parents=True, exist_ok=True)
     text_fn, input_fn = output_dir / Path('text.txt'), output_dir / Path('input.txt')
     bert_fn, ar_fn = output_dir / Path('bert_labels.txt'), output_dir / Path('autoregressive_labels.txt')
@@ -1029,10 +1052,12 @@ def write_dataset_fast(
                     else:
                         autoregressive_text += ' '
                 else:
-                    autoregressive_text += punctuation
+                    for c in punctuation:
+                        if c in extended_punctuation:
+                            autoregressive_text += c
     autoregressive_text = autoregressive_text.rstrip(' ')
     if not only_first_punctuation_character_after_word_in_autoregressive:
-        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu/.,-')) + ']+')
+        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu/.,+-')) + ']+')
         autoregressive_text = wrong_characters.sub('', autoregressive_text)
     with ar_fn.open('w') as af:
         af.write(autoregressive_text)
@@ -1282,7 +1307,8 @@ def main():
                     args.sequence_length_range,
                     num_docs,
                     num_files,
-                    args.nltk_tokenization
+                    args.nltk_tokenization,
+                    '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
                 )
                 (corpus_sentences_by_number_of_words, corpus_sentence_len_by_docs, corpus_doc_id_to_file_i, num_files) \
                     = res
