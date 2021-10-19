@@ -871,7 +871,7 @@ def move_to_line(fd, line_i, read_size=65536):
     while i < line_i - new_line_count + last_block_count:
         j = block.index('\n', j) + 1
         i += 1
-    fd.seek(pos_before_last_block + block[:j].encode('utf-8'))
+    fd.seek(pos_before_last_block + len(block[:j].encode('utf-8')))
     return True
 
 
