@@ -18,6 +18,7 @@ import itertools
 import multiprocessing as mp
 import os
 import pickle
+from math import ceil
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -32,6 +33,9 @@ from nemo.core.neural_types.elements import BoolType
 from nemo.utils import logging
 
 
+MAX_NUM_QUERIES_IN_SPLIT = 10 ** 4
+
+
 def tokenize_and_create_masks(args):
     (
         queries,
@@ -44,7 +48,7 @@ def tokenize_and_create_masks(args):
         pad_label,
         ignore_extra_tokens,
         with_label,
-        rank,
+        split_i,
     ) = args
     all_subtokens, all_loss_mask, all_subtokens_mask, all_input_mask, sent_lengths = [], [], [], [], []
     punct_all_labels, capit_all_labels = [], []
@@ -84,7 +88,7 @@ def tokenize_and_create_masks(args):
             punct_all_labels.append(punct_labels)
             capit_labels.append(pad_id)
             capit_all_labels.append(capit_labels)
-    logging.info(f"Finished tokenization process with rank {rank}")
+    logging.info(f"Finished tokenization processing split with number {split_i}")
     return (
         all_subtokens,
         all_loss_mask,
@@ -112,15 +116,19 @@ def tokenize_and_create_masks_parallel(
     if njobs is None:
         njobs = mp.cpu_count()
     logging.info(f"Running tokenization with {njobs} jobs.")
-    n_split = max(njobs - 1, 1)
-    n = len(queries) // (njobs - 1)
-    split_queries = [queries[n * i : n * (i + 1)] for i in range(n_split - 1)] + [queries[n * (n_split - 1) :]]
+    num_queries_in_split = min(len(queries) // njobs, MAX_NUM_QUERIES_IN_SPLIT)
+    n_split = len(queries) // num_queries_in_split
+    split_queries = (
+        [queries[num_queries_in_split * i : num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
+        + [queries[num_queries_in_split * (n_split - 1) :]]
+    )
     split_punct_labels_lines = (
-        [punct_labels_lines[n * i : n * (i + 1)] for i in range(n_split - 1)]
-        + [punct_labels_lines[n * (n_split - 1) :]]
+        [punct_labels_lines[num_queries_in_split * i : num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
+        + [punct_labels_lines[num_queries_in_split * (n_split - 1) :]]
     )
     split_capit_labels_lines = (
-        [capit_labels_lines[n * i: n * (i + 1)] for i in range(n_split - 1)] + [capit_labels_lines[n * (n_split - 1):]]
+        [capit_labels_lines[num_queries_in_split * i: num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
+        + [capit_labels_lines[num_queries_in_split * (n_split - 1):]]
     )
     args = list(
         zip(
@@ -134,7 +142,7 @@ def tokenize_and_create_masks_parallel(
             [pad_label] * n_split,
             [ignore_extra_tokens] * n_split,
             [with_label] * n_split,
-            range(njobs - 1),
+            range(n_split),
         )
     )
     with mp.Pool(njobs) as pool:
