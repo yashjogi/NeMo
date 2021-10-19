@@ -61,6 +61,8 @@ model:
     frame_splicing: 1
     dither: 0.00001
     stft_conv: false
+    nb_augmentation_prob: 0.5
+    nb_max_freq: 4000
     
   encoder:
     _target_: nemo.collections.asr.modules.ConvASREncoder
