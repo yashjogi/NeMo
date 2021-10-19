@@ -450,7 +450,7 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
         if remove_parentheses:
             text = big.ALL_PARENTHESES.sub(' ', text)
             text = small.SPACE_DUP.sub(' ', text)
-            text = big.SPACE_NEW_LINE('\n', text)
+            text = big.SPACE_NEW_LINE.sub('\n', text)
         if num_to_cut_by_files is None:
             with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
