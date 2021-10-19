@@ -19,7 +19,7 @@ set +e +x
 EOF
 
 ngc batch run \
-  --instance dgx1v.16g.1.norm \
+  --instance dgx1v.16g.8.norm \
   --name "ml-model.bert large_punctuation_capitalization_training_on_wmt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
