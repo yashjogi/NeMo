@@ -528,6 +528,8 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
 
 
 def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs, remove_parentheses):
+    # TODO: remove parentheses in separate function before cutting because in `cut_and_save_parallel` number of
+    #     segments is estimated incorrectly.
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     if size is None:
         num_to_cut_by_files = [None] * len(files)
@@ -561,8 +563,8 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
                 )
             )
         )
-        progress_queue.put(-1)
-        progress_process.join()
+    progress_queue.put(-1)
+    progress_process.join()
     with sorted_text_file.open('w') as out_f:
         run(
             [f'cat'] + [str(p.resolve()) for p in output_dir.iterdir() if is_int(p.stem) and p.suffixes == ['.txt']],

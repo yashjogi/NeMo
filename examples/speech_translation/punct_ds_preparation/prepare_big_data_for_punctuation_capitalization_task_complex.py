@@ -1012,6 +1012,38 @@ def write_dataset_parallel(
     job_borders = [
         (borders[0] + i * num_lines_in_part, borders[0] + (i + 1) * num_lines_in_part) for i in range(num_jobs - 1)
     ] + [(borders[0] + (num_jobs - 1) * num_lines_in_part, borders[1])]
+    text_fn, input_fn = output_dir / 'text.txt', output_dir /'input.txt'
+    bert_fn, ar_fn = output_dir / 'bert_labels.txt', output_dir / 'autoregressive_labels.txt'
+    tmp_dir = output_dir / 'tmp'
+    output_dirs = [tmp_dir / str(i) for i in range(num_jobs)]
+    manager = mp.Manager()
+    progress_queue = manager.Queue()
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, borders[1] - borders[0], "line"))
+    progress_process.start()
+    with mp.Pool(num_jobs) as pool:
+        pool.starmap(
+            write_dataset_fast,
+            list(
+                zip(
+                    job_borders,
+                    [input_file] * num_jobs,
+                    output_dirs,
+                    [create_model_input] * num_jobs,
+                    [bert_labels] * num_jobs,
+                    [autoregressive_labels] * num_jobs,
+                    [allowed_punctuation] * num_jobs,
+                    [only_first_punctuation_character_after_word_in_autoregressive] * num_jobs,
+                    [no_label_if_all_characters_are_upper_case] * num_jobs,
+                    range(num_jobs),
+                    [progress_queue] * num_jobs,
+                )
+            )
+        )
+    progress_queue.put(-1)
+    progress_process.join()
+    for joined_fn in [text_fn, input_fn, bert_fn, ar_fn]:
+        with joined_fn.open('w') as f:
+            run(['cat'] + [str(d / f'{joined_fn.stem}.txt') for d in output_dirs], stdout=f)
 
 
 def write_dataset_fast(
@@ -1024,6 +1056,8 @@ def write_dataset_fast(
     allowed_punctuation,
     only_first_punctuation_character_after_word_in_autoregressive,
     no_label_if_all_characters_are_upper_case,
+    rank=None,
+    progress_queue=None,
 ):
     extended_punctuation = allowed_punctuation | {' ', '\n'}
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1035,16 +1069,24 @@ def write_dataset_fast(
         move_to_line(in_f, borders[0])
         for l_i in range(borders[1] - borders[0]):
             input_text += in_f.readline()
-    prog = tqdm(total=len(input_text), desc="Total", unit='char', unit_scale=True)
+    if rank is None:
+        prog = tqdm(total=len(input_text), desc="Total", unit='char', unit_scale=True)
     with text_fn.open('w', buffering=BUFFER_SIZE) as tf, \
             input_fn.open('w', buffering=BUFFER_SIZE) as inp_f, \
             bert_fn.open('w', buffering=BUFFER_SIZE) as bf:
+        line_progress = 0
         for m in small.WORD_WITH_FOLLOWING_PUNCTUATION.finditer(input_text):
             all_text = m.group(0)
             tf.write(all_text)
-            prog.n += len(all_text)
-            if prog.n % 10000 == 0:
-                prog.update()
+            if rank is None:
+                prog.n += len(all_text)
+                if prog.n % 10000 == 0:
+                    prog.update()
+            else:
+                line_progress += all_text.count('\n')
+                if line_progress > 5000:
+                    progress_queue.put(line_progress)
+                    line_progress = 0
             word, punctuation = m.group(1), m.group(2)
             punctuation = m.group(2)
             if create_model_input:
