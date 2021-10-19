@@ -32,7 +32,7 @@ trainer:
   progress_bar_refresh_rate: 0
 
 exp_manager:
-  exp_dir: /result/nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
+  exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
   name: Punctuation_and_Capitalization  # The name of your model
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   checkpoint_callback_params:
