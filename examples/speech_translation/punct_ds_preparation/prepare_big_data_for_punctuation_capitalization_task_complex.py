@@ -8,6 +8,7 @@ import multiprocessing as mp
 import random
 import re
 from itertools import accumulate
+from math import ceil
 from pathlib import Path
 from queue import Empty
 from subprocess import run
@@ -1009,7 +1010,7 @@ def write_dataset_parallel(
     num_jobs,
 ):
     num_jobs = min(num_jobs, borders[1] - borders[0])
-    num_parts = max((borders[1] - borders[0]) // MAX_NUM_LINES_PER_PROCESS, num_jobs)
+    num_parts = max(ceil((borders[1] - borders[0]) / MAX_NUM_LINES_PER_PROCESS), num_jobs)
     num_lines_in_part = (borders[1] - borders[0]) // num_parts
     job_borders = [
         (borders[0] + i * num_lines_in_part, borders[0] + (i + 1) * num_lines_in_part) for i in range(num_parts - 1)
