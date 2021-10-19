@@ -132,6 +132,7 @@ ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n ?')
+EMPTY_LINE = re.compile('^[() .,!;?|&#%^@$"\'<>{}/\\\\*~\\][]*$', flags=re.MULTILINE)
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -1007,7 +1008,8 @@ def write_dataset_parallel(
     num_lines_in_part = (borders[1] - borders[0]) // num_jobs
     job_borders = [
         (borders[0] + i * num_lines_in_part, borders[0] + (i + 1) * num_lines_in_part) for i in range(num_jobs - 1)
-    ]
+    ] + [(borders[0] + (num_jobs - 1) * num_lines_in_part, borders[1])]
+
 
 
 def write_dataset_fast(
@@ -1107,7 +1109,7 @@ def write_dataset(
             line = in_f.readline().strip()
             if not line:
                 raise ValueError(
-                    f"Line number {l_i} in file {input_file} is empty, where as all lines in file for cutting has "
+                    f"Line number {l_i} in file {input_file} is empty, whereas all lines in file for cutting has "
                     f"to be not empty. You have to either check second element in `borders` parameter or check "
                     f"creation of {input_file}."
                 )

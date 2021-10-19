@@ -446,13 +446,17 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
         out_file = output_dir / (f.stem + '.txt')
         text = list(big.read_docs_from_file(f).items())
         random.shuffle(text)
-        text = small.SPACE_DUP.sub(' ', ' '.join([doc[1]['text'] for doc in text]).replace('\n', ' '))
+        text = '\n'.join([doc[1]['text'] for doc in text])
         if remove_parentheses:
             text = big.ALL_PARENTHESES.sub(' ', text)
             text = small.SPACE_DUP.sub(' ', text)
             text = big.SPACE_PUNCTUATION_MARK.sub(r'\1', text)
             text = big.SPACE_NEW_LINE.sub('\n', text)
-            text = '\n'.join([big.normalize_quotes(line) for line in text.split('\n')])
+            text = '\n'.join(
+                [big.normalize_quotes(line) for line in text.split('\n') if big.EMPTY_LINE.match(line) is None]
+            )
+        text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
+
         if num_to_cut_by_files is None:
             with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
