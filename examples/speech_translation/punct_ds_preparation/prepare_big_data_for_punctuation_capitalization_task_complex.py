@@ -110,7 +110,7 @@ LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=
 GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
     rf'^[^{WC}"]|http:/|www.\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\)[{WC}]|[{WC}]\(|'
-    rf'[=*^\\~<>|{{}}]|[^?!.\u2026)"]|\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\)$' + "| '",
+    rf'[=*^\\~<>|{{}}]|[^?!.\u2026)"]$|\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\)' + "| '",
     flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
@@ -1005,7 +1005,9 @@ def write_dataset_parallel(
 ):
     num_jobs = min(num_jobs, borders[1] - borders[0])
     num_lines_in_part = (borders[1] - borders[0]) // num_jobs
-
+    job_borders = [
+        (borders[0] + i * num_lines_in_part, borders[0] + (i + 1) * num_lines_in_part) for i in range(num_jobs - 1)
+    ]
 
 
 def write_dataset_fast(
