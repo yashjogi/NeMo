@@ -109,7 +109,8 @@ NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
-    rf'^[^{WC}"]|http:/|www.\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\)[{WC}]|[{WC}]\(|[=*^\\~<>|{{}}]|[^?!.\u2026)"]$' + "| '",
+    rf'^[^{WC}"]|http:/|www.\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\)[{WC}]|[{WC}]\(|'
+    rf'[=*^\\~<>|{{}}]|[^?!.\u2026)"]|\([^")]*"[^")]*\)$' + "| '",
     flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
@@ -1002,7 +1003,9 @@ def write_dataset_parallel(
     no_label_if_all_characters_are_upper_case,
     num_jobs,
 ):
-    pass
+    num_jobs = min(num_jobs, borders[1] - borders[0])
+    num_lines_in_part = (borders[1] - borders[0]) // num_jobs
+
 
 
 def write_dataset_fast(
