@@ -816,6 +816,14 @@ def create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are
     allowed_punctuation = allowed_punctuation & SUPPORTED_BERT_PUNCTUATION
     for w_i, word in enumerate(line):
         if WORD.match(word):
+            if w_i < len(line) - 1:
+                c_i = 0
+                while c_i < len(line[w_i + 1]) and line[w_i + 1][c_i] not in allowed_punctuation:
+                    c_i += 1
+                lbl = line[w_i + 1][c_i] if c_i < len(line[w_i + 1]) else 'O'
+            else:
+                lbl = 'O'
+            labels += lbl
             if no_label_if_all_characters_are_upper_case:
                 if word[0].isupper():
                     labels += 'U'
@@ -828,14 +836,6 @@ def create_bert_labels(line, allowed_punctuation, no_label_if_all_characters_are
                     labels += 'u'
                 else:
                     labels += "O"
-            if w_i < len(line) - 1:
-                c_i = 0
-                while c_i < len(line[w_i + 1]) and line[w_i + 1][c_i] not in allowed_punctuation:
-                    c_i += 1
-                lbl = line[w_i + 1][c_i] if c_i < len(line[w_i + 1]) else 'O'
-            else:
-                lbl = 'O'
-            labels += lbl
             labels += ' '
     return labels.rstrip(' ')
 

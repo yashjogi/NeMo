@@ -558,7 +558,7 @@ def get_borders_with_documents_intact(file_path, num_parts):
     total_characters_read = 0
     remainder = ""
     with file_path.open(buffering=BUFFER_SIZE) as f:
-        for i in range(num_parts):
+        for i in tqdm(range(num_parts), unit='part'):
             read_size = part_size * (i + 1) - total_characters_read
             characters_in_part, bytes_read = move_by_n_characters_in_file(f, read_size, BUFFER_SIZE)
             characters_in_part += len(remainder)
@@ -938,8 +938,8 @@ def write_dataset_sub(
             c_i = 0
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
-        return ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
-            + (p[c_i] if p and c_i < len(p) else 'O') \
+        return (p[c_i] if p and c_i < len(p) else 'O') \
+            + ('U' if len(w) > 1 and w.isupper() else ('u' if w[0].isupper() else 'O')) \
             + ('\n' if '\n' in p else ' ')
 
     def bert_repl2(match):
@@ -948,8 +948,8 @@ def write_dataset_sub(
             c_i = 0
             while c_i < len(p) and p[c_i] not in allowed_punctuation:
                 c_i += 1
-        return ('U' if match.group(1)[0].isupper() else 'O') \
-            + (p[c_i] if p and c_i < len(p) else 'O') \
+        return (p[c_i] if p and c_i < len(p) else 'O') \
+            + ('U' if match.group(1)[0].isupper() else 'O') \
             + ('\n' if '\n' in p else ' ')
 
     def autoregressive_repl1(match):
@@ -1095,17 +1095,17 @@ def write_dataset_fast(
             if create_model_input:
                 inp_f.write(word + ('\n' if '\n' in punctuation else ' '))
             if bert_labels:
-                lbl = get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
                 if punctuation:
                     c_i = 0
                     while c_i < len(punctuation) and punctuation[c_i] not in allowed_punctuation:
                         c_i += 1
                     if c_i < len(punctuation):
-                        lbl += punctuation[c_i]
+                        lbl = punctuation[c_i]
                     else:
-                        lbl += 'O'
+                        lbl = 'O'
                 else:
-                    lbl += 'O'
+                    lbl = 'O'
+                lbl += get_capitalization_label(word, no_label_if_all_characters_are_upper_case)
                 lbl += '\n' if '\n' in punctuation else ' '
                 bf.write(lbl)
             if autoregressive_labels:
