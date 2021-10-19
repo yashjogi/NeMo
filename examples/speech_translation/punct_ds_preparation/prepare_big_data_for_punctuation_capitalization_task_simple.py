@@ -645,7 +645,7 @@ def main():
             args.no_label_if_all_characters_are_upper_case,
         )
     logging.info("Writing train dataset...")
-    big.write_dataset_fast(
+    big.write_dataset_parallel(
         [args.test_size + args.dev_size, args.size],
         shuffled_text_file,
         args.output_dir / Path("train"),
@@ -655,6 +655,7 @@ def main():
         args.allowed_punctuation,
         args.only_first_punctuation_character_after_word_in_autoregressive,
         args.no_label_if_all_characters_are_upper_case,
+        args.num_jobs,
     )
 
 
