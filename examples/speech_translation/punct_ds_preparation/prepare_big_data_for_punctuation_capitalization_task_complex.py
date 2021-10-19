@@ -1093,7 +1093,7 @@ def write_dataset_fast(
             word, punctuation = m.group(1), m.group(2)
             punctuation = m.group(2)
             if create_model_input:
-                inp_f.write(word + ('\n' if '\n' in punctuation else ' '))
+                inp_f.write(word.lower() + ('\n' if '\n' in punctuation else ' '))
             if bert_labels:
                 if punctuation:
                     c_i = 0
