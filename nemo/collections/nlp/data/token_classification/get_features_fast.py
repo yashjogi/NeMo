@@ -62,6 +62,7 @@ def get_features(
     capit_labels_lines=None,
     ignore_extra_tokens=False,
     ignore_start_end: Optional[bool] = False,
+    njobs=None,
 ):
     """
     Processes the data and returns features.
