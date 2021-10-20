@@ -27,6 +27,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
+from nemo.collections.nlp.data.token_classification.get_features_fast import get_features
 from nemo.core.classes import Dataset
 from nemo.core.neural_types import ChannelType, Index, LabelsType, MaskType, NeuralType
 from nemo.core.neural_types.elements import BoolType
@@ -150,7 +151,7 @@ def tokenize_and_create_masks_parallel(
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
-def get_features(
+def get_features_slow(
     queries: List[str],
     max_seq_length: int,
     tokenizer: TokenizerSpec,
@@ -460,7 +461,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 njobs=njobs,
             )
 
-            pickle.dump(features, open(features_pkl, "wb"))
+            pickle.dump(tuple(list(features) + [punct_label_ids, capit_label_ids]), open(features_pkl, "wb"))
             logging.info(f'Features saved to {features_pkl}')
 
         # wait until the master process writes to the processed data files
@@ -469,6 +470,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
         if features is None:
             features = pickle.load(open(features_pkl, 'rb'))
+            punct_label_ids, capit_label_ids = features[-2], features[-1]
+            features = features[:-2]
             logging.info(f'Features restored from {features_pkl}')
 
         self.all_input_ids = features[0]
@@ -478,8 +481,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.all_loss_mask = features[4]
         self.punct_all_labels = features[5]
         self.capit_all_labels = features[6]
-        self.punct_label_ids = features[7]
-        self.capit_label_ids = features[8]
+        self.punct_label_ids = punct_label_ids
+        self.capit_label_ids = capit_label_ids
 
         if get_label_frequencies:
             self.punct_label_frequencies = self._calculate_label_frequencies(self.punct_all_labels, data_dir, 'punct')
