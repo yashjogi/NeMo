@@ -19,7 +19,7 @@ pretrained_model: null # pretrained Punctuation and Capitalization model from li
 # or your_model.nemo
 trainer:
   gpus: 1 # the number of gpus, 0 for CPU
-  max_steps: 300000 # precedence over max_epochs
+  max_steps: 400000 # precedence over max_epochs
   accumulate_grad_batches: 1 # accumulates grads every k batches
   gradient_clip_val: 0.0
   amp_level: O2 # O1/O2 for mixed precision
