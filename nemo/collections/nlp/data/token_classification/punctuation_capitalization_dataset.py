@@ -26,7 +26,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
-from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
+# from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
 from nemo.collections.nlp.data.token_classification.get_features_fast import get_features
 from nemo.core.classes import Dataset
 from nemo.core.neural_types import ChannelType, Index, LabelsType, MaskType, NeuralType
@@ -151,7 +151,7 @@ def tokenize_and_create_masks_parallel(
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
-def get_features_slow(
+def get_features(
     queries: List[str],
     max_seq_length: int,
     tokenizer: TokenizerSpec,

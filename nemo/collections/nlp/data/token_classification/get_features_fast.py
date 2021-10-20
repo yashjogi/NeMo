@@ -96,9 +96,10 @@ def get_features(
     token_id_2_whether_word_starts = {
         v: not k.startswith('##') and not(len(k) > 1 and k[0] == '[') for k, v in vocab.items()
     }
-    input_ids, segment_ids, input_mask = tokenizer.tokenizer(
-        queries, return_tensors='pt', truncation=True, max_length=max_seq_length, padding=True
+    res = tokenizer.tokenizer(
+        queries, return_tensors='pt', truncation=True, max_length=max_seq_length, padding=True, verbose=True
     )
+    input_ids, segment_ids, input_mask = res['input_ids'], res['token_type_ids'], res['attention_mask']
     subtokens_mask = bucketize_map(input_ids, token_id_2_whether_word_starts)
     special_tokens_mask = input_ids.eq(tokenizer.cls_id) | input_ids.eq(tokenizer.sep_id)
     if ignore_extra_tokens:
