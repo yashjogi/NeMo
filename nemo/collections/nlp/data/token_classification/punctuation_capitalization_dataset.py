@@ -26,8 +26,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
-# from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
-from nemo.collections.nlp.data.token_classification.get_features_fast import get_features
+from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
+# from nemo.collections.nlp.data.token_classification.get_features_fast import get_features
 from nemo.core.classes import Dataset
 from nemo.core.neural_types import ChannelType, Index, LabelsType, MaskType, NeuralType
 from nemo.core.neural_types.elements import BoolType
@@ -274,8 +274,6 @@ def get_features(
         np.array(all_loss_mask, dtype=np.bool),
         np.array(punct_all_labels, dtype=np.int8),
         np.array(capit_all_labels, dtype=np.int8),
-        punct_label_ids,
-        capit_label_ids,
     )
 
 
