@@ -363,7 +363,34 @@ def normalize_punctuation(text, lang):
     return text
 
 
-def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info, nltk_tokenization, remove_parentheses):
+def remove_lines_with_character(text, char):
+    result = ""
+    i = 0
+    while i < len(text):
+        pos = text.find(char, i)
+        if pos >= 0:
+            right = text.rfind('\n', i, pos)
+            if right > 0:
+                result += text[i: right + 1]
+            cand = text.find('\n', pos)
+            i = cand + 1 if cand > 0 else len(text)
+        else:
+            break
+    result += text[i:]
+    return result
+
+
+def get_wiki_text_lines(
+    text,
+    lang,
+    tokenizer,
+    tok_chars,
+    untok_chars,
+    pos_info,
+    nltk_tokenization,
+    remove_parentheses,
+    remove_lines_with_quotes,
+):
     text = html.unescape(html.unescape(text))
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
     text = REDIRECT.sub('', text)
@@ -458,6 +485,8 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
+    if remove_lines_with_quotes:
+        remove_lines_with_character(text, '"')
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)
     if nltk_tokenization:

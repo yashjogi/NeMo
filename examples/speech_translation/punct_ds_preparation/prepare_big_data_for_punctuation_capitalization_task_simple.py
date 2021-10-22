@@ -172,6 +172,7 @@ def preprocess_wikipedia_parallel(
     start_doc_id=0,
     start_file_i=0,
     nltk_tokenization=True,
+    remove_lines_with_quotes=False,
 ):
     logging.info("Calculating borders for multiprocessing...")
     byte_borders, num_characters_in_part = get_borders_with_documents_intact(file_path, num_jobs)
@@ -223,6 +224,7 @@ def preprocess_wikipedia_parallel(
                     start_doc_ids,
                     start_line_ids,
                     [nltk_tokenization] * num_jobs,
+                    [remove_lines_with_quotes] * num_jobs,
                 )
             )
         )
@@ -248,6 +250,7 @@ def preprocess_wikipedia(
     start_doc_id,
     start_line_id,
     nltk_tokenization,
+    remove_lines_with_quotes,
 ):
     doc_id_to_file_i = {}
     page = ""
@@ -319,6 +322,7 @@ def preprocess_wikipedia(
                                 pos_info,
                                 nltk_tokenization,
                                 False,
+                                remove_lines_with_quotes,
                             )
                             if text:
                                 file_text += big.doc_to_str(
@@ -600,6 +604,7 @@ def main():
                     start_doc_id,
                     start_file_id,
                     args.nltk_tokenization,
+                    args.remove_lines_with_quotes,
                 )
                 doc_id_to_file_i.update(corpus_doc_id_to_file_i)
                 start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1
@@ -764,6 +769,12 @@ def get_args(
         "--resume_from",
         choices=["cutting", "shuffling", "writing"],
         help="From which stage big dataset preparation is started."
+    )
+    parser.add_argument(
+        "--remove_lines_with_quotes",
+        "-q",
+        action="store_true",
+        help="Whether to remove all lines containing quotes from the dataset."
     )
     parser.add_argument("--num_jobs", default=1, type=int)
     args = parser.parse_args()
