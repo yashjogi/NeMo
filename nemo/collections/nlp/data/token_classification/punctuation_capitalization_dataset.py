@@ -503,7 +503,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 batch_seq_lengths.append(seq_length)
                 start = start + batch_size
                 current_max_length = ceil(
-                    max([len(inp) for inp in input_ids[start + batch_size : i + 1]]) / 8
+                    max([len(inp) for inp in input_ids[start : i + 1]]) / 8
                 ) * 8
         if start < len(input_ids):
             seq_length = ceil(max([len(inp) for inp in input_ids[start :]]) / 8) * 8
