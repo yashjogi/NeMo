@@ -215,6 +215,23 @@ def get_features(
     return input_ids, subtokens_mask, punct_labels, capit_labels
 
 
+def get_masks_and_segment_ids(input_ids, subtokens_mask, pad_id, cls_id, sep_id, ignore_start_end, ignore_extra_tokens):
+    segment_ids = np.zeros_like(input_ids, dtype=np.int8)
+    input_mask = np.not_equal(input_ids, pad_id)
+    special_mask = np.equal(input_ids, cls_id) & np.equal(input_ids, sep_id)
+    if ignore_start_end:
+        if ignore_extra_tokens:
+            loss_mask = subtokens_mask
+        else:
+            loss_mask = input_mask & ~special_mask
+    else:
+        if ignore_extra_tokens:
+            loss_mask = subtokens_mask | special_mask
+        else:
+            loss_mask = input_mask
+    return segment_ids, input_mask, loss_mask
+
+
 class BertPunctuationCapitalizationDataset(Dataset):
     """
     Creates dataset to use during training for punctuaion and capitalization tasks with a pretrained model.
@@ -296,6 +313,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.tokens_in_batch = tokens_in_batch
         self.tokenizer = tokenizer
         self.pad_label = pad_label
+        self.ignore_extra_tokens = ignore_extra_tokens
+        self.ignore_start_end = ignore_start_end
         filename = filename[:-4]
         vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
@@ -415,16 +434,13 @@ class BertPunctuationCapitalizationDataset(Dataset):
             logging.info(f'Features restored from {features_pkl}')
 
         input_ids = features[0]
-        segment_ids = features[1]
-        input_mask = features[2]
-        subtokens_mask = features[3]
-        loss_mask = features[4]
-        punct_labels = features[5]
-        capit_labels = features[6]
+        subtokens_mask = features[1]
+        punct_labels = features[2]
+        capit_labels = features[3]
         self.punct_label_ids = punct_label_ids
         self.capit_label_ids = capit_label_ids
         self.batches = self.pack_into_batches(
-            input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
+            input_ids, subtokens_mask, punct_labels, capit_labels
         )
 
         if get_label_frequencies:
@@ -438,13 +454,13 @@ class BertPunctuationCapitalizationDataset(Dataset):
         return np.stack(result)
 
     def pack_into_batches(
-        self, input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
+        self, input_ids, subtokens_mask, punct_labels, capit_labels
     ):
         zipped = sorted(
-            zip(input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels),
+            zip(input_ids, subtokens_mask, punct_labels, capit_labels),
             key=lambda x: x[0].shape[0]
         )
-        input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels = zip(*zipped)
+        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
         batch_beginnings, batch_sizes, batch_seq_lengths = [], [], []
         current_max_length = 0
         start = 0
@@ -489,12 +505,23 @@ class BertPunctuationCapitalizationDataset(Dataset):
             )
         batches = []
         for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
+            input_ids = self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id)
+            subtokens_mask = self.pad(subtokens_mask[start : start + size], length, False)
+            segment_ids, input_mask, loss_mask = get_masks_and_segment_ids(
+                input_ids,
+                subtokens_mask,
+                self.tokenizer.pad_id,
+                self.tokenizer.cls_id,
+                self.tokenizer.sep_id,
+                self.ignore_start_end,
+                self.ignore_extra_tokens,
+            )
             batch = {
-                "input_ids": self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id),
-                "segment_ids": self.pad(segment_ids[start : start + size], length, 0).astype(np.int32),
-                "input_mask": self.pad(input_mask[start : start + size], length, False),
-                "subtokens_mask": self.pad(subtokens_mask[start : start + size], length, False),
-                "loss_mask": self.pad(loss_mask[start : start + size], length, False),
+                "input_ids": input_ids,
+                "segment_ids": segment_ids,
+                "input_mask": input_mask,
+                "subtokens_mask": subtokens_mask,
+                "loss_mask": loss_mask,
                 "punct_labels": self.pad(
                     punct_labels[start : start + size], length, self.punct_label_ids[self.pad_label]
                 ).astype(np.int64),
