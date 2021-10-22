@@ -144,13 +144,13 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         passed in as `batch`.
         """
         val_loss, punct_logits, capit_logits = self._make_step(batch)
-
-        punct_preds = torch.argmax(punct_logits, axis=-1)[batch['subtokens_mask']]
-        punct_labels = batch['punct_labels'][batch['subtokens_mask']]
+        subtokens_mask = batch['subtokens_mask']
+        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
+        punct_labels = batch['punct_labels'][subtokens_mask]
         self.punct_class_report.update(punct_preds, punct_labels)
 
-        capit_preds = torch.argmax(capit_logits, axis=-1)[batch['subtokens_mask']]
-        capit_labels = batch['capit_labels'][batch['subtokens_mask']]
+        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
+        capit_labels = batch['capit_labels'][subtokens_mask]
         self.capit_class_report.update(capit_preds, capit_labels)
 
         return {
@@ -169,13 +169,13 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         passed in as `batch`.
         """
         test_loss, punct_logits, capit_logits = self._make_step(batch)
-
-        punct_preds = torch.argmax(punct_logits, axis=-1)[batch['subtokens_mask']]
-        punct_labels = batch['punct_labels'][batch['subtokens_mask']]
+        subtokens_mask = batch['subtokens_mask']
+        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
+        punct_labels = batch['punct_labels'][subtokens_mask]
         self.punct_class_report.update(punct_preds, punct_labels)
 
-        capit_preds = torch.argmax(capit_logits, axis=-1)[batch['subtokens_mask']]
-        capit_labels = batch['capit_labels'][batch['subtokens_mask']]
+        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
+        capit_labels = batch['capit_labels'][subtokens_mask]
         self.capit_class_report.update(capit_preds, capit_labels)
 
         return {
