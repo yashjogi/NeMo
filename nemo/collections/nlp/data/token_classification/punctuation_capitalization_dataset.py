@@ -18,7 +18,6 @@ import itertools
 import multiprocessing as mp
 import os
 import pickle
-from math import ceil
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -27,7 +26,6 @@ from torch.nn.utils.rnn import pad_sequence
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
-# from nemo.collections.nlp.data.token_classification.get_features_fast import get_features
 from nemo.core.classes import Dataset
 from nemo.core.neural_types import ChannelType, Index, LabelsType, MaskType, NeuralType
 from nemo.core.neural_types.elements import BoolType

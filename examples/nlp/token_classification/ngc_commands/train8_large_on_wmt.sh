@@ -14,7 +14,10 @@ python -c "from nemo.collections.nlp.modules import get_tokenizer;get_tokenizer(
 python punctuation_capitalization_train.py --config-path=conf \
     --config-name wmt_train \
     trainer.gpus=8 \
-    model.language_model.pretrained_model_name=bert-large-uncased
+    model.language_model.pretrained_model_name=bert-large-uncased \
+    model.train_ds.batch_size=48 \
+    model.validation_ds.batch_size=48 \
+    model.test_ds.batch_size=48
 set +e +x
 EOF
 
