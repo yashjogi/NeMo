@@ -1,0 +1,13 @@
+python prepare_big_data_for_punctuation_capitalization_task_simple.py \
+  --output_dir /media/apeganov/DATA/wiki_unsplit_2_64_no_quotes \
+  --corpus_types wikipedia \
+  --create_model_input \
+  --bert_labels \
+  --autoregressive_labels \
+  --sequence_length_range 2 64 \
+  --allowed_punctuation '.,?' \
+  --only_first_punctuation_character_after_word_in_autoregressive \
+  --no_label_if_all_characters_are_upper_case \
+  --input_files ~/data/enwiki-20210920-pages-articles-multistream.xml \
+  --num_jobs 24 \
+  --remove_lines_with_quotes
