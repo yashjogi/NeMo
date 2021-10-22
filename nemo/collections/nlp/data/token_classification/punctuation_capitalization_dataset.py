@@ -96,13 +96,7 @@ class TokenizeCreateMasksClipWorker:
                 capit_labels.append(pad_id)
                 capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
         logging.info(f"Finished tokenization processing split with number {split_i}")
-        return (
-            all_input_ids,
-            all_subtokens_mask,
-            sent_lengths,
-            punct_all_labels,
-            capit_all_labels,
-        )
+        return all_input_ids, all_subtokens_mask, sent_lengths, punct_all_labels, capit_all_labels
 
 
 def tokenize_create_masks_clip_parallel(
@@ -186,7 +180,7 @@ def get_features(
     """
     with_label = punct_labels_lines and capit_labels_lines
     logging.info("Start initial tokenization.")
-    res = tokenize_create_masks_clip_parallel(
+    input_ids, subtokens_mask, sent_lengths, punct_labels, capit_labels = tokenize_create_masks_clip_parallel(
         queries,
         max_seq_length,
         tokenizer,
@@ -198,7 +192,6 @@ def get_features(
         with_label,
         njobs,
     )
-    input_ids, subtokens_mask, sent_lengths, punct_labels, capit_labels = res
     logging.info("Finished initial tokenization.")
     get_stats(sent_lengths)
     logging.info(f"Finished clipping and padding.")
@@ -415,8 +408,6 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 capit_labels_lines=capit_labels_lines,
                 punct_label_ids=punct_label_ids,
                 capit_label_ids=capit_label_ids,
-                ignore_extra_tokens=ignore_extra_tokens,
-                ignore_start_end=ignore_start_end,
                 njobs=njobs,
             )
 
