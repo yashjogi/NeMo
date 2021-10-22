@@ -1,0 +1,147 @@
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Punctuation and capitalization model with pretrained BERT-like models
+
+pretrained_model: null # pretrained Punctuation and Capitalization model from list_available_models(), for example:
+# punctuation_en_bert or punctuation_en_distilbert
+# or your_model.nemo
+trainer:
+  gpus: 1 # the number of gpus, 0 for CPU
+  max_steps: 300000 # precedence over max_epochs
+  accumulate_grad_batches: 1 # accumulates grads every k batches
+  gradient_clip_val: 0.0
+  amp_level: O2 # O1/O2 for mixed precision
+  precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
+  accelerator: ddp
+  checkpoint_callback: false  # Provided by exp_manager
+  logger: false  # Provided by exp_manager
+  log_every_n_steps: 50  # Interval of logging.
+  check_val_every_n_epoch: 1
+  progress_bar_refresh_rate: 0
+
+exp_manager:
+  exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
+  name: Punctuation_and_Capitalization  # The name of your model
+  create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
+  create_wandb_logger: true
+  wandb_logger_kwargs:
+    name: evelina_punc_cap_train_on_small_wiki_gpu1_lr1e-4_steps300000
+    project: autoregressive_punctuation_capitalization
+    entity: anton_peganov
+
+model:
+  punct_label_ids: null # will be filled during training
+  capit_label_ids: null # will be filled during training
+  class_labels:
+    punct_labels_file: punct_label_ids.csv
+    capit_labels_file: capit_label_ids.csv
+  dataset:
+    data_dir: /media/apeganov/DATA/wiki_unsplit_2_64_broken_bert/small_wiki/train # /path/to/training/data
+    # parameters for dataset preprocessing
+    max_seq_length: 512
+    pad_label: 'O'
+    ignore_extra_tokens: false
+    ignore_start_end: false
+    use_cache: true
+    # shared among dataloaders
+    num_workers:  2
+    pin_memory: true
+    drop_last: false
+
+    # required for inference
+    # For inference text is split into overlapping sequences of subtokens of length `max_seq_length` with step `step`.
+    # For example, if every character is a subtoken, max_seq_length=3 and step=2, than the string "abcdef" for
+    # inference will be split into ["abc", "bcd", "cde", "def"]
+    step: 32
+    # You may use margin if input sequence is longer than `max_seq_length`. If margin is not equal to zero than
+    # `margin` subtokens predictions at the start or the end of a segment (if it is not the start or the end of entire
+    # input sequence) are not used for punctuation and capitalization prediction.
+    margin: 8
+
+  train_ds:
+    text_file: input.txt
+    labels_file: bert_labels.txt
+    shuffle: true
+    num_samples: -1
+    tokens_ib_batch: 16000
+    persistent_workers: true
+    pin_memory: true
+
+  validation_ds:
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    ds_item: /media/apeganov/DATA/wiki_unsplit_2_64_broken_bert/small_wiki/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    text_file: input.txt
+    labels_file: bert_labels.txt
+    shuffle: false
+    num_samples: -1
+    tokens_in_batch: 16000
+    persistent_workers: true
+    pin_memory: true
+
+  test_ds:
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    ds_item: /media/apeganov/DATA/wiki_unsplit_2_64_broken_bert/small_wiki/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
+    text_file: input.txt
+    labels_file: bert_labels.txt
+    shuffle: false
+    num_samples: -1
+    tokens_in_batch: 16000
+
+  tokenizer:
+    tokenizer_name: ${model.language_model.pretrained_model_name} # or sentencepiece
+    vocab_file: null # path to vocab file
+    tokenizer_model: null # only used if tokenizer is sentencepiece
+    special_tokens: null
+    use_fast: true
+
+  language_model:
+    pretrained_model_name: bert-base-uncased
+    lm_checkpoint: null
+    config_file: null # json file, precedence over config
+    config: null
+
+  punct_head:
+    punct_num_fc_layers: 1
+    fc_dropout: 0.1
+    activation: 'relu'
+    use_transformer_init: True
+
+  capit_head:
+    capit_num_fc_layers: 1
+    fc_dropout: 0.1
+    activation: 'relu'
+    use_transformer_init: true
+
+  optim:
+    name: adam
+    lr: 1e-4
+    weight_decay: 0.00
+
+    sched:
+      name: InverseSquareRootAnnealing
+      min_lr: 0.0
+      last_epoch: -1
+      warmup_ratio: 0.1
+
+hydra:
+  run:
+    dir: .
+  job_logging:
+    root:
+      handlers: null

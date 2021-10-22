@@ -18,6 +18,8 @@ import itertools
 import multiprocessing as mp
 import os
 import pickle
+import random
+from math import ceil
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -35,72 +37,89 @@ from nemo.utils import logging
 MAX_NUM_QUERIES_IN_SPLIT = 10 ** 4
 
 
-def tokenize_and_create_masks(args):
-    (
-        queries,
+class TokenizeCreateMasksClipWorker:
+    def __init__(
+        self,
+        max_seq_length,
         tokenizer,
         ignore_start_end,
         punct_label_ids,
         capit_label_ids,
-        punct_labels_lines,
-        capit_labels_lines,
         pad_label,
         ignore_extra_tokens,
-        with_label,
-        split_i,
-    ) = args
-    all_subtokens, all_loss_mask, all_subtokens_mask, all_input_mask, sent_lengths = [], [], [], [], []
-    punct_all_labels, capit_all_labels = [], []
-    for i, query in enumerate(queries):
-        words = query.strip().split()
-        subtokens, loss_mask, subtokens_mask = [tokenizer.cls_token], [1 - ignore_start_end], [0]
-        if with_label:
-            pad_id = punct_label_ids[pad_label]
-            punct_labels, punct_query_labels = [pad_id], [punct_label_ids[lab] for lab in punct_labels_lines[i]]
-            capit_labels, capit_query_labels = [pad_id], [capit_label_ids[lab] for lab in capit_labels_lines[i]]
-        for j, word in enumerate(words):
-            word_tokens = tokenizer.text_to_tokens(word)
-            subtokens.extend(word_tokens)
+        with_label
+    ):
+        self.max_seq_length = max_seq_length
+        self.tokenizer = tokenizer
+        self.ignore_start_end = ignore_start_end
+        self.punct_label_ids = punct_label_ids
+        self.capit_label_ids = capit_label_ids
+        self.pad_label = pad_label
+        self.ignore_extra_tokens = ignore_extra_tokens
+        self.with_label = with_label
 
-            loss_mask.append(1)
-            loss_mask.extend([int(not ignore_extra_tokens)] * (len(word_tokens) - 1))
+    def maybe_clip(self, values, prepend_value):
+        if len(values) > self.max_seq_length:
+            return [prepend_value] + values[-self.max_seq_length + 1:]
+        return values
 
-            subtokens_mask.append(1)
-            subtokens_mask.extend([0] * (len(word_tokens) - 1))
+    def __call__(self, queries, punct_labels_lines, capit_labels_lines, split_i):
+        all_input_ids, all_loss_mask, all_subtokens_mask, all_input_mask, sent_lengths = [], [], [], [], []
+        punct_all_labels, capit_all_labels = [], []
+        for i, query in enumerate(queries):
+            words = query.strip().split()
+            input_ids, loss_mask, subtokens_mask = [self.tokenizer.cls_id], [1 - self.ignore_start_end], [0]
+            if self.with_label:
+                pad_id = self.punct_label_ids[self.pad_label]
+                punct_labels = [pad_id]
+                punct_query_labels = [self.punct_label_ids[lab] for lab in punct_labels_lines[i]]
+                capit_labels = [pad_id]
+                capit_query_labels = [self.capit_label_ids[lab] for lab in capit_labels_lines[i]]
+            for j, word in enumerate(words):
+                word_ids = self.tokenizer.text_to_ids(word)
+                input_ids.extend(word_ids)
 
-            if with_label:
-                punct_labels.extend([punct_query_labels[j]] * len(word_tokens))
-                capit_labels.extend([capit_query_labels[j]] * len(word_tokens))
+                loss_mask.append(1)
+                loss_mask.extend([int(not self.ignore_extra_tokens)] * (len(word_ids) - 1))
 
-        # add eos token
-        subtokens.append(tokenizer.sep_token)
-        loss_mask.append(1 - ignore_start_end)
-        subtokens_mask.append(0)
-        sent_lengths.append(len(subtokens))
-        all_subtokens.append(subtokens)
-        all_loss_mask.append(loss_mask)
-        all_subtokens_mask.append(subtokens_mask)
-        all_input_mask.append([1] * len(subtokens))
+                subtokens_mask.append(1)
+                subtokens_mask.extend([0] * (len(word_ids) - 1))
 
-        if with_label:
-            punct_labels.append(pad_id)
-            punct_all_labels.append(punct_labels)
-            capit_labels.append(pad_id)
-            capit_all_labels.append(capit_labels)
-    logging.info(f"Finished tokenization processing split with number {split_i}")
-    return (
-        all_subtokens,
-        all_loss_mask,
-        all_subtokens_mask,
-        all_input_mask,
-        sent_lengths,
-        punct_all_labels,
-        capit_all_labels,
-    )
+                if self.with_label:
+                    punct_labels.extend([punct_query_labels[j]] * len(word_ids))
+                    capit_labels.extend([capit_query_labels[j]] * len(word_ids))
+
+            # add eos token
+            input_ids.append(self.tokenizer.sep_id)
+            loss_mask.append(1 - self.ignore_start_end)
+            subtokens_mask.append(0)
+            sent_lengths.append(len(input_ids))
+
+            all_input_ids.append(np.array(self.maybe_clip(input_ids, self.tokenizer.cls_id), dtype=np.int32))
+            all_loss_mask.append(np.array(self.maybe_clip(loss_mask, 1 - self.ignore_start_end), dtype=bool))
+            all_subtokens_mask.append(np.array(self.maybe_clip(subtokens_mask, 0), dtype=bool))
+            all_input_mask.append(np.array([1] * len(all_input_ids[-1]), dtype=bool))
+
+            if self.with_label:
+                punct_labels.append(pad_id)
+                punct_all_labels.append(np.array(self.maybe_clip(punct_labels, pad_id), dtype=np.int32))
+                capit_labels.append(pad_id)
+                capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
+        logging.info(f"Finished tokenization processing split with number {split_i}")
+        return (
+            all_input_ids,
+            all_loss_mask,
+            all_subtokens_mask,
+            all_input_mask,
+            sent_lengths,
+            punct_all_labels,
+            capit_all_labels,
+        )
 
 
-def tokenize_and_create_masks_parallel(
+def tokenize_create_masks_clip_parallel(
     queries,
+    max_seq_length,
     tokenizer,
     ignore_start_end,
     punct_label_ids,
@@ -129,23 +148,21 @@ def tokenize_and_create_masks_parallel(
         [capit_labels_lines[num_queries_in_split * i: num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
         + [capit_labels_lines[num_queries_in_split * (n_split - 1):]]
     )
-    args = list(
-        zip(
-            split_queries,
-            [tokenizer] * n_split,
-            [ignore_start_end] * n_split,
-            [punct_label_ids] * n_split,
-            [capit_label_ids] * n_split,
-            split_punct_labels_lines,
-            split_capit_labels_lines,
-            [pad_label] * n_split,
-            [ignore_extra_tokens] * n_split,
-            [with_label] * n_split,
-            range(n_split),
-        )
-    )
+    args = list(zip(split_queries, split_punct_labels_lines, split_capit_labels_lines, range(n_split)))
     with mp.Pool(njobs) as pool:
-        result = pool.map(tokenize_and_create_masks, args)
+        result = pool.starmap(
+            TokenizeCreateMasksClipWorker(
+                max_seq_length,
+                tokenizer,
+                ignore_start_end,
+                punct_label_ids,
+                capit_label_ids,
+                pad_label,
+                ignore_extra_tokens,
+                with_label
+            ),
+            args,
+        )
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
@@ -192,20 +209,11 @@ def get_features(
         punct_label_ids: label (str) to id (int) map for punctuation task
         capit_label_ids: label (str) to id (int) map for capitalization task
     """
-    all_segment_ids = []
-    all_input_ids = []
     with_label = punct_labels_lines and capit_labels_lines
     logging.info("Start initial tokenization.")
-    (
-        all_subtokens,
-        all_loss_mask,
-        all_subtokens_mask,
-        all_input_mask,
-        sent_lengths,
-        punct_all_labels,
-        capit_all_labels,
-    ) = tokenize_and_create_masks_parallel(
+    res = tokenize_create_masks_clip_parallel(
         queries,
+        max_seq_length,
         tokenizer,
         ignore_start_end,
         punct_label_ids,
@@ -217,65 +225,27 @@ def get_features(
         with_label,
         njobs,
     )
+    input_ids, loss_mask, subtokens_mask, input_mask, sent_lengths, punct_labels, capit_labels = res
     logging.info("Finished initial tokenization.")
-    pad_id = punct_label_ids[pad_label]
-    max_seq_length = min(max_seq_length, max(sent_lengths))
-    logging.info(f'Max length: {max_seq_length}')
     get_stats(sent_lengths)
-    too_long_count = 0
-    logging.info("Clip and pad...")
-    for i, subtokens in enumerate(all_subtokens):
-        if len(subtokens) > max_seq_length:
-            subtokens = [tokenizer.cls_token] + subtokens[-max_seq_length + 1 :]
-            all_input_mask[i] = [1] + all_input_mask[i][-max_seq_length + 1 :]
-            all_loss_mask[i] = [int(not ignore_start_end)] + all_loss_mask[i][-max_seq_length + 1 :]
-            all_subtokens_mask[i] = [0] + all_subtokens_mask[i][-max_seq_length + 1 :]
-
-            if with_label:
-                punct_all_labels[i] = [pad_id] + punct_all_labels[i][-max_seq_length + 1 :]
-                capit_all_labels[i] = [pad_id] + capit_all_labels[i][-max_seq_length + 1 :]
-            too_long_count += 1
-
-        all_input_ids.append(tokenizer.tokens_to_ids(subtokens))
-
-        if len(subtokens) < max_seq_length:
-            extra = max_seq_length - len(subtokens)
-            all_input_ids[i] = all_input_ids[i] + [0] * extra
-            all_loss_mask[i] = all_loss_mask[i] + [0] * extra
-            all_subtokens_mask[i] = all_subtokens_mask[i] + [0] * extra
-            all_input_mask[i] = all_input_mask[i] + [0] * extra
-
-            if with_label:
-                punct_all_labels[i] = punct_all_labels[i] + [pad_id] * extra
-                capit_all_labels[i] = capit_all_labels[i] + [pad_id] * extra
-
-        all_segment_ids.append([0] * max_seq_length)
+    segment_ids = [np.zeros([inp.shape[0]], dtype=np.int8) for inp in input_ids]
     logging.info(f"Finished clipping and padding.")
-    logging.info(f'{too_long_count} are longer than {max_seq_length}')
 
-    for i in range(min(len(all_input_ids), 5)):
+    for i in range(min(len(input_ids), 5)):
         logging.info("*** Example ***")
         logging.info("i: %s" % (i))
-        logging.info("subtokens: %s" % " ".join(list(map(str, all_subtokens[i]))))
-        logging.info("loss_mask: %s" % " ".join(list(map(str, all_loss_mask[i]))))
-        logging.info("input_mask: %s" % " ".join(list(map(str, all_input_mask[i]))))
-        logging.info("subtokens_mask: %s" % " ".join(list(map(str, all_subtokens_mask[i]))))
+        logging.info("subtokens: %s" % " ".join(list(map(str, input_ids[i]))))
+        logging.info("loss_mask: %s" % " ".join(list(map(str, loss_mask[i]))))
+        logging.info("input_mask: %s" % " ".join(list(map(str, input_mask[i]))))
+        logging.info("subtokens_mask: %s" % " ".join(list(map(str, subtokens_mask[i]))))
         if with_label:
-            logging.info("punct_labels: %s" % " ".join(list(map(str, punct_all_labels[i]))))
-            logging.info("capit_labels: %s" % " ".join(list(map(str, capit_all_labels[i]))))
+            logging.info("punct_labels: %s" % " ".join(list(map(str, punct_labels[i]))))
+            logging.info("capit_labels: %s" % " ".join(list(map(str, capit_labels[i]))))
 
-    return (
-        np.array(all_input_ids, dtype=np.int32),
-        np.array(all_segment_ids, dtype=np.int8),
-        np.array(all_input_mask, dtype=np.bool),
-        np.array(all_subtokens_mask, dtype=np.bool),
-        np.array(all_loss_mask, dtype=np.bool),
-        np.array(punct_all_labels, dtype=np.int8),
-        np.array(capit_all_labels, dtype=np.int8),
-    )
+    return input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
 
 
-class BertPunctuationCapitalizationDataset(Dataset):
+class BertPunctuationCapitalizationDatasetOld(Dataset):
     """
     Creates dataset to use during training for punctuaion and capitalization tasks with a pretrained model.
     For dataset to use during inference without labels, see BertPunctuationCapitalizationInferDataset.
@@ -322,6 +292,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         max_seq_length: int,
         tokenizer: TokenizerSpec,
         num_samples: int = -1,
+        tokens_in_batch: int = 1024,
         pad_label: str = 'O',
         punct_label_ids: Dict[str, int] = None,
         capit_label_ids: Dict[str, int] = None,
@@ -352,12 +323,15 @@ class BertPunctuationCapitalizationDataset(Dataset):
         if not filename.endswith('.txt'):
             raise ValueError("{text_file} should have extension .txt")
 
+        self.tokens_in_batch = tokens_in_batch
+        self.tokenizer = tokenizer
+        self.pad_label = pad_label
         filename = filename[:-4]
-        vocab_size = getattr(tokenizer, "vocab_size", 0)
+        vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
             data_dir,
             "cached_{}_{}_{}_{}_{}".format(
-                filename, tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
+                filename, self.tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
             ),
         )
 
@@ -429,7 +403,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                     + ' For training set label_ids should be None.'
                 )
 
-                def create_label_ids(unique_labels, pad_label=pad_label):
+                def create_label_ids(unique_labels, pad_label=self.pad_label):
                     label_ids = {pad_label: 0}
                     if pad_label in unique_labels:
                         unique_labels.remove(pad_label)
@@ -446,8 +420,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
             features = get_features(
                 text_lines,
                 max_seq_length,
-                tokenizer,
-                pad_label=pad_label,
+                self.tokenizer,
+                pad_label=self.pad_label,
                 punct_labels_lines=punct_labels_lines,
                 capit_labels_lines=capit_labels_lines,
                 punct_label_ids=punct_label_ids,
@@ -470,19 +444,90 @@ class BertPunctuationCapitalizationDataset(Dataset):
             features = features[:-2]
             logging.info(f'Features restored from {features_pkl}')
 
-        self.all_input_ids = features[0]
-        self.all_segment_ids = features[1]
-        self.all_input_mask = features[2]
-        self.all_subtokens_mask = features[3]
-        self.all_loss_mask = features[4]
-        self.punct_all_labels = features[5]
-        self.capit_all_labels = features[6]
+        input_ids = features[0]
+        segment_ids = features[1]
+        input_mask = features[2]
+        subtokens_mask = features[3]
+        loss_mask = features[4]
+        punct_labels = features[5]
+        capit_labels = features[6]
         self.punct_label_ids = punct_label_ids
         self.capit_label_ids = capit_label_ids
+        self.batches = self.pack_into_batches(
+            input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
+        )
 
         if get_label_frequencies:
             self.punct_label_frequencies = self._calculate_label_frequencies(self.punct_all_labels, data_dir, 'punct')
             self.capit_label_frequencies = self._calculate_label_frequencies(self.capit_all_labels, data_dir, 'capit')
+
+    def pad(self, vectors, length, value):
+        result = []
+        for v in vectors:
+            result.append(np.concatenate([v, np.full([length - v.shape[0]], value, dtype=v.dtype)]))
+        return np.stack(result)
+
+    def pack_into_batches(
+        self, input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
+    ):
+        zipped = sorted(
+            zip(input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels),
+            key=lambda x: x[0].shape[0]
+        )
+        input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels = zip(*zipped)
+        batch_beginnings, batch_sizes, batch_seq_lengths = [], [], []
+        current_max_length = 0
+        start = 0
+        for i, inp in enumerate(input_ids):
+            current_max_length = max(current_max_length, ceil(len(inp) / 8) * 8)
+            if current_max_length * (i + 1 - start) > self.tokens_in_batch:
+                batch_size = (i - start) // 8 * 8
+                if batch_size == 0:
+                    if i > start:
+                        batch_size = i - start
+                        logging.warning(
+                            f"Could not create batch with multiple of 8 size. Probably there is a too long sequence in "
+                            f"the dataset. current_max_length={current_max_length}. Batch size will be reduced to "
+                            f"{batch_size}. The batch includes sequences from {start} to {i - 1}.")
+                    else:
+                        logging.warning(
+                            f"Input sequence number {i - 1} is too long. Could not fit it into batch with "
+                            f"{self.tokens_in_batch} tokens. Sequence number {i - 1} will not be added to batches."
+                        )
+                        start = i
+                        current_max_length = ceil(len(inp) / 8) * 8
+                        continue
+                seq_length = ceil(max([len(inp) for inp in input_ids[start : start + batch_size]]) / 8) * 8
+                batch_beginnings.append(start)
+                batch_sizes.append(batch_size)
+                batch_seq_lengths.append(seq_length)
+                start = start + batch_size
+                current_max_length = ceil(
+                    max([len(inp) for inp in input_ids[start + batch_size : i + 1]]) / 8
+                ) * 8
+        if start < len(input_ids):
+            seq_length = ceil(max([len(inp) for inp in input_ids[start :]]) / 8) * 8
+            batch_beginnings.append(start)
+            batch_sizes.append(len(input_ids) - start)
+            batch_seq_lengths.append(seq_length)
+        batches = []
+        for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
+            batch = {
+                "input_ids": self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id),
+                "segment_ids": self.pad(segment_ids[start : start + size], length, 0).astype(np.int32),
+                "input_mask": self.pad(input_mask[start : start + size], length, False),
+                "subtokens_mask": self.pad(subtokens_mask[start : start + size], length, False),
+                "loss_mask": self.pad(loss_mask[start : start + size], length, False),
+                "punct_labels": self.pad(
+                    punct_labels[start : start + size], length, self.punct_label_ids[self.pad_label]
+                ).astype(np.int64),
+                "capit_labels": self.pad(
+                    capit_labels[start : start + size], length, self.capit_label_ids[self.pad_label]
+                ).astype(np.int64),
+            }
+            batches.append(batch)
+        random.shuffle(batches)
+        return batches
 
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
         """ Calculates labels frequencies """
@@ -502,16 +547,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def __len__(self):
         return len(self.all_input_ids)
 
+    def collate_fn(self, batch):
+        return batch[0]
+
     def __getitem__(self, idx):
-        return (
-            self.all_input_ids[idx],
-            self.all_segment_ids[idx].astype(np.int32),
-            self.all_input_mask[idx],
-            self.all_subtokens_mask[idx],
-            self.all_loss_mask[idx],
-            self.punct_all_labels[idx].astype(np.int64),
-            self.capit_all_labels[idx].astype(np.int64),
-        )
+        return self.batches[idx]
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:
