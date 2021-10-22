@@ -328,7 +328,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         return torch.utils.data.DataLoader(
             dataset=dataset,
             collate_fn=dataset.collate_fn,
-            batch_size=cfg.batch_size,
+            batch_size=1,
             shuffle=cfg.shuffle,
             num_workers=self._cfg.dataset.num_workers,
             pin_memory=self._cfg.dataset.pin_memory,
