@@ -486,7 +486,7 @@ def get_wiki_text_lines(
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
     if remove_lines_with_quotes:
-        text = remove_lines_with_character(text, '"')
+        after_suspicious_removal = remove_lines_with_character(after_suspicious_removal, '"')
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)
     if nltk_tokenization:
