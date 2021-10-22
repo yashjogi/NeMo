@@ -6,7 +6,7 @@ OMP_NUM_THREADS=8
 git clone https://github.com/NVIDIA/NeMo
 mkdir -p /result/nemo_experiments
 cd NeMo
-git checkout iwslt_cascade
+git checkout feat/sorted_punct_dataset
 source reinstall.sh
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
