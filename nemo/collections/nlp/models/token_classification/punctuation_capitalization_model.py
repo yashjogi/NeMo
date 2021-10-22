@@ -316,6 +316,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             ignore_start_end=self._cfg.dataset.ignore_start_end,
             use_cache=self._cfg.dataset.use_cache,
             num_samples=cfg.num_samples,
+            tokens_in_batch=cfg.tokens_in_batch,
             punct_label_ids_file=self._cfg.class_labels.punct_labels_file
             if 'class_labels' in self._cfg
             else 'punct_label_ids.csv',

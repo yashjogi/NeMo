@@ -488,7 +488,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
                         logging.warning(
                             f"Could not create batch with multiple of 8 size. Probably there is a too long sequence in "
                             f"the dataset. current_max_length={current_max_length}. Batch size will be reduced to "
-                            f"{batch_size}. The batch includes sequences from {start} to {i - 1}.")
+                            f"{batch_size}. tokens_in_batch={self.tokens_in_batch}. The batch includes sequences from "
+                            f"{start} to {i - 1}.")
                     else:
                         logging.warning(
                             f"Input sequence number {i - 1} is too long. Could not fit it into batch with "
@@ -501,7 +502,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 batch_beginnings.append(start)
                 batch_sizes.append(batch_size)
                 batch_seq_lengths.append(seq_length)
-                start = start + batch_size
+                start += batch_size
                 current_max_length = ceil(
                     max([len(inp) for inp in input_ids[start : i + 1]]) / 8
                 ) * 8
@@ -545,7 +546,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
             logging.info(f'Labels mapping saved to : {out.name}')
 
     def __len__(self):
-        return len(self.all_input_ids)
+        return len(self.batches)
 
     def collate_fn(self, batch):
         return batch[0]
