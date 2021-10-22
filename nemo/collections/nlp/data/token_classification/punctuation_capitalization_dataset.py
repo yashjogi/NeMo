@@ -42,20 +42,16 @@ class TokenizeCreateMasksClipWorker:
         self,
         max_seq_length,
         tokenizer,
-        ignore_start_end,
         punct_label_ids,
         capit_label_ids,
         pad_label,
-        ignore_extra_tokens,
         with_label
     ):
         self.max_seq_length = max_seq_length
         self.tokenizer = tokenizer
-        self.ignore_start_end = ignore_start_end
         self.punct_label_ids = punct_label_ids
         self.capit_label_ids = capit_label_ids
         self.pad_label = pad_label
-        self.ignore_extra_tokens = ignore_extra_tokens
         self.with_label = with_label
 
     def maybe_clip(self, values, prepend_value):
@@ -64,11 +60,11 @@ class TokenizeCreateMasksClipWorker:
         return values
 
     def __call__(self, queries, punct_labels_lines, capit_labels_lines, split_i):
-        all_input_ids, all_loss_mask, all_subtokens_mask, all_input_mask, sent_lengths = [], [], [], [], []
+        all_input_ids, all_subtokens_mask, sent_lengths = [], [], []
         punct_all_labels, capit_all_labels = [], []
         for i, query in enumerate(queries):
             words = query.strip().split()
-            input_ids, loss_mask, subtokens_mask = [self.tokenizer.cls_id], [1 - self.ignore_start_end], [0]
+            input_ids, subtokens_mask = [self.tokenizer.cls_id], [0]
             if self.with_label:
                 pad_id = self.punct_label_ids[self.pad_label]
                 punct_labels = [pad_id]
@@ -79,9 +75,6 @@ class TokenizeCreateMasksClipWorker:
                 word_ids = self.tokenizer.text_to_ids(word)
                 input_ids.extend(word_ids)
 
-                loss_mask.append(1)
-                loss_mask.extend([int(not self.ignore_extra_tokens)] * (len(word_ids) - 1))
-
                 subtokens_mask.append(1)
                 subtokens_mask.extend([0] * (len(word_ids) - 1))
 
@@ -91,14 +84,11 @@ class TokenizeCreateMasksClipWorker:
 
             # add eos token
             input_ids.append(self.tokenizer.sep_id)
-            loss_mask.append(1 - self.ignore_start_end)
             subtokens_mask.append(0)
             sent_lengths.append(len(input_ids))
 
             all_input_ids.append(np.array(self.maybe_clip(input_ids, self.tokenizer.cls_id), dtype=np.int32))
-            all_loss_mask.append(np.array(self.maybe_clip(loss_mask, 1 - self.ignore_start_end), dtype=bool))
             all_subtokens_mask.append(np.array(self.maybe_clip(subtokens_mask, 0), dtype=bool))
-            all_input_mask.append(np.array([1] * len(all_input_ids[-1]), dtype=bool))
 
             if self.with_label:
                 punct_labels.append(pad_id)
@@ -108,9 +98,7 @@ class TokenizeCreateMasksClipWorker:
         logging.info(f"Finished tokenization processing split with number {split_i}")
         return (
             all_input_ids,
-            all_loss_mask,
             all_subtokens_mask,
-            all_input_mask,
             sent_lengths,
             punct_all_labels,
             capit_all_labels,
@@ -121,13 +109,11 @@ def tokenize_create_masks_clip_parallel(
     queries,
     max_seq_length,
     tokenizer,
-    ignore_start_end,
     punct_label_ids,
     capit_label_ids,
     punct_labels_lines,
     capit_labels_lines,
     pad_label,
-    ignore_extra_tokens,
     with_label,
     njobs,
 ):
@@ -152,14 +138,7 @@ def tokenize_create_masks_clip_parallel(
     with mp.Pool(njobs) as pool:
         result = pool.starmap(
             TokenizeCreateMasksClipWorker(
-                max_seq_length,
-                tokenizer,
-                ignore_start_end,
-                punct_label_ids,
-                capit_label_ids,
-                pad_label,
-                ignore_extra_tokens,
-                with_label
+                max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
             ),
             args,
         )
@@ -175,8 +154,6 @@ def get_features(
     pad_label: str = 'O',
     punct_labels_lines=None,
     capit_labels_lines=None,
-    ignore_extra_tokens=False,
-    ignore_start_end: Optional[bool] = False,
     njobs: Optional[int] = None,
 ):
     """
@@ -195,8 +172,6 @@ def get_features(
             Required for training and evaluation, not needed for inference.
         punct_labels: list of labels for every word in a sequence (str)
         capit_labels: list of labels for every word in a sequence (str)
-        ignore_extra_tokens: whether to ignore extra tokens in the loss_mask
-        ignore_start_end: whether to ignore bos and eos tokens in the loss_mask
 
     Returns:
         all_input_ids: input ids for all tokens
@@ -215,34 +190,29 @@ def get_features(
         queries,
         max_seq_length,
         tokenizer,
-        ignore_start_end,
         punct_label_ids,
         capit_label_ids,
         punct_labels_lines,
         capit_labels_lines,
         pad_label,
-        ignore_extra_tokens,
         with_label,
         njobs,
     )
-    input_ids, loss_mask, subtokens_mask, input_mask, sent_lengths, punct_labels, capit_labels = res
+    input_ids, subtokens_mask, sent_lengths, punct_labels, capit_labels = res
     logging.info("Finished initial tokenization.")
     get_stats(sent_lengths)
-    segment_ids = [np.zeros([inp.shape[0]], dtype=np.int8) for inp in input_ids]
     logging.info(f"Finished clipping and padding.")
 
     for i in range(min(len(input_ids), 5)):
         logging.info("*** Example ***")
         logging.info("i: %s" % (i))
         logging.info("subtokens: %s" % " ".join(list(map(str, input_ids[i]))))
-        logging.info("loss_mask: %s" % " ".join(list(map(str, loss_mask[i]))))
-        logging.info("input_mask: %s" % " ".join(list(map(str, input_mask[i]))))
         logging.info("subtokens_mask: %s" % " ".join(list(map(str, subtokens_mask[i]))))
         if with_label:
             logging.info("punct_labels: %s" % " ".join(list(map(str, punct_labels[i]))))
             logging.info("capit_labels: %s" % " ".join(list(map(str, capit_labels[i]))))
 
-    return input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
+    return input_ids, subtokens_mask, punct_labels, capit_labels
 
 
 class BertPunctuationCapitalizationDataset(Dataset):
