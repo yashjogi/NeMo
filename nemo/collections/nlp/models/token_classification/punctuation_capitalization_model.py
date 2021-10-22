@@ -116,13 +116,12 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         return punct_logits, capit_logits
 
     def _make_step(self, batch):
-        input_ids, input_type_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels = batch
         punct_logits, capit_logits = self(
-            input_ids=input_ids, token_type_ids=input_type_ids, attention_mask=input_mask
+            input_ids=batch['input_ids'], token_type_ids=batch['segment_ids'], attention_mask=batch['input_mask']
         )
 
-        punct_loss = self.loss(logits=punct_logits, labels=punct_labels, loss_mask=loss_mask)
-        capit_loss = self.loss(logits=capit_logits, labels=capit_labels, loss_mask=loss_mask)
+        punct_loss = self.loss(logits=punct_logits, labels=batch['punct_labels'], loss_mask=batch['loss_mask'])
+        capit_loss = self.loss(logits=capit_logits, labels=batch['capit_labels'], loss_mask=batch['loss_mask'])
         loss = self.agg_loss(loss_1=punct_loss, loss_2=capit_loss)
         return loss, punct_logits, capit_logits
 
@@ -144,16 +143,14 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        _, _, _, subtokens_mask, _, punct_labels, capit_labels = batch
         val_loss, punct_logits, capit_logits = self._make_step(batch)
 
-        subtokens_mask = subtokens_mask > 0.5
-        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
-        punct_labels = punct_labels[subtokens_mask]
+        punct_preds = torch.argmax(punct_logits, axis=-1)[batch['subtokens_mask']]
+        punct_labels = batch['punct_labels'][batch['subtokens_mask']]
         self.punct_class_report.update(punct_preds, punct_labels)
 
-        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
-        capit_labels = capit_labels[subtokens_mask]
+        capit_preds = torch.argmax(capit_logits, axis=-1)[batch['subtokens_mask']]
+        capit_labels = batch['capit_labels'][batch['subtokens_mask']]
         self.capit_class_report.update(capit_preds, capit_labels)
 
         return {
@@ -171,16 +168,14 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        _, _, _, subtokens_mask, _, punct_labels, capit_labels = batch
         test_loss, punct_logits, capit_logits = self._make_step(batch)
 
-        subtokens_mask = subtokens_mask > 0.5
-        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
-        punct_labels = punct_labels[subtokens_mask]
+        punct_preds = torch.argmax(punct_logits, axis=-1)[batch['subtokens_mask']]
+        punct_labels = batch['punct_labels'][batch['subtokens_mask']]
         self.punct_class_report.update(punct_preds, punct_labels)
 
-        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
-        capit_labels = capit_labels[subtokens_mask]
+        capit_preds = torch.argmax(capit_logits, axis=-1)[batch['subtokens_mask']]
+        capit_labels = batch['capit_labels'][batch['subtokens_mask']]
         self.capit_class_report.update(capit_preds, capit_labels)
 
         return {
