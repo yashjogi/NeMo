@@ -21,6 +21,7 @@ from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 
 from nemo.collections.asr.models.ctc_bpe_models import EncDecCTCModelBPE
+from nemo.collections.asr.models.classification_models import EncDecClassificationModel
 from nemo.core.classes import IterableDataset
 from nemo.core.neural_types import LengthsType, NeuralType
 import librosa
@@ -175,13 +176,14 @@ class FeatureFrameBufferer:
     an array of buffers.
     """
 
-    def __init__(self, asr_model, frame_len=1.6, batch_size=4, total_buffer=4.0):
+    def __init__(self, asr_model, frame_len=1.6, batch_size=4, total_buffer=4.0, normalize_feature=True):
         '''
         Args:
           frame_len: frame's duration, seconds
           frame_overlap: duration of overlaps before and after current frame, seconds
           offset: number of symbols to drop for smooth streaming
         '''
+        self.normalize_feature = normalize_feature 
         self.ZERO_LEVEL_SPEC_DB_VAL = -16.635  # Log-Melspectrogram value for zero signal
         self.asr_model = asr_model
         self.sr = asr_model._cfg.sample_rate
@@ -269,12 +271,12 @@ class FeatureFrameBufferer:
         batch_frames = self.get_batch_frames()
 
         while len(batch_frames) > 0:
-
             frame_buffers = self.get_frame_buffers(batch_frames)
-            norm_consts = self.get_norm_consts_per_frame(batch_frames)
             if len(frame_buffers) == 0:
                 continue
-            self.normalize_frame_buffers(frame_buffers, norm_consts)
+            if self.normalize_feature:
+                norm_consts = self.get_norm_consts_per_frame(batch_frames)
+                self.normalize_frame_buffers(frame_buffers, norm_consts)
             return frame_buffers
         return []
 
@@ -403,38 +405,85 @@ class FrameBatchASR:
         return hypothesis
 
 
+# class for streaming frame-based ASR
+# 1) use reset() method to reset FrameASR's state
+# 2) call transcribe(frame) to do ASR on
+#    contiguous signal's frames
+class FrameBatchVAD:
+    """
+    class for streaming frame-based ASR use reset() method to reset FrameASR's
+    state call transcribe(frame) to do ASR on contiguous signal's frames
+    """
 
-class VadChunkBufferDecoder:
+    def __init__(
+        self, vad_model, frame_len=0.16, total_buffer=0.63, batch_size=4, patience=25
+    ):
+        '''
+        Args:
+          frame_len: frame's duration, seconds
+          frame_overlap: duration of overlaps before and after current frame, seconds
+          offset: number of symbols to drop for smooth streaming
+        '''
+        self.frame_bufferer = FeatureFrameBufferer(
+            asr_model=vad_model, frame_len=frame_len, batch_size=batch_size, total_buffer=total_buffer, 
+            normalize_feature=False
+        )
 
-    def __init__(self, vad_model, chunk_len_in_secs=1, vad_buffer_len_in_secs=3, patience=3):
         self.vad_model = vad_model
-        self.vad_model.eval()
-        self.data_layer = VadAudioBuffersDataLayer()
-        self.data_loader = DataLoader(self.data_layer, batch_size=128, collate_fn=speech_collate_fn)
-        self.buffers = []
+
+        self.batch_size = batch_size
         self.all_vad_preds = []
         self.vad_decision_buffer = [0] * (patience+1)
         self.vad_decision_buffer_filtered = [0] * (patience+1)
-        self.chunk_len = chunk_len_in_secs
-        self.buffer_len = vad_buffer_len_in_secs
         self.speech_segment = set()
         self.start = 0
         self.end=0
         self.is_speech = False
-    
-        assert(chunk_len_in_secs<=vad_buffer_len_in_secs)
-        
-        self.plot=False
-        
-    @torch.no_grad()    
-    def transcribe_buffers(self, buffers, plot=False, threshold=0.4,):
-        self.plot = plot
-        self.buffers = buffers
-        self.data_layer.set_signal(buffers[:])
-        self._get_batch_preds()      
-        return self.decode(threshold)
-    
-    
+
+        self.frame_buffers = []
+        self.reset()
+        cfg = copy.deepcopy(vad_model._cfg)
+        self.frame_len = frame_len
+        OmegaConf.set_struct(cfg.preprocessor, False)
+
+        # some changes for streaming scenario
+        cfg.preprocessor.dither = 0.0
+        cfg.preprocessor.pad_to = 0
+        cfg.preprocessor.normalize = "None"
+        self.raw_preprocessor = EncDecClassificationModel.from_config_dict(cfg.preprocessor)
+        self.raw_preprocessor.to(vad_model.device)
+
+    def reset(self, patience=25):
+        """
+        Reset frame_history and decoder's state
+        """
+        self.data_layer = AudioBuffersDataLayer()
+        self.data_loader = DataLoader(self.data_layer, batch_size=self.batch_size, collate_fn=speech_collate_fn)
+
+        self.all_vad_preds = []
+        self.vad_decision_buffer = [0] * (patience+1)
+        self.vad_decision_buffer_filtered = [0] * (patience+1)
+        self.speech_segment = set()
+        self.start = 0
+        self.end=0
+        self.is_speech = False
+        self.frame_bufferer.reset()
+
+    def read_audio_file(self, 
+                        audio_filepath: str, 
+                        offset: float,
+                        duration: float,
+                        delay, model_stride_in_secs):
+        if offset < 0:
+            offset = 0
+        samples = get_samples(audio_filepath, offset, duration)
+        samples = np.pad(samples, (0, int(delay * model_stride_in_secs * self.vad_model._cfg.sample_rate)))
+        frame_reader = AudioFeatureIterator(samples, self.frame_len, self.raw_preprocessor, self.vad_model.device)
+        self.set_frame_reader(frame_reader)
+
+    def set_frame_reader(self, frame_reader):
+        self.frame_bufferer.set_frame_reader(frame_reader)
+
     def online_decision(self, current_pred, current_frame, end_of_seq=False, threshold=0.4):
         
          # binarization
@@ -463,72 +512,45 @@ class VadChunkBufferDecoder:
         self.vad_decision_buffer = self.vad_decision_buffer[1:]
         self.vad_decision_buffer.append(current_decision)
       
-        
+    @torch.no_grad()
+    def infer_logits(self):
+        frame_buffers = self.frame_bufferer.get_buffers_batch()
+
+        while len(frame_buffers) > 0:
+            self.frame_buffers += frame_buffers[:]
+            self.data_layer.set_signal(frame_buffers[:])
+            self._get_batch_preds()
+            frame_buffers = self.frame_bufferer.get_buffers_batch()
+
+    @torch.no_grad()
     def _get_batch_preds(self):
         device = self.vad_model.device
-        
         for batch in iter(self.data_loader):
 
-            vad_audio_signal, vad_audio_signal_len = batch
-            vad_audio_signal, vad_audio_signal_len = vad_audio_signal.to(device), vad_audio_signal_len.to(device)
-            # VAD batch inference
-            logits = self.vad_model(input_signal=vad_audio_signal, input_signal_length=vad_audio_signal_len)
+            feat_signal, feat_signal_len = batch
+            feat_signal, feat_signal_len = feat_signal.to(device), feat_signal_len.to(device)
+
+            logits = self.vad_model(
+                processed_signal=feat_signal, 
+                processed_signal_length=feat_signal_len)
+                
+
             vad_probs = torch.softmax(logits, dim=-1)
             vad_pred = vad_probs[:, 1]
             vad_pred = vad_pred.cpu().numpy()
             self.all_vad_preds.extend(vad_pred)
-     
-    
+
+            del logits
+
     def decode(self, threshold=0.4):
+        self.infer_logits()
         end_of_seq = False
         for i in range(len(self.all_vad_preds)):
-            
-            if self.plot:
-                plt.figure(figsize=[10, 2])
-                ax1 = plt.subplot()
-                ax1.plot(np.arange(len(self.buffers[i])), self.buffers[i], 'gray')
-                ax1.tick_params(axis='y', labelcolor='b')
-                ax1.set_ylabel('Signal')
-                ax1.set_ylim([-1, 1])
-                plt.show()
-                print("\nVAD output of this buffer")
-                print("all_vad_preds[i]" , self.all_vad_preds[i])
-            
             current_pred = self.all_vad_preds[i]
-            current_frame = i * self.chunk_len
+            current_frame = i * self.frame_len
             
             if i == len(self.all_vad_preds)-1:
                 end_of_seq = True
-            
-            # this should be where postprocessing happens or outside VadChunkBufferDecoder
-#             self.online_binarization_filtering(current_pred, current_frame, end_of_seq, threshold=0.4, last_k=2)
-                
             self.online_decision(current_pred, current_frame, end_of_seq, threshold=0.4)
+        
         return self.all_vad_preds, self.speech_segment
-    
-
-# A simple iterator class to return successive chunks of samples
-class AudioChunkIterator():
-    def __init__(self, samples, frame_len, sample_rate, chunk_len_in_secs=0.16):
-        self._samples = samples
-        self._chunk_len = chunk_len_in_secs*sample_rate
-        self._start = 0
-        self.output=True
-   
-    def __iter__(self):
-        return self
-    
-    def __next__(self):
-        if not self.output:
-            raise StopIteration
-        last = int(self._start + self._chunk_len)
-        if last <= len(self._samples):
-            chunk = self._samples[self._start: last]
-            self._start = last
-        else:
-            chunk = np.zeros([int(self._chunk_len)], dtype='float32')
-            samp_len = len(self._samples) - self._start
-            chunk[0:samp_len] = self._samples[self._start:len(self._samples)]
-            self.output = False
-   
-        return chunk
