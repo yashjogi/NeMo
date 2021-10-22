@@ -77,7 +77,7 @@ model:
     labels_file: bert_labels.txt
     shuffle: true
     num_samples: -1
-    tokens_ib_batch: 16000
+    tokens_in_batch: 16000
     persistent_workers: true
     pin_memory: true
 
