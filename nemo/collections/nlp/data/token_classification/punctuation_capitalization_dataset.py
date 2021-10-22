@@ -245,7 +245,7 @@ def get_features(
     return input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
 
 
-class BertPunctuationCapitalizationDatasetOld(Dataset):
+class BertPunctuationCapitalizationDataset(Dataset):
     """
     Creates dataset to use during training for punctuaion and capitalization tasks with a pretrained model.
     For dataset to use during inference without labels, see BertPunctuationCapitalizationInferDataset.
