@@ -549,7 +549,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         return len(self.batches)
 
     def collate_fn(self, batch):
-        return batch[0]
+        return {k: torch.as_tensor(v) for k, v in batch[0].items()}
 
     def __getitem__(self, idx):
         return self.batches[idx]
