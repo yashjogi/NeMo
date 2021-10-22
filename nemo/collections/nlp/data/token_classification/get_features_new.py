@@ -2,6 +2,7 @@ import itertools
 import multiprocessing as mp
 import os
 import pickle
+import random
 from math import ceil
 from typing import Dict, List, Optional
 
@@ -305,12 +306,14 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
             raise ValueError("{text_file} should have extension .txt")
 
         self.tokens_in_batch = tokens_in_batch
+        self.tokenizer = tokenizer
+        self.pad_label = pad_label
         filename = filename[:-4]
-        vocab_size = getattr(tokenizer, "vocab_size", 0)
+        vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
             data_dir,
             "cached_{}_{}_{}_{}_{}".format(
-                filename, tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
+                filename, self.tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
             ),
         )
 
@@ -382,7 +385,7 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
                     + ' For training set label_ids should be None.'
                 )
 
-                def create_label_ids(unique_labels, pad_label=pad_label):
+                def create_label_ids(unique_labels, pad_label=self.pad_label):
                     label_ids = {pad_label: 0}
                     if pad_label in unique_labels:
                         unique_labels.remove(pad_label)
@@ -399,8 +402,8 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
             features = get_features(
                 text_lines,
                 max_seq_length,
-                tokenizer,
-                pad_label=pad_label,
+                self.tokenizer,
+                pad_label=self.pad_label,
                 punct_labels_lines=punct_labels_lines,
                 capit_labels_lines=capit_labels_lines,
                 punct_label_ids=punct_label_ids,
@@ -430,15 +433,21 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
         loss_mask = features[4]
         punct_labels = features[5]
         capit_labels = features[6]
+        self.punct_label_ids = punct_label_ids
+        self.capit_label_ids = capit_label_ids
         self.batches = self.pack_into_batches(
             input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
         )
-        self.punct_label_ids = punct_label_ids
-        self.capit_label_ids = capit_label_ids
 
         if get_label_frequencies:
             self.punct_label_frequencies = self._calculate_label_frequencies(self.punct_all_labels, data_dir, 'punct')
             self.capit_label_frequencies = self._calculate_label_frequencies(self.capit_all_labels, data_dir, 'capit')
+
+    def pad(self, vectors, length, value):
+        result = []
+        for v in vectors:
+            result.append(np.concatenate([v, np.full([length - v.shape[0]], value, dtype=v.dtype)]))
+        return np.stack(result)
 
     def pack_into_batches(
         self, input_ids, segment_ids, input_mask, subtokens_mask, loss_mask, punct_labels, capit_labels
@@ -471,12 +480,21 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
         batches = []
         for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
             batch = {
-                "input_ids": self.pad(input_ids[start : start + size], length),
-                "segment_ids": self.pad(segment_ids[start : start + size], length),
-                "input_mask": self.pad(input_mask[start : start + size], length)
+                "input_ids": self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id),
+                "segment_ids": self.pad(segment_ids[start : start + size], length, 0).astype(np.int32),
+                "input_mask": self.pad(input_mask[start : start + size], length, False),
+                "subtokens_mask": self.pad(subtokens_mask[start : start + size], length, False),
+                "loss_mask": self.pad(loss_mask[start : start + size], length, False),
+                "punct_labels": self.pad(
+                    punct_labels[start : start + size], length, self.punct_label_ids[self.pad_label]
+                ).astype(np.int64),
+                "capit_labels": self.pad(
+                    capit_labels[start : start + size], length, self.capit_label_ids[self.pad_label]
+                ).astype(np.int64),
             }
-            batches.append()
-
+            batches.append(batch)
+        random.shuffle(batches)
+        return batches
 
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
         """ Calculates labels frequencies """
@@ -497,12 +515,4 @@ class BertPunctuationCapitalizationDatasetOld(Dataset):
         return len(self.all_input_ids)
 
     def __getitem__(self, idx):
-        return (
-            self.all_input_ids[idx],
-            self.all_segment_ids[idx].astype(np.int32),
-            self.all_input_mask[idx],
-            self.all_subtokens_mask[idx],
-            self.all_loss_mask[idx],
-            self.punct_all_labels[idx].astype(np.int64),
-            self.capit_all_labels[idx].astype(np.int64),
-        )
+        return self.batches[i]
