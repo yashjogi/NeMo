@@ -447,11 +447,6 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def pack_into_batches(
         self, input_ids, subtokens_mask, punct_labels, capit_labels
     ):
-        zipped = sorted(
-            zip(input_ids, subtokens_mask, punct_labels, capit_labels),
-            key=lambda x: x[0].shape[0]
-        )
-        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
         batch_beginnings, batch_sizes, batch_seq_lengths = [], [], []
         current_max_length = 0
         start = 0
@@ -496,11 +491,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
             )
         batches = []
         for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
-            input_ids = self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id)
-            subtokens_mask = self.pad(subtokens_mask[start : start + size], length, False)
-            segment_ids, input_mask, loss_mask = get_masks_and_segment_ids(
-                input_ids,
-                subtokens_mask,
+            batch_input_ids = self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id)
+            batch_subtokens_mask = self.pad(subtokens_mask[start : start + size], length, False)
+            batch_segment_ids, batch_input_mask, batch_loss_mask = get_masks_and_segment_ids(
+                batch_input_ids,
+                batch_subtokens_mask,
                 self.tokenizer.pad_id,
                 self.tokenizer.cls_id,
                 self.tokenizer.sep_id,
@@ -508,11 +503,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 self.ignore_extra_tokens,
             )
             batch = {
-                "input_ids": input_ids,
-                "segment_ids": segment_ids,
-                "input_mask": input_mask,
-                "subtokens_mask": subtokens_mask,
-                "loss_mask": loss_mask,
+                "input_ids": batch_input_ids,
+                "segment_ids": batch_segment_ids,
+                "input_mask": batch_input_mask,
+                "subtokens_mask": batch_subtokens_mask,
+                "loss_mask": batch_loss_mask,
                 "punct_labels": self.pad(
                     punct_labels[start : start + size], length, self.punct_label_ids[self.pad_label]
                 ).astype(np.int64),
@@ -521,7 +516,6 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 ).astype(np.int64),
             }
             batches.append(batch)
-        random.shuffle(batches)
         return batches
 
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
