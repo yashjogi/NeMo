@@ -31,7 +31,6 @@ def get_args():
     parser.add_argument("--output_dir", "-o", type=Path, required=True)
     parser.add_argument("--max_seq_length", "-s", type=int, default=512)
     parser.add_argument("--tokens_in_batch", "-b", type=int, default=15000)
-    parser.add_argument("--num_samples", "-n", type=int)
     parser.add_argument("--lines_per_dataset_fragment", type=int, default=10 ** 6)
     parser.add_argument("--num_batches_per_tarfile", type=int, default=1000)
     parser.add_argument("--tokenizer", "-T", default="bert-base-uncased")
@@ -163,7 +162,8 @@ def create_tarred_dataset(
             f"in text file: {result[0][0]}, number of lines in label file: {result[1][0]}."
         )
     text_start_bytes, label_start_bytes = result[0][1], result[1][1]
-    Parallel(n_jobs=n_jobs)(
+    assert len(text_start_bytes) == len(label_start_bytes)
+    Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
         delayed(process_fragment)(
             text_file,
             label_file,
