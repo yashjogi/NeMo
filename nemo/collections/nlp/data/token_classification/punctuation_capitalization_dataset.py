@@ -195,7 +195,8 @@ def get_features(
         capit_label_ids: label (str) to id (int) map for capitalization task
     """
     with_label = punct_labels_lines and capit_labels_lines
-    logging.info("Start initial tokenization.")
+    if verbose:
+        logging.info("Start initial tokenization.")
     input_ids, subtokens_mask, sent_lengths, punct_labels, capit_labels = tokenize_create_masks_clip_parallel(
         queries,
         max_seq_length,
@@ -359,7 +360,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         if master_device and not (cache_files_exist and use_cache):
             if num_samples == 0:
                 raise ValueError("num_samples has to be positive", num_samples)
-            logging.info(f'Processing {text_file}')
+            if verbose:
+                logging.info(f'Processing {text_file}')
             with open(text_file, 'r') as f:
                 text_lines = f.readlines()
 

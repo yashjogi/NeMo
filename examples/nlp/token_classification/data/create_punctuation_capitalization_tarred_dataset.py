@@ -1,5 +1,5 @@
 import argparse
-import math
+import json
 import multiprocessing as mp
 import re
 from pathlib import Path
@@ -13,15 +13,18 @@ from nemo.collections.nlp.data.token_classification.punctuation_capitalization_d
 from nemo.utils import logging
 
 
-TAR_FRAGMENT_TMPL = "fragment{}.{}.tar"
-TAR_FRAGMENT_PATTERN = re.compile("fragment(?:0|[1-9][0-9]*).(?:0|[1-9][0-9]*).tar$")
+NUMBER_RE = "(0|[1-9][0-9]*)"
+TAR_FRAGMENT_TMPL_1 = "fragment{}.{}.tar"
+TAR_FRAGMENT_TMPL_2 = "fragment{}.num_batches{}.{}.tar"
+TAR_FRAGMENT_PATTERN_1 = re.compile(f"fragment{NUMBER_RE}.{NUMBER_RE}.tar$")
+TAR_FRAGMENT_PATTERN_2 = re.compile(f"fragment{NUMBER_RE}.num_batches{NUMBER_RE}.{NUMBER_RE}.tar$")
+EXTRACT_NUM_BATCHES_PATTERN = re.compile(r"fragment\d+.num_batches(\d+).\d+.tar")
 
-NUMBER_RE = "(?:0|[1-9][0-9]*)"
-TAR_FINAL_TMPL = (
-    "{prefix}.batches.tokens{tokens_in_batch}.max_seq_length{max_seq_length}.{tokenizer}.{ignore_start_end}."
-    "{ignore_extra_tokens}.{{ctr}}.tar"
+DATASET_PARAMETERS_TMPL = (
+    "{prefix}.tokens{tokens_in_batch}.max_seq_length{max_seq_length}.{tokenizer}.{ignore_start_end}."
+    "{ignore_extra_tokens}"
 )
-TAR_FINAL_RE = TAR_FINAL_TMPL.replace('{ctr}', NUMBER_RE)
+TAR_FINAL_TMPL = ".batches{num_batches}.{ctr}.tar"
 
 
 def get_args():
@@ -98,33 +101,51 @@ def process_fragment(
     tmp_text.unlink()
     tmp_labels.unlink()
     tar_ctr = 0
-    sink = wds.TarWriter(str(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr)))
+    current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
+    current_num_batches = 0
+    sink = wds.TarWriter(str(current_file_name))
     for batch_i, batch in enumerate(dataset):
         if batch_i % num_batches_per_tarfile == 0 and batch_i > 0:
             sink.close()
+            current_file_name.rename(
+                output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr)
+            )
             tar_ctr += 1
-            sink = wds.TarWriter(str(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr)))
+            current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
+            current_num_batches = 0
+            sink = wds.TarWriter(str(current_file_name))
         sink.write(
             {
                 "__key__": f"fragment-{fragment_idx}-batch-{batch_i}",
                 "batch.pyd": batch,
             }
         )
+        current_num_batches += 1
     sink.close()
 
 
 def remove_unexpected_tar_files(output_dir, output_file_tmpl):
     if not output_dir.is_dir():
         return
-    unexpected_tar_files = [path for path in output_dir.iterdir() if TAR_FRAGMENT_PATTERN.match(path.name)]
+    tar_final_pattern = re.compile(output_file_tmpl.format(ctr=NUMBER_RE, num_batches=NUMBER_RE))
+    unexpected_tar_files = [
+        path for path in output_dir.iterdir()
+        if any(
+            [
+                p.match(path.name) is not None
+                for p in [TAR_FRAGMENT_PATTERN_1, TAR_FRAGMENT_PATTERN_2, tar_final_pattern]
+            ]
+        )
+    ]
     if unexpected_tar_files:
         logging.warning(
-            f"Found {len(unexpected_tar_files)} unexpected fragment files in the output directory {output_dir}. "
-            f"All of them are going to be removed. First 3 files: {unexpected_tar_files[:3]}"
+            f"Found {len(unexpected_tar_files)} unexpected tar files in the output directory {output_dir}. "
+            f"All of them are going to be removed. Files match one of 3 patterns: "
+            f"'{TAR_FRAGMENT_PATTERN_1.pattern}', '{TAR_FRAGMENT_PATTERN_2.pattern}', "
+            f"'{tar_final_pattern.pattern}'. First 3 unexpected files: {unexpected_tar_files[:3]}"
         )
         for fn in unexpected_tar_files:
             fn.unlink()
-    tar_final_pattern = re.compile(output_file_tmpl.format(ctr=NUMBER_RE))
     unexpected_tar_files = [path for path in output_dir.iterdir() if tar_final_pattern.match(path.name)]
     if unexpected_tar_files:
         logging.warning(
@@ -150,7 +171,7 @@ def create_tarred_dataset(
     tar_file_prefix,
     n_jobs,
 ):
-    output_file_tmpl = TAR_FINAL_TMPL.format(
+    ds_params_str = DATASET_PARAMETERS_TMPL.format(
         prefix=tar_file_prefix,
         tokens_in_batch=tokens_in_batch,
         max_seq_length=max_seq_length,
@@ -158,6 +179,7 @@ def create_tarred_dataset(
         ignore_start_end=ignore_start_end,
         ignore_extra_tokens=ignore_extra_tokens,
     )
+    output_file_tmpl = ds_params_str + TAR_FINAL_TMPL
     remove_unexpected_tar_files(output_dir, output_file_tmpl)
     result = Parallel(n_jobs=2)(
         delayed(count_lines_and_get_fragment_starting_positions)(file_name, lines_per_dataset_fragment)
@@ -192,8 +214,16 @@ def create_tarred_dataset(
             fragment_idx,
         ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
     )
-    for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN.match(fn.name)]):
-        fn.rename(output_dir / output_file_tmpl.format(ctr=i))
+    metadata = {"num_batches": 0, "tar_files": []}
+    for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN_2.match(fn.name)]):
+        nb = int(EXTRACT_NUM_BATCHES_PATTERN.match(fn.name).group(1))
+        fn.rename(
+            output_dir / output_file_tmpl.format(ctr=i, num_batches=nb)
+        )
+        metadata['tar_files'].append(fn.name)
+        metadata["num_batches"] += nb
+    with (output_dir / ('metadata.' + ds_params_str + '.json')).open('w') as f:
+        json.dump(metadata, f, indent=2)
 
 
 def main():
