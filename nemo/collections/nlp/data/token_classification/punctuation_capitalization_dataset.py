@@ -79,7 +79,8 @@ def show_prog(q, total_num_lines, descriptions, units):
                     v = qq.get()
                 to_add = -1
             except Empty:
-                continue
+                if to_add == 0:
+                    continue
             if to_add < 0:
                 if prog[i].n < total_num_lines[i]:
                     logging.warning(
