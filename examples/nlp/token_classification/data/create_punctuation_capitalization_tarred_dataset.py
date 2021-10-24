@@ -123,7 +123,7 @@ def remove_unexpected_tar_files(output_dir, output_file_tmpl):
         )
         for fn in unexpected_tar_files:
             fn.unlink()
-    tar_final_pattern = re.compile(output_file_tmpl.format(NUMBER_RE))
+    tar_final_pattern = re.compile(output_file_tmpl.format(ctr=NUMBER_RE))
     unexpected_tar_files = [path for path in output_dir.iterdir() if tar_final_pattern.match(path.name)]
     if unexpected_tar_files:
         logging.warning(
