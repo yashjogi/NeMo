@@ -370,26 +370,6 @@ def is_int(s):
     return True
 
 
-def move_to_line(fd, line_i, read_size=65536):
-    new_line_count = 0
-    block = 'FILLER'
-    num_blocks = -1
-    while block and new_line_count <= line_i:
-        block = fd.read(read_size)
-        last_block_count = block.count('\n')
-        new_line_count += last_block_count
-        num_blocks += 1
-    if new_line_count is None:
-        return False
-    i = 0
-    j = 0
-    while i < line_i - new_line_count + last_block_count:
-        j = block.index('\n', j) + 1
-        i += 1
-    fd.seek(num_blocks * read_size + j)
-    return True
-
-
 def read_doc(fd):
     text = []
     line = fd.readline()

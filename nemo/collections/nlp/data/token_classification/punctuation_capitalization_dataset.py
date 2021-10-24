@@ -114,7 +114,8 @@ def tokenize_create_masks_clip_parallel(
     if njobs is None:
         njobs = mp.cpu_count()
     logging.info(f"Running tokenization with {njobs} jobs.")
-    num_queries_in_split = min(len(queries) // njobs, MAX_NUM_QUERIES_IN_SPLIT)
+
+    num_queries_in_split = min(len(queries) // max(njobs, 1), MAX_NUM_QUERIES_IN_SPLIT)
     n_split = len(queries) // num_queries_in_split
     split_queries = (
         [queries[num_queries_in_split * i : num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
@@ -129,13 +130,22 @@ def tokenize_create_masks_clip_parallel(
         + [capit_labels_lines[num_queries_in_split * (n_split - 1):]]
     )
     args = list(zip(split_queries, split_punct_labels_lines, split_capit_labels_lines, range(n_split)))
-    with mp.Pool(njobs) as pool:
-        result = pool.starmap(
-            TokenizeCreateMasksClipWorker(
-                max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
-            ),
-            args,
-        )
+    if njobs > 0:
+        with mp.Pool(njobs) as pool:
+            result = pool.starmap(
+                TokenizeCreateMasksClipWorker(
+                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
+                ),
+                args,
+            )
+    else:
+        result = []
+        for x in args:
+            result.append(
+                TokenizeCreateMasksClipWorker(
+                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
+                )(*x)
+            )
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
@@ -225,6 +235,15 @@ def get_masks_and_segment_ids(input_ids, subtokens_mask, pad_id, cls_id, sep_id,
     return segment_ids, input_mask, loss_mask
 
 
+def create_label_ids(unique_labels, pad_label):
+    label_ids = {pad_label: 0}
+    if pad_label in unique_labels:
+        unique_labels.remove(pad_label)
+    for label in sorted(unique_labels):
+        label_ids[label] = len(label_ids)
+    return label_ids
+
+
 class BertPunctuationCapitalizationDataset(Dataset):
     """
     Creates dataset to use during training for punctuaion and capitalization tasks with a pretrained model.
@@ -282,6 +301,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         get_label_frequencies: bool = False,
         punct_label_ids_file: str = 'punct_label_ids.csv',
         capit_label_ids_file: str = 'capit_label_ids.csv',
+        add_masks_and_segment_ids_to_batch = True,
         njobs: Optional[int] = None,
     ):
         """ Initializes BertPunctuationCapitalizationDataset. """
@@ -308,6 +328,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.pad_label = pad_label
         self.ignore_extra_tokens = ignore_extra_tokens
         self.ignore_start_end = ignore_start_end
+        self.add_masks_and_segment_ids_to_batch = add_masks_and_segment_ids_to_batch
         filename = filename[:-4]
         vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
@@ -385,16 +406,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
                     + ' For training set label_ids should be None.'
                 )
 
-                def create_label_ids(unique_labels, pad_label=self.pad_label):
-                    label_ids = {pad_label: 0}
-                    if pad_label in unique_labels:
-                        unique_labels.remove(pad_label)
-                    for label in sorted(unique_labels):
-                        label_ids[label] = len(label_ids)
-                    return label_ids
-
-                punct_label_ids = create_label_ids(punct_unique_labels)
-                capit_label_ids = create_label_ids(capit_unique_labels)
+                punct_label_ids = create_label_ids(punct_unique_labels, self.pad_label)
+                capit_label_ids = create_label_ids(capit_unique_labels, self.pad_label)
 
             self._save_label_ids(punct_label_ids, self.punct_label_ids_file)
             self._save_label_ids(capit_label_ids, self.capit_label_ids_file)
@@ -447,6 +460,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def pack_into_batches(
         self, input_ids, subtokens_mask, punct_labels, capit_labels
     ):
+        zipped = sorted(zip(input_ids, subtokens_mask, punct_labels, capit_labels), key=lambda x: x[0].shape[0])
+        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
         batch_beginnings, batch_sizes, batch_seq_lengths = [], [], []
         current_max_length = 0
         start = 0
@@ -475,9 +490,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 batch_sizes.append(batch_size)
                 batch_seq_lengths.append(seq_length)
                 start += batch_size
-                current_max_length = ceil(
-                    max([len(inp) for inp in input_ids[start : i + 1]]) / 8
-                ) * 8
+                current_max_length = ceil(max([len(inp) for inp in input_ids[start : i + 1]]) / 8) * 8
         if start < len(input_ids):
             seq_length = ceil(max([len(inp) for inp in input_ids[start :]]) / 8) * 8
             batch_beginnings.append(start)
@@ -493,21 +506,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
         for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
             batch_input_ids = self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id)
             batch_subtokens_mask = self.pad(subtokens_mask[start : start + size], length, False)
-            batch_segment_ids, batch_input_mask, batch_loss_mask = get_masks_and_segment_ids(
-                batch_input_ids,
-                batch_subtokens_mask,
-                self.tokenizer.pad_id,
-                self.tokenizer.cls_id,
-                self.tokenizer.sep_id,
-                self.ignore_start_end,
-                self.ignore_extra_tokens,
-            )
             batch = {
                 "input_ids": batch_input_ids,
-                "segment_ids": batch_segment_ids,
-                "input_mask": batch_input_mask,
                 "subtokens_mask": batch_subtokens_mask,
-                "loss_mask": batch_loss_mask,
                 "punct_labels": self.pad(
                     punct_labels[start : start + size], length, self.punct_label_ids[self.pad_label]
                 ).astype(np.int64),
@@ -515,7 +516,21 @@ class BertPunctuationCapitalizationDataset(Dataset):
                     capit_labels[start : start + size], length, self.capit_label_ids[self.pad_label]
                 ).astype(np.int64),
             }
+            if self.add_masks_and_segment_ids_to_batch:
+                batch_segment_ids, batch_input_mask, batch_loss_mask = get_masks_and_segment_ids(
+                    batch_input_ids,
+                    batch_subtokens_mask,
+                    self.tokenizer.pad_id,
+                    self.tokenizer.cls_id,
+                    self.tokenizer.sep_id,
+                    self.ignore_start_end,
+                    self.ignore_extra_tokens,
+                )
+                batch['segment_ids'] = batch_segment_ids
+                batch['input_mask'] = batch_input_mask
+                batch['loss_mask'] = batch_loss_mask
             batches.append(batch)
+        random.shuffle(batches)
         return batches
 
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
