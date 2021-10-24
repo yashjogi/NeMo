@@ -111,6 +111,8 @@ def process_fragment(
 
 
 def remove_unexpected_tar_files(output_dir, output_file_tmpl):
+    if not output_dir.is_dir():
+        return
     unexpected_tar_files = [path for path in output_dir.iterdir() if TAR_FRAGMENT_PATTERN.match(path.name)]
     if unexpected_tar_files:
         logging.warning(
@@ -165,6 +167,11 @@ def create_tarred_dataset(
         )
     text_start_bytes, label_start_bytes = result[0][1], result[1][1]
     assert len(text_start_bytes) == len(label_start_bytes)
+    if text_start_bytes:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        logging.warning(f"Both {label_file} and {text_file} are empty. Tarred dataset cannot be created.")
+        return
     Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
         delayed(process_fragment)(
             text_file,
