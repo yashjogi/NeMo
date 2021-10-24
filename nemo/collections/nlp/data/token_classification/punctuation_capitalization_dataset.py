@@ -81,7 +81,7 @@ def show_prog(q, total_num_lines, descriptions, units):
                     prog[i].close()
                 prog[i].n += to_add
                 prog[i].update(0)
-                if prog[i].n >= total_num_lines:
+                if prog[i].n >= total_num_lines[i]:
                     finished[i] = True
                     prog[i].close()
             except Empty:
