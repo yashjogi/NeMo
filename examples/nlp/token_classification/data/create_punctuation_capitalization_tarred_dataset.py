@@ -86,7 +86,7 @@ def process_fragment(
             text_line = tf.readline()
             if not text_line:
                 break
-            otf.write(tf.readline())
+            otf.write(text_line)
             olf.write(lf.readline())
     dataset = BertPunctuationCapitalizationDataset(
         tmp_text,
