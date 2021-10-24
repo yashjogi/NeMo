@@ -503,6 +503,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
                 )
             )
         )
+    progress_process.join()
     return sum(res)
 
 

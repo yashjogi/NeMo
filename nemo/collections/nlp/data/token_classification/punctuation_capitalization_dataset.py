@@ -12,19 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = ['BertPunctuationCapitalizationDataset', 'BertPunctuationCapitalizationInferDataset']
+__all__ = ['BertPunctuationCapitalizationDataset', 'BertPunctuationCapitalizationInferDataset', 'Progress']
 
 import itertools
 import multiprocessing as mp
 import os
 import pickle
 import random
+from contextlib import contextmanager
 from math import ceil
+from queue import Empty
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
+from tqdm import tqdm
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.data_utils.data_preprocessing import get_label_stats, get_stats
@@ -35,6 +38,9 @@ from nemo.utils import logging
 
 
 MAX_NUM_QUERIES_IN_SPLIT = 10 ** 4
+TOKENIZATION_PROGRESS_REPORT_PERIOD = 10 ** 3
+BATCH_MARK_UP_PROGRESS_REPORT_PERIOD = 10 ** 4
+BATCH_BUILDING_PROGRESS_REPORT_PERIOD = 10 ** 4
 
 
 def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capitalization_labels):
@@ -53,6 +59,42 @@ def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capita
         )
 
 
+def show_prog(q, total_num_lines, desc, unit):
+    prog = tqdm(total=total_num_lines, desc=desc, unit=unit, unit_scale=True)
+    while True:
+        try:
+            to_add = q.get(timeout=1)
+            if to_add < 0:
+                return
+            prog.n += to_add
+            prog.update(0)
+            if prog.n >= total_num_lines:
+                break
+        except Empty:
+            continue
+    prog.close()
+
+
+class Progress:
+    def __init__(self, total, desc, unit):
+        manager = mp.Manager()
+        self.progress_queue = manager.Queue()
+        self.progress_process = mp.Process(target=show_prog, args=(self.progress_queue, total, desc, unit))
+        self.progress_process.start()
+
+    def __enter__(self):
+        return self.get_queue()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.finish()
+
+    def get_queue(self):
+        return self.progress_queue
+
+    def finish(self):
+        self.progress_process.join()
+
+
 class TokenizeCreateMasksClipWorker:
     def __init__(
         self,
@@ -63,6 +105,7 @@ class TokenizeCreateMasksClipWorker:
         pad_label,
         with_label,
         verbose,
+        progress_queue,
     ):
         self.max_seq_length = max_seq_length
         self.tokenizer = tokenizer
@@ -71,6 +114,7 @@ class TokenizeCreateMasksClipWorker:
         self.pad_label = pad_label
         self.with_label = with_label
         self.verbose = verbose
+        self.progress_queue = progress_queue
 
     def maybe_clip(self, values, prepend_value):
         if len(values) > self.max_seq_length:
@@ -80,6 +124,7 @@ class TokenizeCreateMasksClipWorker:
     def __call__(self, queries, punct_labels_lines, capit_labels_lines, split_i):
         all_input_ids, all_subtokens_mask, sent_lengths = [], [], []
         punct_all_labels, capit_all_labels = [], []
+        progress_made = 0
         for i, query in enumerate(queries):
             words = query.strip().split()
             input_ids, subtokens_mask = [self.tokenizer.cls_id], [0]
@@ -114,6 +159,10 @@ class TokenizeCreateMasksClipWorker:
                 punct_all_labels.append(np.array(self.maybe_clip(punct_labels, pad_id), dtype=np.int32))
                 capit_labels.append(pad_id)
                 capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
+            progress_made += 1
+            if progress_made >= TOKENIZATION_PROGRESS_REPORT_PERIOD:
+                self.progress_queue.put(progress_made)
+                progress_made = 0
         if self.verbose:
             logging.info(f"Finished tokenization processing split with number {split_i}")
         return all_input_ids, all_subtokens_mask, sent_lengths, punct_all_labels, capit_all_labels
@@ -131,7 +180,9 @@ def tokenize_create_masks_clip_parallel(
     with_label,
     verbose,
     njobs,
+    progress_queue,
 ):
+    create_progress_process = progress_queue is None
     if njobs is None:
         njobs = mp.cpu_count()
     if verbose:
@@ -150,11 +201,21 @@ def tokenize_create_masks_clip_parallel(
         + [capit_labels_lines[ss * (n_split - 1):]]
     )
     args = list(zip(split_queries, split_punct_labels_lines, split_capit_labels_lines, range(n_split)))
+    if create_progress_process:
+        progress = Progress(len(queries), "Tokenization", "query")
+        progress_queue = progress.get_queue()
     if njobs > 0:
         with mp.Pool(njobs) as pool:
             result = pool.starmap(
                 TokenizeCreateMasksClipWorker(
-                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label, verbose
+                    max_seq_length,
+                    tokenizer,
+                    punct_label_ids,
+                    capit_label_ids,
+                    pad_label,
+                    with_label,
+                    verbose,
+                    progress_queue,
                 ),
                 args,
             )
@@ -163,9 +224,18 @@ def tokenize_create_masks_clip_parallel(
         for x in args:
             result.append(
                 TokenizeCreateMasksClipWorker(
-                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label, verbose
+                    max_seq_length,
+                    tokenizer,
+                    punct_label_ids,
+                    capit_label_ids,
+                    pad_label,
+                    with_label,
+                    verbose,
+                    progress_queue,
                 )(*x)
             )
+    if create_progress_process:
+        progress.finish()
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
 
 
@@ -180,6 +250,7 @@ def get_features(
     capit_labels_lines=None,
     verbose: bool = True,
     njobs: Optional[int] = None,
+    progress_queue: Optional[mp.Queue] = None,
 ):
     """
     Processes the data and returns features.
@@ -224,6 +295,7 @@ def get_features(
         with_label,
         verbose,
         njobs,
+        progress_queue,
     )
     if verbose:
         logging.info("Finished initial tokenization.")
@@ -327,6 +399,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
         verbose: bool = True,
         pickle_features: bool = True,
         njobs: Optional[int] = None,
+        tokenization_progress_queue: Optional[mp.Queue] = None,
+        batch_mark_up_progress_queue: Optional[mp.Queue] = None,
+        batch_building_progress_queue: Optional[mp.Queue] = None,
     ):
         """ Initializes BertPunctuationCapitalizationDataset. """
 
@@ -354,6 +429,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.ignore_start_end = ignore_start_end
         self.add_masks_and_segment_ids_to_batch = add_masks_and_segment_ids_to_batch
         self.verbose = verbose
+        self.batch_mark_up_progress_queue = batch_mark_up_progress_queue
+        self.batch_building_progress_queue = batch_building_progress_queue
         filename = filename[:-4]
         vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
@@ -450,6 +527,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 punct_label_ids=punct_label_ids,
                 capit_label_ids=capit_label_ids,
                 verbose=self.verbose,
+                progress_queue=tokenization_progress_queue,
                 njobs=njobs,
             )
             if pickle_features:
@@ -465,6 +543,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
             features = pickle.load(open(features_pkl, 'rb'))
             punct_label_ids, capit_label_ids = features[-2], features[-1]
             features = features[:-2]
+            if tokenization_progress_queue is not None:
+                tokenization_progress_queue.put(len(features[0]))
             if self.verbose:
                 logging.info(f'Features restored from {features_pkl}')
 
@@ -488,15 +568,16 @@ class BertPunctuationCapitalizationDataset(Dataset):
             result.append(np.concatenate([v, np.full([length - v.shape[0]], value, dtype=v.dtype)]))
         return np.stack(result)
 
-    def pack_into_batches(
-        self, input_ids, subtokens_mask, punct_labels, capit_labels
-    ):
-        zipped = sorted(zip(input_ids, subtokens_mask, punct_labels, capit_labels), key=lambda x: x[0].shape[0])
-        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
+    def mark_up_batches(self, input_ids):
         batch_beginnings, batch_sizes, batch_seq_lengths = [], [], []
         current_max_length = 0
         start = 0
-        for i, inp in enumerate(input_ids):
+        if self.batch_mark_up_progress_queue is None:
+            inp_iterator = tqdm(enumerate(input_ids), total=len(input_ids), desc="Batch mark up", unit="query")
+        else:
+            inp_iterator = enumerate(input_ids)
+            progress_made = 0
+        for i, inp in inp_iterator:
             current_max_length = max(current_max_length, ceil(len(inp) / 8) * 8)
             if current_max_length * (i + 1 - start) > self.tokens_in_batch:
                 batch_size = (i - start) // 8 * 8
@@ -522,19 +603,45 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 batch_seq_lengths.append(seq_length)
                 start += batch_size
                 current_max_length = ceil(max([len(inp) for inp in input_ids[start : i + 1]]) / 8) * 8
+            if self.batch_mark_up_progress_queue is not None:
+                progress_made += 1
+                if progress_made >= BATCH_MARK_UP_PROGRESS_REPORT_PERIOD:
+                    self.batch_mark_up_progress_queue.put(progress_made)
+                    progress_made = 0
         if start < len(input_ids):
             seq_length = ceil(max([len(inp) for inp in input_ids[start :]]) / 8) * 8
             batch_beginnings.append(start)
             batch_sizes.append(len(input_ids) - start)
             batch_seq_lengths.append(seq_length)
+            if self.batch_mark_up_progress_queue is not None:
+                self.batch_mark_up_progress_queue.put(progress_made)
         assert sum(batch_sizes) == len(input_ids)
         for i in range(len(batch_beginnings) - 1):
             assert batch_beginnings[i] + batch_sizes[i] == batch_beginnings[i + 1]
             assert batch_seq_lengths[i] >= max(
                 [len(inp) for inp in input_ids[batch_beginnings[i] : batch_beginnings[i] + batch_sizes[i]]]
             )
+        return batch_beginnings, batch_sizes, batch_seq_lengths
+
+    def pack_into_batches(
+        self, input_ids, subtokens_mask, punct_labels, capit_labels
+    ):
+        zipped = sorted(zip(input_ids, subtokens_mask, punct_labels, capit_labels), key=lambda x: x[0].shape[0])
+        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
+        batch_beginnings, batch_sizes, batch_seq_lengths = self.mark_up_batches(input_ids)
         batches = []
-        for start, size, length in zip(batch_beginnings, batch_sizes, batch_seq_lengths):
+        if self.batch_building_progress_queue is None:
+            inp_iterator = tqdm(
+                zip(batch_beginnings, batch_sizes, batch_seq_lengths),
+                total=len(batch_beginnings),
+                desc="Batch building",
+                unit="batch",
+            )
+        else:
+            # In this case we report number of queries not number of batches
+            inp_iterator = zip(batch_beginnings, batch_sizes, batch_seq_lengths)
+            progress_made = 0
+        for start, size, length in inp_iterator:
             batch_input_ids = self.pad(input_ids[start : start + size], length, self.tokenizer.pad_id)
             batch_subtokens_mask = self.pad(subtokens_mask[start : start + size], length, False)
             batch = {
@@ -561,6 +668,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 batch['input_mask'] = batch_input_mask
                 batch['loss_mask'] = batch_loss_mask
             batches.append(batch)
+            if self.batch_building_progress_queue is not None:
+                progress_made += size
+                if progress_made >= BATCH_BUILDING_PROGRESS_REPORT_PERIOD:
+                    self.batch_building_progress_queue.put(progress_made)
+                    progress_made = 0
         random.shuffle(batches)
         return batches
 

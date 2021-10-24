@@ -8,7 +8,7 @@ import webdataset as wds
 from joblib import Parallel, delayed
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_tokenizer
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
-    BertPunctuationCapitalizationDataset
+    BertPunctuationCapitalizationDataset, Progress
 )
 from nemo.utils import logging
 
@@ -75,6 +75,9 @@ def process_fragment(
     ignore_start_end,
     ignore_extra_tokens,
     fragment_idx,
+    tokenization_progress_queue,
+    batch_mark_up_progress_queue,
+    batch_building_progress_queue,
 ):
     tokenizer = get_tokenizer(tokenizer)
     tmp_text = output_dir / f'tmp_text_{fragment_idx}.txt'
@@ -100,6 +103,9 @@ def process_fragment(
         ignore_extra_tokens=ignore_extra_tokens,
         add_masks_and_segment_ids_to_batch=False,
         verbose=False,
+        tokenization_progress_queue=tokenization_progress_queue,
+        batch_mark_up_progress_queue=batch_mark_up_progress_queue,
+        batch_building_progress_queue=batch_building_progress_queue,
     )
     tmp_text.unlink()
     tmp_labels.unlink()
@@ -184,6 +190,7 @@ def create_tarred_dataset(
             f"Text file {text_file} and label file {label_file} contain different number of lines. Number of lines "
             f"in text file: {result[0][0]}, number of lines in label file: {result[1][0]}."
         )
+    num_lines = result[0][0]
     text_start_bytes, label_start_bytes = result[0][1], result[1][1]
     assert len(text_start_bytes) == len(label_start_bytes)
     if text_start_bytes:
@@ -191,23 +198,29 @@ def create_tarred_dataset(
     else:
         logging.warning(f"Both {label_file} and {text_file} are empty. Tarred dataset cannot be created.")
         return
-    Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
-        delayed(process_fragment)(
-            text_file,
-            label_file,
-            output_dir,
-            text_start_pos,
-            label_start_pos,
-            lines_per_dataset_fragment,
-            max_seq_length,
-            tokens_in_batch,
-            num_batches_per_tarfile,
-            tokenizer,
-            ignore_start_end,
-            ignore_extra_tokens,
-            fragment_idx,
-        ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
-    )
+    with Progress(num_lines, "Tokenization", "query") as tok_queue, \
+            Progress(num_lines, "Batch mark up", "query") as mark_up_queue, \
+            Progress(num_lines, "Batch building", "query") as building_queue:
+        Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
+            delayed(process_fragment)(
+                text_file,
+                label_file,
+                output_dir,
+                text_start_pos,
+                label_start_pos,
+                lines_per_dataset_fragment,
+                max_seq_length,
+                tokens_in_batch,
+                num_batches_per_tarfile,
+                tokenizer,
+                ignore_start_end,
+                ignore_extra_tokens,
+                fragment_idx,
+                tok_queue,
+                mark_up_queue,
+                building_queue,
+            ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
+        )
     metadata = {"num_batches": 0, "tar_files": []}
     for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN_2.match(fn.name)]):
         nb = int(EXTRACT_NUM_BATCHES_PATTERN.match(fn.name).group(1))
