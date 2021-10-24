@@ -23,7 +23,7 @@ import random
 from math import ceil
 from pathlib import Path
 from queue import Empty
-from time import sleep, time
+from time import sleep
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -70,26 +70,31 @@ def show_prog(q, total_num_lines, descriptions, units):
     finished = [False] * len(q)
     while True:
         for i, qq in enumerate(q):
+            to_add = 0
             try:
-                to_add = qq.get(timeout=1)
-                if to_add < 0:
-                    if prog[i].n < total_num_lines[i]:
-                        logging.warning(
-                            f"Progress process terminated before all progress bar reached 100 %. prog.n={prog[i].n}, "
-                            f"total_num_lines={total_num_lines[i]}"
-                        )
-                    finished[i] = True
-                    prog[i].close()
-                prog[i].n += to_add
-                prog[i].update(0)
-                if prog[i].n >= total_num_lines[i]:
-                    finished[i] = True
-                    prog[i].close()
+                v = qq.get()
+                while v != -1:
+                    to_add += v
+                    v = qq.get()
+                to_add = -1
             except Empty:
                 continue
+            if to_add < 0:
+                if prog[i].n < total_num_lines[i]:
+                    logging.warning(
+                        f"Progress process terminated before all progress bar reached 100 %. prog.n={prog[i].n}, "
+                        f"total_num_lines={total_num_lines[i]}"
+                    )
+                finished[i] = True
+                prog[i].close()
+            prog[i].n += to_add
+            prog[i].update(0)
+            if prog[i].n >= total_num_lines[i]:
+                finished[i] = True
+                prog[i].close()
         if all(finished):
             break
-        sleep(20)
+        sleep(0.1)
 
 
 class Progress:
@@ -195,9 +200,7 @@ class TokenizeCreateMasksClipWorker:
                 capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
             progress_made += 1
             if progress_made >= TOKENIZATION_PROGRESS_REPORT_PERIOD:
-                start = time()
                 self.progress_queue.put(progress_made)
-                print(time() - start)
                 progress_made = 0
         if self.verbose:
             logging.info(f"Finished tokenization processing split with number {split_i}")
