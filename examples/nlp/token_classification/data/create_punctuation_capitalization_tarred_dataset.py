@@ -193,7 +193,7 @@ def create_tarred_dataset(
         ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
     )
     for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN.match(fn.name)]):
-        fn.rename(output_dir / output_file_tmpl.format(i))
+        fn.rename(output_dir / output_file_tmpl.format(ctr=i))
 
 
 def main():

@@ -336,6 +336,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.ignore_extra_tokens = ignore_extra_tokens
         self.ignore_start_end = ignore_start_end
         self.add_masks_and_segment_ids_to_batch = add_masks_and_segment_ids_to_batch
+        self.verbose = verbose
         filename = filename[:-4]
         vocab_size = getattr(self.tokenizer, "vocab_size", 0)
         features_pkl = os.path.join(
@@ -394,7 +395,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
             # for dev/test sets use label mapping from training set
             if punct_label_ids:
-                if verbose:
+                if self.verbose:
                     if len(punct_label_ids) != len(punct_unique_labels):
                         logging.info(
                             'Not all labels from the specified'
@@ -405,7 +406,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
                     else:
                         logging.info('Using the provided label_ids dictionary.')
             else:
-                if verbose:
+                if self.verbose:
                     logging.info(
                         'Creating a new label to label_id dictionary.'
                         + ' It\'s recommended to use label_ids generated'
@@ -430,12 +431,12 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 capit_labels_lines=capit_labels_lines,
                 punct_label_ids=punct_label_ids,
                 capit_label_ids=capit_label_ids,
-                verbose=verbose,
+                verbose=self.verbose,
                 njobs=njobs,
             )
 
             pickle.dump(tuple(list(features) + [punct_label_ids, capit_label_ids]), open(features_pkl, "wb"))
-            if verbose:
+            if self.verbose:
                 logging.info(f'Features saved to {features_pkl}')
 
         # wait until the master process writes to the processed data files
@@ -446,7 +447,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
             features = pickle.load(open(features_pkl, 'rb'))
             punct_label_ids, capit_label_ids = features[-2], features[-1]
             features = features[:-2]
-            if verbose:
+            if self.verbose:
                 logging.info(f'Features restored from {features_pkl}')
 
         input_ids = features[0]
@@ -548,7 +549,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
         """ Calculates labels frequencies """
         merged_labels = itertools.chain.from_iterable(all_labels)
-        logging.info('Three most popular labels')
+        if self.verbose:
+            logging.info('Three most popular labels')
         _, label_frequencies, _ = get_label_stats(merged_labels, data_dir + '/label_count_' + name + '.tsv')
         return label_frequencies
 
@@ -557,8 +559,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
         with open(filename, 'w') as out:
             labels, _ = zip(*sorted(label_ids.items(), key=lambda x: x[1]))
             out.write('\n'.join(labels))
-            logging.info(f'Labels: {label_ids}')
-            logging.info(f'Labels mapping saved to : {out.name}')
+            if self.verbose:
+                logging.info(f'Labels: {label_ids}')
+                logging.info(f'Labels mapping saved to : {out.name}')
 
     def __len__(self):
         return len(self.batches)
