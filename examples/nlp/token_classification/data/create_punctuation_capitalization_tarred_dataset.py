@@ -94,6 +94,8 @@ def process_fragment(
         ignore_extra_tokens=ignore_extra_tokens,
         add_masks_and_segment_ids_to_batch=False,
     )
+    tmp_text.unlink()
+    tmp_labels.unlink()
     tar_ctr = 0
     sink = wds.TarWriter(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr))
     for batch_i, batch in enumerate(dataset):
