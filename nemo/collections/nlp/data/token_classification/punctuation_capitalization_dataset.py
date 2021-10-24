@@ -74,14 +74,15 @@ def show_prog(q, total_num_lines, descriptions, units):
             to_add = 0
             try:
                 v = qq.get(block=False)
-                print(v)
+                # print(v)
                 while v != -1:
-                    v = qq.get(block=False)
-                    print(v)
                     if v > 0:
                         to_add += v
                     else:
                         stop = True
+                    v = qq.get(block=False)
+                    # print(v)
+
             except Empty:
                 # print("to_add, stop:", to_add, stop)
                 if to_add == 0 and not stop:
