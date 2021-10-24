@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+from torch.utils.data import IterableDataset
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 
@@ -708,6 +709,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.batches[idx]
+
+
+class BertPunctuationCapitalizationTarredDataset(IterableDataset):
+    def __init__(self):
+        pass
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:

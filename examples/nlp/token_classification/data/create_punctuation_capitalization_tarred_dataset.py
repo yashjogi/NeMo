@@ -6,6 +6,7 @@ from pathlib import Path
 
 import webdataset as wds
 from joblib import Parallel, delayed
+
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_tokenizer
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
     BertPunctuationCapitalizationDataset, Progress
@@ -189,6 +190,10 @@ def create_tarred_dataset(
     output_file_tmpl = ds_params_str + TAR_FINAL_TMPL
     metadata_file_name = output_dir / ('metadata.' + ds_params_str + '.json')
     remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name)
+    logging.info(
+        f"Counting lines in files {text_file} and {label_file} and creating segment borders. This may take "
+        f"considerable time. 86GB, 1.27b lines file was processed in 7 minutes."
+    )
     result = Parallel(n_jobs=2)(
         delayed(count_lines_and_get_fragment_starting_positions)(file_name, lines_per_dataset_fragment)
         for file_name in [text_file, label_file]
