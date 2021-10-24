@@ -65,11 +65,14 @@ class AutoTokenizer(TokenizerSpec):
                 if use_fast:
                     message += f'{vocab_file} is ignored in "fast" tokenizers, using a "slow" version'
                 self.tokenizer = AUTOTOKENIZER.from_pretrained(
-                    pretrained_model_name_or_path=pretrained_model_name, vocab_file=vocab_file, use_fast=False
+                    pretrained_model_name_or_path=pretrained_model_name,
+                    vocab_file=vocab_file,
+                    use_fast=False,
+                    verbose=False
                 )
             else:
                 self.tokenizer = AUTOTOKENIZER.from_pretrained(
-                    pretrained_model_name_or_path=pretrained_model_name, use_fast=use_fast
+                    pretrained_model_name_or_path=pretrained_model_name, use_fast=use_fast, verbose=False
                 )
         except Exception as e:
             raise ValueError(f'{pretrained_model_name} is not supported by HuggingFace. {e}')

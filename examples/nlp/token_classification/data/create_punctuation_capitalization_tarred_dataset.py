@@ -107,6 +107,7 @@ def process_fragment(
         ignore_extra_tokens=ignore_extra_tokens,
         add_masks_and_segment_ids_to_batch=False,
         verbose=False,
+        pickle_features=False,
         tokenization_progress_queue=tokenization_progress_queue,
         batch_mark_up_progress_queue=batch_mark_up_progress_queue,
         batch_building_progress_queue=batch_building_progress_queue,
