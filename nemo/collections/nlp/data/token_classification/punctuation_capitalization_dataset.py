@@ -310,6 +310,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         capit_label_ids_file: str = 'capit_label_ids.csv',
         add_masks_and_segment_ids_to_batch: bool = True,
         verbose: bool = True,
+        pickle_features: bool = True,
         njobs: Optional[int] = None,
     ):
         """ Initializes BertPunctuationCapitalizationDataset. """
@@ -436,10 +437,10 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 verbose=self.verbose,
                 njobs=njobs,
             )
-
-            pickle.dump(tuple(list(features) + [punct_label_ids, capit_label_ids]), open(features_pkl, "wb"))
-            if self.verbose:
-                logging.info(f'Features saved to {features_pkl}')
+            if pickle_features:
+                pickle.dump(tuple(list(features) + [punct_label_ids, capit_label_ids]), open(features_pkl, "wb"))
+                if self.verbose:
+                    logging.info(f'Features saved to {features_pkl}')
 
         # wait until the master process writes to the processed data files
         if torch.distributed.is_initialized():

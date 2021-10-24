@@ -83,6 +83,9 @@ def process_fragment(
         tf.seek(text_start_pos)
         lf.seek(label_start_pos)
         for _ in range(lines_per_dataset_fragment):
+            text_line = tf.readline()
+            if not text_line:
+                break
             otf.write(tf.readline())
             olf.write(lf.readline())
     dataset = BertPunctuationCapitalizationDataset(
@@ -114,14 +117,10 @@ def process_fragment(
             current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
             current_num_batches = 0
             sink = wds.TarWriter(str(current_file_name))
-        sink.write(
-            {
-                "__key__": f"fragment-{fragment_idx}-batch-{batch_i}",
-                "batch.pyd": batch,
-            }
-        )
+        sink.write({"__key__": f"fragment-{fragment_idx}-batch-{batch_i}", "batch.pyd": batch})
         current_num_batches += 1
     sink.close()
+    current_file_name.rename(output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr))
 
 
 def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
@@ -212,10 +211,9 @@ def create_tarred_dataset(
     metadata = {"num_batches": 0, "tar_files": []}
     for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN_2.match(fn.name)]):
         nb = int(EXTRACT_NUM_BATCHES_PATTERN.match(fn.name).group(1))
-        fn.rename(
-            output_dir / output_file_tmpl.format(ctr=i, num_batches=nb)
-        )
-        metadata['tar_files'].append(fn.name)
+        new_name = output_dir / output_file_tmpl.format(ctr=i, num_batches=nb)
+        fn.rename(new_name)
+        metadata['tar_files'].append(new_name.name)
         metadata["num_batches"] += nb
     with metadata_file_name.open('w') as f:
         json.dump(metadata, f, indent=2)
