@@ -23,6 +23,7 @@ import random
 from math import ceil
 from pathlib import Path
 from queue import Empty
+from time import sleep
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -88,6 +89,7 @@ def show_prog(q, total_num_lines, descriptions, units):
                 continue
         if all(finished):
             break
+        sleep(0.1)
 
 
 class Progress:
