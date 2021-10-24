@@ -76,6 +76,7 @@ def process_fragment(
     batch_building_progress_queue,
     writing_to_tar_progress_queue,
 ):
+    tokenizer = get_tokenizer(tokenizer)
     tmp_text = output_dir / f'tmp_text_{fragment_idx}.txt'
     tmp_labels = output_dir / f'tmp_labels_{fragment_idx}.txt'
     with text_file.open() as tf, labels_file.open() as lf, tmp_text.open('w') as otf, tmp_labels.open('w') as olf:
@@ -201,7 +202,6 @@ def create_tarred_dataset(
     else:
         logging.warning(f"Both {label_file} and {text_file} are empty. Tarred dataset cannot be created.")
         return
-    tokenizer = get_tokenizer(tokenizer)
     with Progress(
         num_lines,
         ["Tokenization", "Batch mark up", "Batch building", "Writing tarred dataset"],
