@@ -139,9 +139,9 @@ def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
     if unexpected_tar_files:
         logging.warning(
             f"Found {len(unexpected_tar_files)} unexpected tar files in the output directory {output_dir}. "
-            f"All of them are going to be removed. Files match one of 3 patterns: "
+            f"All of them are going to be removed. The files match one of 3 patterns: "
             f"'{TAR_FRAGMENT_PATTERN_1.pattern}', '{TAR_FRAGMENT_PATTERN_2.pattern}', "
-            f"'{tar_final_pattern.pattern}'. First 3 unexpected files: {unexpected_tar_files[:3]}"
+            f"'{tar_final_pattern.pattern}'. The first 3 unexpected files: {unexpected_tar_files[:3]}"
         )
         for fn in unexpected_tar_files:
             fn.unlink()

@@ -37,6 +37,22 @@ from nemo.utils import logging
 MAX_NUM_QUERIES_IN_SPLIT = 10 ** 4
 
 
+def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capitalization_labels):
+    if len(words) != len(punctuation_labels):
+        raise ValueError(
+            f"Number of punctuation labels for query {qi} in split {split_i} is not equal to number of "
+            f"words. Number of words: {len(words)}, number of punctuation labels: "
+            f"{len(punctuation_labels)}. Query: '{query}', punctuation labels: '{punctuation_labels}'"
+        )
+    if len(words) != len(capitalization_labels):
+        raise ValueError(
+            f"Number of capitalization labels for query {qi} in split {split_i} is not equal to number of "
+            f"words. Number of words: {len(words)}, number of capitalization labels: "
+            f"{len(capitalization_labels)}. Query: '{query}', "
+            f"capitalization labels: '{capitalization_labels}'"
+        )
+
+
 class TokenizeCreateMasksClipWorker:
     def __init__(
         self,
@@ -68,6 +84,7 @@ class TokenizeCreateMasksClipWorker:
             words = query.strip().split()
             input_ids, subtokens_mask = [self.tokenizer.cls_id], [0]
             if self.with_label:
+                check_number_of_labels(words, query, i, split_i, punct_labels_lines[i], capit_labels_lines[i])
                 pad_id = self.punct_label_ids[self.pad_label]
                 punct_labels = [pad_id]
                 punct_query_labels = [self.punct_label_ids[lab] for lab in punct_labels_lines[i]]
@@ -120,19 +137,17 @@ def tokenize_create_masks_clip_parallel(
     if verbose:
         logging.info(f"Running tokenization with {njobs} jobs.")
 
-    num_queries_in_split = min(len(queries) // max(njobs, 1), MAX_NUM_QUERIES_IN_SPLIT)
-    n_split = len(queries) // num_queries_in_split
-    split_queries = (
-        [queries[num_queries_in_split * i : num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
-        + [queries[num_queries_in_split * (n_split - 1) :]]
-    )
+    # Number of queries in split
+    ss = min(len(queries) // max(njobs, 1), MAX_NUM_QUERIES_IN_SPLIT)
+    n_split = len(queries) // ss
+    split_queries = ([queries[ss * i : ss * (i + 1)] for i in range(n_split - 1)] + [queries[ss * (n_split - 1) :]])
     split_punct_labels_lines = (
-        [punct_labels_lines[num_queries_in_split * i : num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
-        + [punct_labels_lines[num_queries_in_split * (n_split - 1) :]]
+        [punct_labels_lines[ss * i : ss * (i + 1)] for i in range(n_split - 1)]
+        + [punct_labels_lines[ss * (n_split - 1) :]]
     )
     split_capit_labels_lines = (
-        [capit_labels_lines[num_queries_in_split * i: num_queries_in_split * (i + 1)] for i in range(n_split - 1)]
-        + [capit_labels_lines[num_queries_in_split * (n_split - 1):]]
+        [capit_labels_lines[ss * i: ss * (i + 1)] for i in range(n_split - 1)]
+        + [capit_labels_lines[ss * (n_split - 1):]]
     )
     args = list(zip(split_queries, split_punct_labels_lines, split_capit_labels_lines, range(n_split)))
     if njobs > 0:
