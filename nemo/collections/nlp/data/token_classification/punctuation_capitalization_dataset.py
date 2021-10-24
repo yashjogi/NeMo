@@ -19,7 +19,6 @@ import multiprocessing as mp
 import os
 import pickle
 import random
-from contextlib import contextmanager
 from math import ceil
 from queue import Empty
 from typing import Dict, List, Optional, Tuple
@@ -65,6 +64,11 @@ def show_prog(q, total_num_lines, desc, unit):
         try:
             to_add = q.get(timeout=1)
             if to_add < 0:
+                if prog.n < total_num_lines:
+                    logging.warning(
+                        f"Progress process terminated before all progress bar reached 100 %. prog.n={prog.n}, "
+                        f"total_num_lines={total_num_lines}"
+                    )
                 return
             prog.n += to_add
             prog.update(0)
@@ -92,6 +96,7 @@ class Progress:
         return self.progress_queue
 
     def finish(self):
+        self.progress_queue.put(-1)
         self.progress_process.join()
 
 
@@ -673,6 +678,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 if progress_made >= BATCH_BUILDING_PROGRESS_REPORT_PERIOD:
                     self.batch_building_progress_queue.put(progress_made)
                     progress_made = 0
+        if self.batch_building_progress_queue is not None:
+            self.batch_building_progress_queue.put(progress_made)
         random.shuffle(batches)
         return batches
 

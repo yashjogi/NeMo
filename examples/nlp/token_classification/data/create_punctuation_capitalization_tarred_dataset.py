@@ -26,6 +26,8 @@ DATASET_PARAMETERS_TMPL = (
 )
 TAR_FINAL_TMPL = ".batches{num_batches}.{ctr}.tar"
 
+WRITING_DATASET_PROGRESS_REPORT_PERIOD = 10 ** 4
+
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -78,6 +80,7 @@ def process_fragment(
     tokenization_progress_queue,
     batch_mark_up_progress_queue,
     batch_building_progress_queue,
+    writing_to_tar_progress_queue,
 ):
     tokenizer = get_tokenizer(tokenizer)
     tmp_text = output_dir / f'tmp_text_{fragment_idx}.txt'
@@ -113,19 +116,24 @@ def process_fragment(
     current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
     current_num_batches = 0
     sink = wds.TarWriter(str(current_file_name))
+    progress_made = 0
     for batch_i, batch in enumerate(dataset):
         if batch_i % num_batches_per_tarfile == 0 and batch_i > 0:
             sink.close()
             current_file_name.rename(
                 output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr)
             )
+            writing_to_tar_progress_queue.put(progress_made)
+            progress_made = 0
             tar_ctr += 1
             current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
             current_num_batches = 0
             sink = wds.TarWriter(str(current_file_name))
         sink.write({"__key__": f"fragment-{fragment_idx}-batch-{batch_i}", "batch.pyd": batch})
         current_num_batches += 1
+        progress_made += len(batch['input_ids'])
     sink.close()
+    writing_to_tar_progress_queue.put(progress_made)
     current_file_name.rename(output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr))
 
 
@@ -200,7 +208,8 @@ def create_tarred_dataset(
         return
     with Progress(num_lines, "Tokenization", "query") as tok_queue, \
             Progress(num_lines, "Batch mark up", "query") as mark_up_queue, \
-            Progress(num_lines, "Batch building", "query") as building_queue:
+            Progress(num_lines, "Batch building", "query") as building_queue, \
+            Progress(num_lines, "Writing tarred dataset", "query") as writing_queue:
         Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
             delayed(process_fragment)(
                 text_file,
@@ -219,6 +228,7 @@ def create_tarred_dataset(
                 tok_queue,
                 mark_up_queue,
                 building_queue,
+                writing_queue,
             ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
         )
     metadata = {"num_batches": 0, "tar_files": []}
