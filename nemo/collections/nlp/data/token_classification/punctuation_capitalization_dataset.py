@@ -89,7 +89,7 @@ def show_prog(q, total_num_lines, descriptions, units):
                 continue
         if all(finished):
             break
-        sleep(0.1)
+        sleep(10)
 
 
 class Progress:
