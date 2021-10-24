@@ -602,8 +602,6 @@ def show_prog(q, total_num_lines, name):
         try:
             to_add = q.get(timeout=1)
             if to_add < 0:
-                print("Interruption. prog.n:", prog.n)
-                sleep(0.001)
                 return
             prog.n += to_add
             prog.update(0)
@@ -613,8 +611,7 @@ def show_prog(q, total_num_lines, name):
             continue
         except Empty:
             continue
-    sleep(0.001)
-    print("Finishing. prog.n:", prog.n)
+    prog.close()
 
 
 def preprocess_wikipedia_parallel(

@@ -93,16 +93,17 @@ def process_fragment(
         ignore_start_end=ignore_start_end,
         ignore_extra_tokens=ignore_extra_tokens,
         add_masks_and_segment_ids_to_batch=False,
+        verbose=False,
     )
     tmp_text.unlink()
     tmp_labels.unlink()
     tar_ctr = 0
-    sink = wds.TarWriter(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr))
+    sink = wds.TarWriter(str(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr)))
     for batch_i, batch in enumerate(dataset):
         if batch_i % num_batches_per_tarfile == 0 and batch_i > 0:
             sink.close()
             tar_ctr += 1
-            sink = wds.TarWriter(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr))
+            sink = wds.TarWriter(str(output_dir / TAR_FRAGMENT_TMPL.format(fragment_idx, tar_ctr)))
         sink.write(
             {
                 "__key__": f"fragment-{fragment_idx}-batch-{batch_i}",

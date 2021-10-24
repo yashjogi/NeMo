@@ -45,7 +45,8 @@ class TokenizeCreateMasksClipWorker:
         punct_label_ids,
         capit_label_ids,
         pad_label,
-        with_label
+        with_label,
+        verbose,
     ):
         self.max_seq_length = max_seq_length
         self.tokenizer = tokenizer
@@ -53,6 +54,7 @@ class TokenizeCreateMasksClipWorker:
         self.capit_label_ids = capit_label_ids
         self.pad_label = pad_label
         self.with_label = with_label
+        self.verbose = verbose
 
     def maybe_clip(self, values, prepend_value):
         if len(values) > self.max_seq_length:
@@ -95,7 +97,8 @@ class TokenizeCreateMasksClipWorker:
                 punct_all_labels.append(np.array(self.maybe_clip(punct_labels, pad_id), dtype=np.int32))
                 capit_labels.append(pad_id)
                 capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
-        logging.info(f"Finished tokenization processing split with number {split_i}")
+        if self.verbose:
+            logging.info(f"Finished tokenization processing split with number {split_i}")
         return all_input_ids, all_subtokens_mask, sent_lengths, punct_all_labels, capit_all_labels
 
 
@@ -109,11 +112,13 @@ def tokenize_create_masks_clip_parallel(
     capit_labels_lines,
     pad_label,
     with_label,
+    verbose,
     njobs,
 ):
     if njobs is None:
         njobs = mp.cpu_count()
-    logging.info(f"Running tokenization with {njobs} jobs.")
+    if verbose:
+        logging.info(f"Running tokenization with {njobs} jobs.")
 
     num_queries_in_split = min(len(queries) // max(njobs, 1), MAX_NUM_QUERIES_IN_SPLIT)
     n_split = len(queries) // num_queries_in_split
@@ -134,7 +139,7 @@ def tokenize_create_masks_clip_parallel(
         with mp.Pool(njobs) as pool:
             result = pool.starmap(
                 TokenizeCreateMasksClipWorker(
-                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
+                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label, verbose
                 ),
                 args,
             )
@@ -143,7 +148,7 @@ def tokenize_create_masks_clip_parallel(
         for x in args:
             result.append(
                 TokenizeCreateMasksClipWorker(
-                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label
+                    max_seq_length, tokenizer, punct_label_ids, capit_label_ids, pad_label, with_label, verbose
                 )(*x)
             )
     return tuple(list(itertools.chain(*e)) for e in zip(*result))
@@ -158,6 +163,7 @@ def get_features(
     pad_label: str = 'O',
     punct_labels_lines=None,
     capit_labels_lines=None,
+    verbose: bool = True,
     njobs: Optional[int] = None,
 ):
     """
@@ -200,21 +206,21 @@ def get_features(
         capit_labels_lines,
         pad_label,
         with_label,
+        verbose,
         njobs,
     )
-    logging.info("Finished initial tokenization.")
-    get_stats(sent_lengths)
-    logging.info(f"Finished clipping and padding.")
-
-    for i in range(min(len(input_ids), 5)):
-        logging.info("*** Example ***")
-        logging.info("i: %s" % (i))
-        logging.info("subtokens: %s" % " ".join(list(map(str, input_ids[i]))))
-        logging.info("subtokens_mask: %s" % " ".join(list(map(str, subtokens_mask[i]))))
-        if with_label:
-            logging.info("punct_labels: %s" % " ".join(list(map(str, punct_labels[i]))))
-            logging.info("capit_labels: %s" % " ".join(list(map(str, capit_labels[i]))))
-
+    if verbose:
+        logging.info("Finished initial tokenization.")
+        get_stats(sent_lengths)
+        logging.info(f"Finished clipping and padding.")
+        for i in range(min(len(input_ids), 5)):
+            logging.info("*** Example ***")
+            logging.info("i: %s" % (i))
+            logging.info("subtokens: %s" % " ".join(list(map(str, input_ids[i]))))
+            logging.info("subtokens_mask: %s" % " ".join(list(map(str, subtokens_mask[i]))))
+            if with_label:
+                logging.info("punct_labels: %s" % " ".join(list(map(str, punct_labels[i]))))
+                logging.info("capit_labels: %s" % " ".join(list(map(str, capit_labels[i]))))
     return input_ids, subtokens_mask, punct_labels, capit_labels
 
 
@@ -301,7 +307,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         get_label_frequencies: bool = False,
         punct_label_ids_file: str = 'punct_label_ids.csv',
         capit_label_ids_file: str = 'capit_label_ids.csv',
-        add_masks_and_segment_ids_to_batch = True,
+        add_masks_and_segment_ids_to_batch: bool = True,
+        verbose: bool = True,
         njobs: Optional[int] = None,
     ):
         """ Initializes BertPunctuationCapitalizationDataset. """
@@ -387,24 +394,26 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
             # for dev/test sets use label mapping from training set
             if punct_label_ids:
-                if len(punct_label_ids) != len(punct_unique_labels):
-                    logging.info(
-                        'Not all labels from the specified'
-                        + 'label_ids dictionary are present in the'
-                        + 'current dataset. Using the provided'
-                        + 'label_ids dictionary.'
-                    )
-                else:
-                    logging.info('Using the provided label_ids dictionary.')
+                if verbose:
+                    if len(punct_label_ids) != len(punct_unique_labels):
+                        logging.info(
+                            'Not all labels from the specified'
+                            + 'label_ids dictionary are present in the'
+                            + 'current dataset. Using the provided'
+                            + 'label_ids dictionary.'
+                        )
+                    else:
+                        logging.info('Using the provided label_ids dictionary.')
             else:
-                logging.info(
-                    'Creating a new label to label_id dictionary.'
-                    + ' It\'s recommended to use label_ids generated'
-                    + ' during training for dev/test sets to avoid'
-                    + ' errors if some labels are not'
-                    + ' present in the dev/test sets.'
-                    + ' For training set label_ids should be None.'
-                )
+                if verbose:
+                    logging.info(
+                        'Creating a new label to label_id dictionary.'
+                        + ' It\'s recommended to use label_ids generated'
+                        + ' during training for dev/test sets to avoid'
+                        + ' errors if some labels are not'
+                        + ' present in the dev/test sets.'
+                        + ' For training set label_ids should be None.'
+                    )
 
                 punct_label_ids = create_label_ids(punct_unique_labels, self.pad_label)
                 capit_label_ids = create_label_ids(capit_unique_labels, self.pad_label)
@@ -421,11 +430,13 @@ class BertPunctuationCapitalizationDataset(Dataset):
                 capit_labels_lines=capit_labels_lines,
                 punct_label_ids=punct_label_ids,
                 capit_label_ids=capit_label_ids,
+                verbose=verbose,
                 njobs=njobs,
             )
 
             pickle.dump(tuple(list(features) + [punct_label_ids, capit_label_ids]), open(features_pkl, "wb"))
-            logging.info(f'Features saved to {features_pkl}')
+            if verbose:
+                logging.info(f'Features saved to {features_pkl}')
 
         # wait until the master process writes to the processed data files
         if torch.distributed.is_initialized():
@@ -435,7 +446,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
             features = pickle.load(open(features_pkl, 'rb'))
             punct_label_ids, capit_label_ids = features[-2], features[-1]
             features = features[:-2]
-            logging.info(f'Features restored from {features_pkl}')
+            if verbose:
+                logging.info(f'Features restored from {features_pkl}')
 
         input_ids = features[0]
         subtokens_mask = features[1]
