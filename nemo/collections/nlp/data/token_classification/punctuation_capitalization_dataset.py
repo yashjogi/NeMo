@@ -74,21 +74,14 @@ def show_prog(q, total_num_lines, descriptions, units):
             to_add = 0
             try:
                 v = qq.get(block=False)
-                # print(v)
                 while v != -1:
-                    if v > 0:
-                        to_add += v
-                    else:
-                        stop = True
+                    to_add += v
                     v = qq.get(block=False)
-                    # print(v)
-
+                stop = True
             except Empty:
-                # print("to_add, stop:", to_add, stop)
                 if to_add == 0 and not stop:
                     continue
             prog[i].n += to_add
-            # print("before updating")
             prog[i].update(0)
             if prog[i].n >= total_num_lines[i]:
                 finished[i] = True
@@ -96,8 +89,8 @@ def show_prog(q, total_num_lines, descriptions, units):
             if stop:
                 if prog[i].n < total_num_lines[i]:
                     logging.warning(
-                        f"Progress process with description '{descriptions[i]}' terminated before all progress bar "
-                        f"reached 100 %. prog.n={prog[i].n}, total_num_lines={total_num_lines[i]}"
+                        f"Progress process with description '{descriptions[i]}' terminated before progress bar "
+                        f"reached 100%. prog.n={prog[i].n}, total_num_lines={total_num_lines[i]}"
                     )
                 finished[i] = True
                 prog[i].close()
