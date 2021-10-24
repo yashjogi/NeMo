@@ -136,6 +136,8 @@ def process_fragment(
     sink.close()
     writing_to_tar_progress_queue.put(progress_made)
     current_file_name.rename(output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr))
+    if progress_made > 0:
+        current_file_name.unlink()
 
 
 def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
