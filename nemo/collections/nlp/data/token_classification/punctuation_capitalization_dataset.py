@@ -15,13 +15,15 @@
 __all__ = ['BertPunctuationCapitalizationDataset', 'BertPunctuationCapitalizationInferDataset', 'Progress']
 
 import itertools
+import json
 import multiprocessing as mp
 import os
 import pickle
 import random
 from math import ceil
+from pathlib import Path
 from queue import Empty
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -59,32 +61,55 @@ def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capita
         )
 
 
-def show_prog(q, total_num_lines, desc, unit):
-    prog = tqdm(total=total_num_lines, desc=desc, unit=unit, unit_scale=True)
+def show_prog(q, total_num_lines, descriptions, units):
+    prog = [
+        tqdm(total=tt, desc=dd, unit=uu, unit_scale=True, position=i) for i, (tt, dd, uu)
+        in enumerate(zip(total_num_lines, descriptions, units))
+    ]
+    finished = [False] * len(q)
     while True:
-        try:
-            to_add = q.get(timeout=1)
-            if to_add < 0:
-                if prog.n < total_num_lines:
-                    logging.warning(
-                        f"Progress process terminated before all progress bar reached 100 %. prog.n={prog.n}, "
-                        f"total_num_lines={total_num_lines}"
-                    )
-                return
-            prog.n += to_add
-            prog.update(0)
-            if prog.n >= total_num_lines:
-                break
-        except Empty:
-            continue
-    prog.close()
+        for i, qq in enumerate(q):
+            try:
+                to_add = qq.get(timeout=1)
+                if to_add < 0:
+                    if prog[i].n < total_num_lines[i]:
+                        logging.warning(
+                            f"Progress process terminated before all progress bar reached 100 %. prog.n={prog[i].n}, "
+                            f"total_num_lines={total_num_lines[i]}"
+                        )
+                    finished[i] = True
+                    prog[i].close()
+                prog[i].n += to_add
+                prog[i].update(0)
+                if prog[i].n >= total_num_lines:
+                    finished[i] = True
+                    prog[i].close()
+            except Empty:
+                continue
+        if all(finished):
+            break
 
 
 class Progress:
-    def __init__(self, total, desc, unit):
+    def __init__(self, total: Union[int, List[int]], desc: Union[str, List[str]], unit: Union[str, List[str]]):
+        if not isinstance(total, list):
+            total = [total]
+        if not isinstance(desc, list):
+            desc = [desc]
+        if not isinstance(unit, list):
+            unit = [unit]
+        num_processes = max([len(total), len(desc), len(unit)])
+        for param in [total, desc, unit]:
+            if len(param) not in [num_processes, 1]:
+                raise ValueError(
+                    f"If parameter of `Progress.__init__` method is a list, then it has to be the same length as other "
+                    f"parameters which are lists"
+                )
+            if len(param) == 1:
+                param *= num_processes
         manager = mp.Manager()
-        self.progress_queue = manager.Queue()
-        self.progress_process = mp.Process(target=show_prog, args=(self.progress_queue, total, desc, unit))
+        self.progress_queues = [manager.Queue() for _ in range(num_processes)]
+        self.progress_process = mp.Process(target=show_prog, args=(self.progress_queues, total, desc, unit))
         self.progress_process.start()
 
     def __enter__(self):
@@ -94,10 +119,11 @@ class Progress:
         self.finish()
 
     def get_queue(self):
-        return self.progress_queue
+        return self.progress_queues
 
     def finish(self):
-        self.progress_queue.put(-1)
+        for q in self.progress_queues:
+            q.put(-1)
         self.progress_process.join()
 
 
@@ -712,8 +738,26 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
 
 class BertPunctuationCapitalizationTarredDataset(IterableDataset):
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        metadata_file: os.PathLike,
+        ignore_extra_tokens: bool = False,
+        ignore_start_end: bool = False,
+
+    ):
+        metadata_file = Path(metadata_file).expanduser()
+        with open(metadata_file) as f:
+            self.metadata = json.load(f)
+        self.ignore_extra_tokens = ignore_extra_tokens
+        self.ignore_start_end = ignore_start_end
+        self.tar_files = []
+        for file_path in self.metadata['tar_files']:
+            file_path = Path(file_path).expanduser()
+            if file_path.is_absolute():
+                self.tar_files.append(file_path)
+            else:
+                self.tar_files.append(metadata_file.parent / file_path)
+
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:

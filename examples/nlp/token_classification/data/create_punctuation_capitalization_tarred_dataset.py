@@ -21,10 +21,7 @@ TAR_FRAGMENT_PATTERN_1 = re.compile(f"fragment{NUMBER_RE}.{NUMBER_RE}.tar$")
 TAR_FRAGMENT_PATTERN_2 = re.compile(f"fragment{NUMBER_RE}.num_batches{NUMBER_RE}.{NUMBER_RE}.tar$")
 EXTRACT_NUM_BATCHES_PATTERN = re.compile(r"fragment\d+.num_batches(\d+).\d+.tar")
 
-DATASET_PARAMETERS_TMPL = (
-    "{prefix}.tokens{tokens_in_batch}.max_seq_length{max_seq_length}.{tokenizer}.{ignore_start_end}."
-    "{ignore_extra_tokens}"
-)
+DATASET_PARAMETERS_TMPL = "{prefix}.tokens{tokens_in_batch}.max_seq_length{max_seq_length}.{tokenizer}"
 TAR_FINAL_TMPL = ".batches{num_batches}.{ctr}.tar"
 
 WRITING_DATASET_PROGRESS_REPORT_PERIOD = 10 ** 4
@@ -40,8 +37,6 @@ def get_args():
     parser.add_argument("--lines_per_dataset_fragment", type=int, default=10 ** 6)
     parser.add_argument("--num_batches_per_tarfile", type=int, default=1000)
     parser.add_argument("--tokenizer", "-T", default="bert-base-uncased")
-    parser.add_argument("--ignore_start_end", "-S", action="store_true")
-    parser.add_argument("--ignore_extra_tokens", "-e", action="store_true")
     parser.add_argument("--tar_file_prefix", "-p", default="punctuation_capitalization")
     parser.add_argument("--n_jobs", "-j", type=int, default=mp.cpu_count())
     args = parser.parse_args()
@@ -75,8 +70,6 @@ def process_fragment(
     tokens_in_batch,
     num_batches_per_tarfile,
     tokenizer,
-    ignore_start_end,
-    ignore_extra_tokens,
     fragment_idx,
     tokenization_progress_queue,
     batch_mark_up_progress_queue,
@@ -103,8 +96,6 @@ def process_fragment(
         tokens_in_batch=tokens_in_batch,
         njobs=0,
         use_cache=False,
-        ignore_start_end=ignore_start_end,
-        ignore_extra_tokens=ignore_extra_tokens,
         add_masks_and_segment_ids_to_batch=False,
         verbose=False,
         pickle_features=False,
@@ -136,9 +127,10 @@ def process_fragment(
         progress_made += len(batch['input_ids'])
     sink.close()
     writing_to_tar_progress_queue.put(progress_made)
-    current_file_name.rename(output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr))
+    new_file_name = output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr)
+    current_file_name.rename(new_file_name)
     if progress_made > 0:
-        current_file_name.unlink()
+        new_file_name.unlink()
 
 
 def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
@@ -177,8 +169,6 @@ def create_tarred_dataset(
     lines_per_dataset_fragment,
     num_batches_per_tarfile,
     tokenizer,
-    ignore_start_end,
-    ignore_extra_tokens,
     tar_file_prefix,
     n_jobs,
 ):
@@ -187,8 +177,6 @@ def create_tarred_dataset(
         tokens_in_batch=tokens_in_batch,
         max_seq_length=max_seq_length,
         tokenizer=tokenizer,
-        ignore_start_end=ignore_start_end,
-        ignore_extra_tokens=ignore_extra_tokens,
     )
     output_file_tmpl = ds_params_str + TAR_FINAL_TMPL
     metadata_file_name = output_dir / ('metadata.' + ds_params_str + '.json')
@@ -214,10 +202,11 @@ def create_tarred_dataset(
     else:
         logging.warning(f"Both {label_file} and {text_file} are empty. Tarred dataset cannot be created.")
         return
-    with Progress(num_lines, "Tokenization", "query") as tok_queue, \
-            Progress(num_lines, "Batch mark up", "query") as mark_up_queue, \
-            Progress(num_lines, "Batch building", "query") as building_queue, \
-            Progress(num_lines, "Writing tarred dataset", "query") as writing_queue:
+    with Progress(
+        num_lines,
+        ["Tokenization", "Batch mark up", "Batch building", "Writing tarred dataset"],
+        "query"
+    ) as progress_queues:
         Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
             delayed(process_fragment)(
                 text_file,
@@ -230,13 +219,8 @@ def create_tarred_dataset(
                 tokens_in_batch,
                 num_batches_per_tarfile,
                 tokenizer,
-                ignore_start_end,
-                ignore_extra_tokens,
                 fragment_idx,
-                tok_queue,
-                mark_up_queue,
-                building_queue,
-                writing_queue,
+                *progress_queues,
             ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
         )
     metadata = {"num_batches": 0, "tar_files": []}
@@ -261,8 +245,6 @@ def main():
         args.lines_per_dataset_fragment,
         args.num_batches_per_tarfile,
         args.tokenizer,
-        args.ignore_start_end,
-        args.ignore_extra_tokens,
         args.tar_file_prefix,
         args.n_jobs,
     )
