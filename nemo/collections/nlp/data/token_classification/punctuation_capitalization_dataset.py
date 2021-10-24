@@ -74,20 +74,20 @@ def show_prog(q, total_num_lines, descriptions, units):
             to_add = 0
             try:
                 v = qq.get(block=False)
-                print(v)
+                # print(v)
                 while v != -1:
                     v = qq.get(block=False)
-                    print(v)
+                    # print(v)
                     if v > 0:
                         to_add += v
                     else:
                         stop = True
             except Empty:
-                print("to_add, stop:", to_add, stop)
+                # print("to_add, stop:", to_add, stop)
                 if to_add == 0 and not stop:
                     continue
             prog[i].n += to_add
-            print("before updating")
+            # print("before updating")
             prog[i].update(0)
             if prog[i].n >= total_num_lines[i]:
                 finished[i] = True
