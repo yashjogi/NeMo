@@ -34,6 +34,8 @@ def get_args():
     parser.add_argument("--lines_per_dataset_fragment", type=int, default=10 ** 6)
     parser.add_argument("--num_batches_per_tarfile", type=int, default=1000)
     parser.add_argument("--tokenizer", "-T", default="bert-base-uncased")
+    parser.add_argument("--ignore_start_end", "-S", action="store_true")
+    parser.add_argument("--ignore_extra_tokens", "-e", action="store_true")
     parser.add_argument("--tar_file_prefix", "-p", default="punctuation_capitalization")
     parser.add_argument("--n_jobs", "-j", type=int, default=mp.cpu_count())
     args = parser.parse_args()
