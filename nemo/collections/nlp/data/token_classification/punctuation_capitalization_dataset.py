@@ -83,6 +83,7 @@ def show_prog(q, total_num_lines, descriptions, units):
                     else:
                         stop = True
             except Empty:
+                print("to_add, stop:", to_add, stop)
                 if to_add == 0 and not stop:
                     continue
             prog[i].n += to_add
