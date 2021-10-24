@@ -70,6 +70,7 @@ def show_prog(q, total_num_lines, descriptions, units):
     finished = [False] * len(q)
     while True:
         for i, qq in enumerate(q):
+            print(i, qq)
             to_add = 0
             try:
                 v = qq.get()
