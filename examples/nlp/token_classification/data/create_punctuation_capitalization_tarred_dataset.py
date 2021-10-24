@@ -74,8 +74,8 @@ def process_fragment(
     fragment_idx,
 ):
     tokenizer = get_tokenizer(tokenizer)
-    tmp_text = output_dir / 'tmp_text.txt'
-    tmp_labels = output_dir / 'tmp_labels.txt'
+    tmp_text = output_dir / f'tmp_text_{fragment_idx}.txt'
+    tmp_labels = output_dir / f'tmp_labels_{fragment_idx}.txt'
     with text_file.open() as tf, labels_file.open() as lf, tmp_text.open('w') as otf, tmp_labels.open('w') as olf:
         tf.seek(text_start_pos)
         lf.seek(label_start_pos)
