@@ -73,7 +73,6 @@ def show_prog(q, total_num_lines, descriptions, units):
             to_add = 0
             try:
                 v = qq.get()
-                print("v:", v)
                 while v != -1:
                     to_add += v
                     v = qq.get()
@@ -81,6 +80,7 @@ def show_prog(q, total_num_lines, descriptions, units):
             except Empty:
                 if to_add == 0:
                     continue
+            print("to_add:", to_add)
             if to_add < 0:
                 if prog[i].n < total_num_lines[i]:
                     logging.warning(
