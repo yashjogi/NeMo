@@ -124,7 +124,7 @@ def process_fragment(
     sink.close()
 
 
-def remove_unexpected_tar_files(output_dir, output_file_tmpl):
+def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
     if not output_dir.is_dir():
         return
     tar_final_pattern = re.compile(output_file_tmpl.format(ctr=NUMBER_RE, num_batches=NUMBER_RE))
@@ -146,15 +146,9 @@ def remove_unexpected_tar_files(output_dir, output_file_tmpl):
         )
         for fn in unexpected_tar_files:
             fn.unlink()
-    unexpected_tar_files = [path for path in output_dir.iterdir() if tar_final_pattern.match(path.name)]
-    if unexpected_tar_files:
-        logging.warning(
-            f"Found {len(unexpected_tar_files)} unexpected final tar files matching pattern "
-            f"{tar_final_pattern.pattern}. All of them are going to be removed. First 3 files: "
-            f"{unexpected_tar_files[:3]}"
-        )
-        for fn in unexpected_tar_files:
-            fn.unlink()
+    if metadata_file_name.is_file():
+        logging.warning(f"Found metadata file {metadata_file_name}. It is going to be removed.")
+        metadata_file_name.unlink()
 
 
 def create_tarred_dataset(
@@ -180,7 +174,8 @@ def create_tarred_dataset(
         ignore_extra_tokens=ignore_extra_tokens,
     )
     output_file_tmpl = ds_params_str + TAR_FINAL_TMPL
-    remove_unexpected_tar_files(output_dir, output_file_tmpl)
+    metadata_file_name = output_dir / ('metadata.' + ds_params_str + '.json')
+    remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name)
     result = Parallel(n_jobs=2)(
         delayed(count_lines_and_get_fragment_starting_positions)(file_name, lines_per_dataset_fragment)
         for file_name in [text_file, label_file]
@@ -222,7 +217,7 @@ def create_tarred_dataset(
         )
         metadata['tar_files'].append(fn.name)
         metadata["num_batches"] += nb
-    with (output_dir / ('metadata.' + ds_params_str + '.json')).open('w') as f:
+    with metadata_file_name.open('w') as f:
         json.dump(metadata, f, indent=2)
 
 
