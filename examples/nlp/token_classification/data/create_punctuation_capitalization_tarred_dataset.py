@@ -37,8 +37,8 @@ def get_args():
     parser.add_argument("--tar_file_prefix", "-p", default="punctuation_capitalization")
     parser.add_argument("--n_jobs", "-j", type=int, default=mp.cpu_count())
     args = parser.parse_args()
-    args.input_text = args.input_text.expanduser()
-    args.input_labels = args.input_labels.expanduser()
+    args.text = args.text.expanduser()
+    args.labels = args.labels.expanduser()
     args.output_dir = args.output_dir.expanduser()
     return args
 
