@@ -77,6 +77,7 @@ def show_prog(q, total_num_lines, descriptions, units):
                 while v != -1:
                     to_add += v
                     v = qq.get()
+                    print("v:", v)
                 to_add = -1
             except Empty:
                 if to_add == 0:
