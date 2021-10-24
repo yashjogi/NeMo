@@ -23,7 +23,7 @@ import random
 from math import ceil
 from pathlib import Path
 from queue import Empty
-from time import sleep
+from time import sleep, time
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -195,7 +195,9 @@ class TokenizeCreateMasksClipWorker:
                 capit_all_labels.append(np.array(self.maybe_clip(capit_labels, pad_id), dtype=np.int32))
             progress_made += 1
             if progress_made >= TOKENIZATION_PROGRESS_REPORT_PERIOD:
+                start = time()
                 self.progress_queue.put(progress_made)
+                print(time() - start)
                 progress_made = 0
         if self.verbose:
             logging.info(f"Finished tokenization processing split with number {split_i}")
