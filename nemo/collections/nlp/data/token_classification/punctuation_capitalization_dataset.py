@@ -70,30 +70,30 @@ def show_prog(q, total_num_lines, descriptions, units):
     finished = [False] * len(q)
     while True:
         for i, qq in enumerate(q):
-            print(i, qq)
+            stop = False
             to_add = 0
             try:
-                v = qq.get()
+                v = qq.get(block=False)
                 while v != -1:
-                    to_add += v
-                    v = qq.get()
-                    print("v:", v)
-                to_add = -1
+                    v = qq.get(block=False)
+                    if v > 0:
+                        to_add += v
+                    else:
+                        stop = True
             except Empty:
-                if to_add == 0:
+                if to_add == 0 and not stop:
                     continue
-            print("to_add:", to_add)
-            if to_add < 0:
+            prog[i].n += to_add
+            prog[i].update(0)
+            if prog[i].n >= total_num_lines[i]:
+                finished[i] = True
+                prog[i].close()
+            if stop:
                 if prog[i].n < total_num_lines[i]:
                     logging.warning(
                         f"Progress process terminated before all progress bar reached 100 %. prog.n={prog[i].n}, "
                         f"total_num_lines={total_num_lines[i]}"
                     )
-                finished[i] = True
-                prog[i].close()
-            prog[i].n += to_add
-            prog[i].update(0)
-            if prog[i].n >= total_num_lines[i]:
                 finished[i] = True
                 prog[i].close()
         if all(finished):
