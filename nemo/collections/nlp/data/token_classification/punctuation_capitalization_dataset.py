@@ -64,8 +64,6 @@ class PunctuationCapitalizationDataConfig:
     max_seq_length: int = 512
     num_samples: int = -1
     pad_label: str = 'O'
-    punct_label_ids: Optional[Dict[str, int]] = None,
-    capit_label_ids: Optional[Dict[str, int]] = None,
     ignore_extra_tokens: bool = False,
     ignore_start_end: bool = True,
     use_cache: bool = True
