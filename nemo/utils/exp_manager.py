@@ -752,22 +752,11 @@ class NeMoModelCheckpoint(ModelCheckpoint):
         if trainer.fast_dev_run:
             logging.info("(on_train_end)fast_dev_run is set.")
             return None
-<<<<<<< HEAD
-        app_state = AppState()
-        if app_state.model_parallel_size is not None:
-            logging.info("(on_train_end)returning because `app_state.model_parallel_size is not None`")
-            return None
-=======
->>>>>>> main
 
         # Load the best model and then re-save it
         if self.save_best_model:
             trainer.checkpoint_connector.restore(self.best_model_path)
-<<<<<<< HEAD
-        logging.info("(on_train_end)performing final save_to")
-=======
 
->>>>>>> main
         pl_module.save_to(save_path=os.path.join(self.dirpath, self.prefix + self.postfix))
 
     def _del_model(self, trainer: "pl.Trainer", filepath: str) -> None:
