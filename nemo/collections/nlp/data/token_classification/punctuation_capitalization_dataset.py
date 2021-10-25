@@ -773,7 +773,11 @@ class BertPunctuationCapitalizationDataset(Dataset):
         return len(self.batches)
 
     def collate_fn(self, batch):
-        return {k: torch.as_tensor(v) for k, v in batch[0].items()}
+        batch = {k: torch.as_tensor(v) for k, v in batch[0].items()}
+        batch['segment_ids'] = batch['segment_ids'].long()
+        batch['punct_labels'] = batch['punct_labels'].long()
+        batch['capit_labels'] = batch['capit_labels'].long()
+        return batch
 
     def __getitem__(self, idx):
         return self.batches[idx]
@@ -845,7 +849,11 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
         return self.length
 
     def collate_fn(self, batch):
-        return {k: torch.as_tensor(v) for k, v in batch[0].items()}
+        batch = {k: torch.as_tensor(v) for k, v in batch[0].items()}
+        batch['segment_ids'] = batch['segment_ids'].long()
+        batch['punct_labels'] = batch['punct_labels'].long()
+        batch['capit_labels'] = batch['capit_labels'].long()
+        return batch
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:
