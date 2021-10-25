@@ -310,7 +310,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                 ignore_start_end=cfg.ignore_start_end,
                 world_size=self.world_size,
                 global_rank=self.global_rank,
-                shuffle_n=cfg.shuffle_n,
+                shuffle_n=cfg.tar_shuffle_n,
             )
         else:
             if cfg.text_file is None or cfg.label_file is None:
