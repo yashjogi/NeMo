@@ -65,10 +65,10 @@ class PunctuationCapitalizationDataConfig:
     num_samples: int = -1
     use_cache: bool = True
     get_label_frequences: bool = False
-    add_masks_and_segment_ids_to_batch: bool = True,
-    verbose: bool = True,
-    pickle_features: bool = True,
-    njobs: Optional[int] = None,
+    add_masks_and_segment_ids_to_batch: bool = True
+    verbose: bool = True
+    pickle_features: bool = True
+    njobs: Optional[int] = None
     shuffle: bool = False
     drop_last: bool = False
     pin_memory: bool = False

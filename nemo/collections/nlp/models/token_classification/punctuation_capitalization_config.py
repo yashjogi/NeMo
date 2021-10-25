@@ -97,5 +97,4 @@ class PunctuationCapitalizationModelConfig:
 
     language_model: LanguageModelConfig = LanguageModelConfig()
 
-    head: TokenClassifierConfig = TokenClassifierConfig(log_softmax=True)
     optim: Optional[OptimConfig] = MTOptimConfig()
