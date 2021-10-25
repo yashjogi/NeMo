@@ -20,11 +20,12 @@ import multiprocessing as mp
 import os
 import pickle
 import random
+from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
 from queue import Empty
 from time import sleep
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -45,6 +46,35 @@ MAX_NUM_QUERIES_IN_SPLIT = 10 ** 4
 TOKENIZATION_PROGRESS_REPORT_PERIOD = 10 ** 3
 BATCH_MARK_UP_PROGRESS_REPORT_PERIOD = 10 ** 4
 BATCH_BUILDING_PROGRESS_REPORT_PERIOD = 10 ** 4
+
+
+@dataclass
+class PunctuationCapitalizationDataConfig:
+    text_file: Optional[Any] = None  # Any = str or List[str]
+    labels_file: Optional[Any] = None  # Any = str or List[str]
+    use_tarred_dataset: bool = False
+    metadata_file: Optional[Any] = None  # Any = str or List[str]
+    tokens_in_batch: int = 512
+    max_seq_length: int = 512
+    num_samples: int = -1
+    pad_label: str = 'O'
+    punct_label_ids: Optional[Dict[str, int]] = None,
+    capit_label_ids: Optional[Dict[str, int]] = None,
+    ignore_extra_tokens: bool = False,
+    ignore_start_end: bool = False,
+    use_cache: bool = True
+    get_label_frequences: bool = False
+    punct_label_ids_file: str = 'punct_label_ids.csv',
+    capit_label_ids_file: str = 'capit_label_ids.csv',
+    add_masks_and_segment_ids_to_batch: bool = True,
+    verbose: bool = True,
+    pickle_features: bool = True,
+    njobs: Optional[int] = None,
+    shuffle: bool = False
+    drop_last: bool = False
+    pin_memory: bool = False
+    num_workers: int = 8
+    tar_shuffle_n: int = 100
 
 
 def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capitalization_labels):
@@ -430,8 +460,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         num_samples: int = -1,
         tokens_in_batch: int = 1024,
         pad_label: str = 'O',
-        punct_label_ids: Dict[str, int] = None,
-        capit_label_ids: Dict[str, int] = None,
+        punct_label_ids: Optional[Dict[str, int]] = None,
+        capit_label_ids: Optional[Dict[str, int]] = None,
         ignore_extra_tokens: bool = False,
         ignore_start_end: bool = False,
         use_cache: bool = True,
@@ -812,6 +842,9 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
 
     def __len__(self):
         return self.length
+
+    def collate_fn(self, batch):
+        return {k: torch.as_tensor(v) for k, v in batch[0].items()}
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:
