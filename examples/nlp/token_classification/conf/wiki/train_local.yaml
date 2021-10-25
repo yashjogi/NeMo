@@ -49,59 +49,38 @@ model:
   class_labels:
     punct_labels_file: punct_label_ids.csv
     capit_labels_file: capit_label_ids.csv
-  dataset:
-    data_dir: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/train_tarred # /path/to/training/data
-    # parameters for dataset preprocessing
-    max_seq_length: 512
-    pad_label: 'O'
-    ignore_extra_tokens: false
-    ignore_start_end: false
-    use_cache: true
-    # shared among dataloaders
-    num_workers:  2
-    pin_memory: true
-    drop_last: false
-
-    # required for inference
-    # For inference text is split into overlapping sequences of subtokens of length `max_seq_length` with step `step`.
-    # For example, if every character is a subtoken, max_seq_length=3 and step=2, than the string "abcdef" for
-    # inference will be split into ["abc", "bcd", "cde", "def"]
-    step: 32
-    # You may use margin if input sequence is longer than `max_seq_length`. If margin is not equal to zero than
-    # `margin` subtokens predictions at the start or the end of a segment (if it is not the start or the end of entire
-    # input sequence) are not used for punctuation and capitalization prediction.
-    margin: 8
 
   train_ds:
-    text_file: input.txt
-    labels_file: bert_labels.txt
-    shuffle: true
-    num_samples: -1
-    batch_size: 64
+    use_tarred_dataset: true
+    text_file: null
+    labels_file: null
+    metadata_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/train_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json
     persistent_workers: true
     pin_memory: true
 
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /media/apeganov/DATA/wiki_unsplit_2_64_broken_bert/small_wiki/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
-    text_file: input.txt
-    labels_file: bert_labels.txt
+    use_tarred_dataset: false
+    text_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/dev/input.txt
+    labels_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/dev/bert_labels.txt
+    metadata_file: null
     shuffle: false
     num_samples: -1
-    batch_size: 64
+    tokens_in_batch: 15000
     persistent_workers: true
     pin_memory: true
 
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /media/apeganov/DATA/wiki_unsplit_2_64_broken_bert/small_wiki/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
-    text_file: input.txt
-    labels_file: bert_labels.txt
+    use_tarred_dataset: false
+    text_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/test/input.txt
+    labels_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/test/bert_labels.txt
+    metadata_file: null
     shuffle: false
     num_samples: -1
-    batch_size: 64
+    tokens_in_batch: 15000
 
   tokenizer:
     tokenizer_name: ${model.language_model.pretrained_model_name} # or sentencepiece

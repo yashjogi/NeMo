@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = ['BertPunctuationCapitalizationDataset', 'BertPunctuationCapitalizationInferDataset', 'Progress']
+__all__ = [
+    'BertPunctuationCapitalizationDataset',
+    'BertPunctuationCapitalizationInferDataset',
+    'BertPunctuationCapitalizationTarredDataset',
+    'Progress',
+    'PunctuationCapitalizationDataConfig',
+]
 
 import itertools
 import json
@@ -61,7 +67,7 @@ class PunctuationCapitalizationDataConfig:
     punct_label_ids: Optional[Dict[str, int]] = None,
     capit_label_ids: Optional[Dict[str, int]] = None,
     ignore_extra_tokens: bool = False,
-    ignore_start_end: bool = False,
+    ignore_start_end: bool = True,
     use_cache: bool = True
     get_label_frequences: bool = False
     punct_label_ids_file: str = 'punct_label_ids.csv',
@@ -780,14 +786,14 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
 class BertPunctuationCapitalizationTarredDataset(IterableDataset):
     def __init__(
-            self,
-            metadata_file: os.PathLike,
-            tokenizer: TokenizerSpec,
-            ignore_extra_tokens: bool = False,
-            ignore_start_end: bool = False,
-            world_size: int = 1,
-            global_rank: int = 0,
-            shuffle_n: int = 1,
+        self,
+        metadata_file: os.PathLike,
+        tokenizer: TokenizerSpec,
+        ignore_extra_tokens: bool = False,
+        ignore_start_end: bool = False,
+        world_size: int = 1,
+        global_rank: int = 0,
+        shuffle_n: int = 1,
     ):
         self.tokenizer = tokenizer
         metadata_file = Path(metadata_file).expanduser()

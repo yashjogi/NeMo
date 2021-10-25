@@ -13,14 +13,21 @@
 # limitations under the License.
 
 import os
+from dataclasses import dataclass
+from typing import Optional
 
 import pytorch_lightning as pl
-from omegaconf import DictConfig, OmegaConf
+import torch
+from omegaconf import OmegaConf
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
+from nemo.collections.nlp.models.token_classification import PunctuationCapitalizationModelConfig
 from nemo.core.config import hydra_runner
+from nemo.core.config.modelPT import NemoConfig
+from nemo.core.config.pytorch_lightning import TrainerConfig
 from nemo.utils import logging
-from nemo.utils.exp_manager import exp_manager
+from nemo.utils.config_utils import update_model_config
+from nemo.utils.exp_manager import ExpManagerConfig, exp_manager
 
 
 """
@@ -59,8 +66,22 @@ To use one of the pretrained versions of the model and finetune it, run:
 """
 
 
+@dataclass
+class PunctuationCapitalizationConfig(NemoConfig):
+    pretrained_model: Optional[str] = None
+    name: Optional[str] = 'MTEncDec'
+    do_training: bool = True
+    do_testing: bool = False
+    model: PunctuationCapitalizationModelConfig = PunctuationCapitalizationModelConfig()
+    trainer: Optional[TrainerConfig] = TrainerConfig()
+    exp_manager: Optional[ExpManagerConfig] = ExpManagerConfig(name='Punctuation_and_Capitalization', files_to_copy=[])
+
+
 @hydra_runner(config_path="conf", config_name="punctuation_capitalization_config")
-def main(cfg: DictConfig) -> None:
+def main(cfg: PunctuationCapitalizationConfig) -> None:
+    torch.manual_seed(42)
+    default_cfg = PunctuationCapitalizationConfig()
+    cfg = update_model_config(default_cfg, cfg)
     trainer = pl.Trainer(**cfg.trainer)
     exp_manager(trainer, cfg.get("exp_manager", None))
 

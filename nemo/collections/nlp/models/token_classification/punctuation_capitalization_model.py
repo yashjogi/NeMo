@@ -26,6 +26,8 @@ from nemo.collections.common.losses import AggregatorLoss, CrossEntropyLoss
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
     BertPunctuationCapitalizationDataset,
     BertPunctuationCapitalizationInferDataset,
+    BertPunctuationCapitalizationTarredDataset,
+    PunctuationCapitalizationDataConfig,
 )
 from nemo.collections.nlp.metrics.classification_report import ClassificationReport
 from nemo.collections.nlp.models.nlp_model import NLPModel
@@ -291,46 +293,59 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             test_data_config = self._cfg.test_ds
         self._test_dl = self._setup_dataloader_from_config(cfg=test_data_config)
 
-    def _setup_dataloader_from_config(self, cfg: DictConfig):
+    def _setup_dataloader_from_config(self, cfg: PunctuationCapitalizationDataConfig):
         # use data_dir specified in the ds_item to run evaluation on multiple datasets
-        if 'ds_item' in cfg and cfg.ds_item is not None:
-            data_dir = cfg.ds_item
+        if cfg.use_tarred_dataset:
+            if cfg.metadata_file is None:
+                raise ValueError(
+                    f"If parameter `use_tarred_dataset` is `True`, then a field `metadata_file` has to be a path "
+                    f"to tarred dataset metadata file, whereas `None` is given."
+                )
+            dataset = BertPunctuationCapitalizationTarredDataset(
+                metadata_file=cfg.metadata_file,
+                tokenizer=self.tokenizer,
+                ignore_extra_tokens=cfg.ignore_extra_tokens,
+                ignore_start_end=cfg.ignore_start_end,
+                world_size=self.world_size,
+                global_rank=self.global_rank,
+                shuffle_n=cfg.shuffle_n,
+            )
         else:
-            data_dir = self._cfg.dataset.data_dir
-
-        text_file = os.path.join(data_dir, cfg.text_file)
-        label_file = os.path.join(data_dir, cfg.labels_file)
-
-        dataset = BertPunctuationCapitalizationDataset(
-            tokenizer=self.tokenizer,
-            text_file=text_file,
-            label_file=label_file,
-            pad_label=self._cfg.dataset.pad_label,
-            punct_label_ids=self._cfg.punct_label_ids,
-            capit_label_ids=self._cfg.capit_label_ids,
-            max_seq_length=self._cfg.dataset.max_seq_length,
-            ignore_extra_tokens=self._cfg.dataset.ignore_extra_tokens,
-            ignore_start_end=self._cfg.dataset.ignore_start_end,
-            use_cache=self._cfg.dataset.use_cache,
-            num_samples=cfg.num_samples,
-            tokens_in_batch=cfg.tokens_in_batch,
-            punct_label_ids_file=self._cfg.class_labels.punct_labels_file
-            if 'class_labels' in self._cfg
-            else 'punct_label_ids.csv',
-            capit_label_ids_file=self._cfg.class_labels.capit_labels_file
-            if 'class_labels' in self._cfg
-            else 'capit_label_ids.csv',
-            njobs=cfg.get('njobs'),
-        )
-
+            if cfg.text_file is None or cfg.label_file is None:
+                raise ValueError(
+                    f"If parameter `use_tarred_dataset` is `False`, then fields `text_file` and `labels_file` in "
+                    f"dataset config have to not `None`. Whereas `text_file={cfg.text_file}` and "
+                    f"`label_file={cfg.label_file}`."
+                )
+            dataset = BertPunctuationCapitalizationDataset(
+                tokenizer=self.tokenizer,
+                text_file=cfg.text_file,
+                label_file=cfg.labels_file,
+                pad_label=self._cfg.dataset.pad_label,
+                punct_label_ids=self._cfg.punct_label_ids,
+                capit_label_ids=self._cfg.capit_label_ids,
+                max_seq_length=self._cfg.dataset.max_seq_length,
+                ignore_extra_tokens=self._cfg.dataset.ignore_extra_tokens,
+                ignore_start_end=self._cfg.dataset.ignore_start_end,
+                use_cache=self._cfg.dataset.use_cache,
+                num_samples=cfg.num_samples,
+                tokens_in_batch=cfg.tokens_in_batch,
+                punct_label_ids_file=self._cfg.class_labels.punct_labels_file
+                if 'class_labels' in self._cfg
+                else 'punct_label_ids.csv',
+                capit_label_ids_file=self._cfg.class_labels.capit_labels_file
+                if 'class_labels' in self._cfg
+                else 'capit_label_ids.csv',
+                njobs=cfg.get('njobs'),
+            )
         return torch.utils.data.DataLoader(
             dataset=dataset,
             collate_fn=dataset.collate_fn,
             batch_size=1,
             shuffle=cfg.shuffle,
-            num_workers=self._cfg.dataset.num_workers,
-            pin_memory=self._cfg.dataset.pin_memory,
-            drop_last=self._cfg.dataset.drop_last,
+            num_workers=cfg.num_workers,
+            pin_memory=cfg.pin_memory,
+            drop_last=cfg.drop_last,
         )
 
     def _setup_infer_dataloader(
