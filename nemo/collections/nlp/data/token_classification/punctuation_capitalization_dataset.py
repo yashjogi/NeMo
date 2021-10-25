@@ -276,7 +276,7 @@ def tokenize_create_masks_clip_parallel(
     args = list(zip(split_queries, split_punct_labels_lines, split_capit_labels_lines, range(n_split)))
     if create_progress_process:
         progress = Progress(len(queries), "Tokenization", "query")
-        progress_queue = progress.get_queue()
+        progress_queue = progress.get_queue()[0]
     if njobs > 0:
         with mp.Pool(njobs) as pool:
             result = pool.starmap(
