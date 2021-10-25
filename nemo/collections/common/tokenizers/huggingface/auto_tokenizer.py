@@ -64,16 +64,6 @@ class AutoTokenizer(TokenizerSpec):
             # this logic deals with different huggingface tokenizers having different positional args
             if vocab_file is None:
                 self.tokenizer = AUTOTOKENIZER.from_pretrained(
-<<<<<<< HEAD
-                    pretrained_model_name_or_path=pretrained_model_name,
-                    vocab_file=vocab_file,
-                    use_fast=False,
-                    verbose=False
-                )
-            else:
-                self.tokenizer = AUTOTOKENIZER.from_pretrained(
-                    pretrained_model_name_or_path=pretrained_model_name, use_fast=use_fast, verbose=False
-=======
                     pretrained_model_name_or_path=pretrained_model_name, use_fast=use_fast,
                 )
             elif merges_file is None:
@@ -86,7 +76,6 @@ class AutoTokenizer(TokenizerSpec):
                     vocab_file=vocab_file,
                     merges_file=merges_file,
                     use_fast=use_fast,
->>>>>>> main
                 )
         except Exception as e:
             raise ValueError(
