@@ -83,6 +83,9 @@ class PunctuationCapitalizationModelConfig:
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
     )
+    pad_label: str = MISSING
+    ignore_extra_tokens: bool = False
+    ignore_start_end: bool = True
     punct_label_ids: Optional[Dict[str, int]] = None
     capit_label_ids: Optional[Dict[str, int]] = None
     class_labels: Optional[ClassLabels] = ClassLabels()

@@ -63,13 +63,8 @@ class PunctuationCapitalizationDataConfig:
     tokens_in_batch: int = 512
     max_seq_length: int = 512
     num_samples: int = -1
-    pad_label: str = 'O'
-    ignore_extra_tokens: bool = False,
-    ignore_start_end: bool = True,
     use_cache: bool = True
     get_label_frequences: bool = False
-    punct_label_ids_file: str = 'punct_label_ids.csv',
-    capit_label_ids_file: str = 'capit_label_ids.csv',
     add_masks_and_segment_ids_to_batch: bool = True,
     verbose: bool = True,
     pickle_features: bool = True,
@@ -638,8 +633,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
         )
 
         if get_label_frequencies:
-            self.punct_label_frequencies = self._calculate_label_frequencies(self.punct_all_labels, data_dir, 'punct')
-            self.capit_label_frequencies = self._calculate_label_frequencies(self.capit_all_labels, data_dir, 'capit')
+            self.punct_label_frequencies = self._calculate_label_frequencies(punct_labels, data_dir, 'punct')
+            self.capit_label_frequencies = self._calculate_label_frequencies(capit_labels, data_dir, 'capit')
 
     def pad(self, vectors, length, value):
         result = []

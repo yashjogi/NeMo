@@ -45,6 +45,7 @@ exp_manager:
     entity: anton_peganov
 
 model:
+  pad_label: O
   punct_label_ids: null # will be filled during training
   capit_label_ids: null # will be filled during training
   class_labels:
