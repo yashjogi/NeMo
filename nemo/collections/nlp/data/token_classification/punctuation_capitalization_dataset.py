@@ -204,6 +204,7 @@ class TokenizeCreateMasksClipWorker:
             if progress_made >= TOKENIZATION_PROGRESS_REPORT_PERIOD:
                 self.progress_queue.put(progress_made)
                 progress_made = 0
+        self.progress_queue.put(progress_made)
         if self.verbose:
             logging.info(f"Finished tokenization processing split with number {split_i}")
         return all_input_ids, all_subtokens_mask, sent_lengths, punct_all_labels, capit_all_labels
@@ -766,7 +767,6 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
                 self.tar_files.append(file_path)
             else:
                 self.tar_files.append(metadata_file.parent / file_path)
-
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:
