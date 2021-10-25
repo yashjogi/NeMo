@@ -79,6 +79,7 @@ class PunctuationCapitalizationDataConfig:
     pin_memory: bool = False
     num_workers: int = 8
     tar_shuffle_n: int = 100
+    persistent_workers: bool = True
 
 
 def check_number_of_labels(words, query, qi, split_i, punctuation_labels, capitalization_labels):
