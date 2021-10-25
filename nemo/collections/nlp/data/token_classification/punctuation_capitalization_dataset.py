@@ -774,7 +774,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
     def collate_fn(self, batch):
         batch = {k: torch.as_tensor(v) for k, v in batch[0].items()}
-        batch['segment_ids'] = batch['segment_ids'].long()
+        batch['segment_ids'] = batch['segment_ids'].int()
         batch['punct_labels'] = batch['punct_labels'].long()
         batch['capit_labels'] = batch['capit_labels'].long()
         return batch
@@ -850,7 +850,7 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
 
     def collate_fn(self, batch):
         batch = {k: torch.as_tensor(v) for k, v in batch[0].items()}
-        batch['segment_ids'] = batch['segment_ids'].long()
+        batch['segment_ids'] = batch['segment_ids'].int()
         batch['punct_labels'] = batch['punct_labels'].long()
         batch['capit_labels'] = batch['capit_labels'].long()
         return batch
