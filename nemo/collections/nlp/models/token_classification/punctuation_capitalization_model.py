@@ -330,8 +330,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             dataset = BertPunctuationCapitalizationTarredDataset(
                 metadata_file=cfg.metadata_file,
                 tokenizer=self.tokenizer,
-                ignore_extra_tokens=cfg.ignore_extra_tokens,
-                ignore_start_end=cfg.ignore_start_end,
+                ignore_extra_tokens=self._cfg.ignore_extra_tokens,
+                ignore_start_end=self._cfg.ignore_start_end,
                 world_size=self.world_size,
                 global_rank=self.global_rank,
                 shuffle_n=cfg.tar_shuffle_n,
