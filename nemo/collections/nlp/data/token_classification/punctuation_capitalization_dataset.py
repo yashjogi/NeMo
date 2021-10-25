@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+import webdataset as wds
 from torch.utils.data import IterableDataset
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
@@ -749,12 +750,16 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
 class BertPunctuationCapitalizationTarredDataset(IterableDataset):
     def __init__(
-        self,
-        metadata_file: os.PathLike,
-        ignore_extra_tokens: bool = False,
-        ignore_start_end: bool = False,
-
+            self,
+            metadata_file: os.PathLike,
+            tokenizer: TokenizerSpec,
+            ignore_extra_tokens: bool = False,
+            ignore_start_end: bool = False,
+            world_size: int = 1,
+            global_rank: int = 0,
+            shuffle_n: int = 1,
     ):
+        self.tokenizer = tokenizer
         metadata_file = Path(metadata_file).expanduser()
         with open(metadata_file) as f:
             self.metadata = json.load(f)
@@ -764,9 +769,49 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
         for file_path in self.metadata['tar_files']:
             file_path = Path(file_path).expanduser()
             if file_path.is_absolute():
-                self.tar_files.append(file_path)
+                self.tar_files.append(str(file_path))
             else:
-                self.tar_files.append(metadata_file.parent / file_path)
+                self.tar_files.append(str(metadata_file.parent / file_path))
+        begin_idx = (len(self.tar_files) // world_size) * global_rank
+        end_idx = begin_idx + (len(self.tar_files) // world_size)
+        logging.info(
+            "Partitioning tarred dataset: process (%d) taking shards [%d, %d)", global_rank, begin_idx, end_idx
+        )
+        self.tar_files = self.tar_files[begin_idx: end_idx]
+        self.length = self.metadata['num_batches'] // world_size
+        self._dataset = wds.WebDataset(urls=self.tar_files, nodesplitter=None).decode(
+            wds.handle_extension('.pyd', self.decode_pyd)
+        )
+        if shuffle_n > 0:
+            self._dataset.shuffle(shuffle_n)
+        else:
+            logging.info("WebDataset will not shuffle files within the tar files.")
+        self._dataset = self._dataset.to_tuple('__key__', 'batch.pyd').map(f=self._build_sample)
+
+    def decode_pyd(self, key, value):
+        return pickle.loads(value)
+
+    def _build_sample(self, batch):
+        _, batch = batch
+        batch_segment_ids, batch_input_mask, batch_loss_mask = get_masks_and_segment_ids(
+            batch['input_ids'],
+            batch['subtokens_mask'],
+            self.tokenizer.pad_id,
+            self.tokenizer.cls_id,
+            self.tokenizer.sep_id,
+            self.ignore_start_end,
+            self.ignore_extra_tokens,
+        )
+        batch['segment_ids'] = batch_segment_ids
+        batch['input_mask'] = batch_input_mask
+        batch['loss_mask'] = batch_loss_mask
+        return batch
+
+    def __iter__(self):
+        return self._dataset.__iter__()
+
+    def __len__(self):
+        return self.length
 
 
 def _get_subtokens_and_subtokens_mask(query: str, tokenizer: TokenizerSpec) -> Tuple[List[str], List[int]]:
