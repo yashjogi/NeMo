@@ -337,11 +337,11 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                 shuffle_n=cfg.tar_shuffle_n,
             )
         else:
-            if cfg.text_file is None or cfg.label_file is None:
+            if cfg.text_file is None or cfg.labels_file is None:
                 raise ValueError(
                     f"If parameter `use_tarred_dataset` is `False`, then fields `text_file` and `labels_file` in "
                     f"dataset config have to not `None`. Whereas `text_file={cfg.text_file}` and "
-                    f"`label_file={cfg.label_file}`."
+                    f"`label_file={cfg.labels_file}`."
                 )
             dataset = BertPunctuationCapitalizationDataset(
                 tokenizer=self.tokenizer,
