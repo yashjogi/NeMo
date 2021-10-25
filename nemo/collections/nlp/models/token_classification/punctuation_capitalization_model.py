@@ -265,8 +265,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         if self._cfg[dict_param_name] is None:
             self._cfg[dict_param_name] = {}
             with open(self._cfg.class_labels[file_param_name]) as f:
+                labels_dict = {}
                 for i, line in enumerate(f):
-                    self._cfg[dict_param_name][line.strip()] = i
+                    labels_dict[line.strip()] = i
+                self._cfg[dict_param_name] = OmegaConf.create(labels_dict)
         else:
             with open(self._cfg.class_labels[file_param_name], 'w') as f:
                 labels, _ = zip(*sorted(self._cfg[dict_param_name].items(), key=lambda x: x[1]))
