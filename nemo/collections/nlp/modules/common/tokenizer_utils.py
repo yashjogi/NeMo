@@ -31,6 +31,13 @@ from nemo.utils import logging
 __all__ = ['get_tokenizer', 'get_tokenizer_list']
 
 
+megatron_tokenizer_model_map = {
+    'BertWordPieceLowerCase': 'megatron-bert-345m-uncased',
+    'BertWordPieceCase': 'megatron-bert-345m-cased',
+    'GPT2BPETokenizer': 'megatron-gpt-345m',
+}
+
+
 def get_tokenizer_list() -> List[str]:
     """
     Returns all all supported tokenizer names
@@ -57,6 +64,7 @@ def get_tokenizer(
     tokenizer_name: str,
     tokenizer_model: Optional[str] = None,
     vocab_file: Optional[str] = None,
+    merges_file: Optional[str] = None,
     special_tokens: Optional[Dict[str, str]] = None,
     use_fast: Optional[bool] = False,
     bpe_dropout: Optional[float] = 0.0,
@@ -85,6 +93,9 @@ def get_tokenizer(
             vocab_file = nemo.collections.nlp.modules.common.megatron.megatron_utils.get_megatron_vocab_file(
                 tokenizer_name
             )
+            merges_file = nemo.collections.nlp.modules.common.megatron.megatron_utils.get_megatron_merges_file(
+                tokenizer_name
+            )
         tokenizer_name = get_megatron_tokenizer(tokenizer_name)
 
     if tokenizer_name == 'sentencepiece':
@@ -102,7 +113,11 @@ def get_tokenizer(
         f"Getting HuggingFace AutoTokenizer with pretrained_model_name: {tokenizer_name}, vocab_file: {vocab_file}, special_tokens_dict: {special_tokens_dict}, and use_fast: {use_fast}"
     )
     return AutoTokenizer(
-        pretrained_model_name=tokenizer_name, vocab_file=vocab_file, **special_tokens_dict, use_fast=use_fast
+        pretrained_model_name=tokenizer_name,
+        vocab_file=vocab_file,
+        merges_file=merges_file,
+        **special_tokens_dict,
+        use_fast=use_fast,
     )
 
 
@@ -111,6 +126,7 @@ def get_nmt_tokenizer(
     model_name: Optional[str] = None,
     tokenizer_model: Optional[str] = None,
     vocab_file: Optional[str] = None,
+    merges_file: Optional[str] = None,
     special_tokens: Optional[Dict[str, str]] = None,
     use_fast: Optional[bool] = False,
     bpe_dropout: Optional[float] = 0.0,
@@ -142,10 +158,14 @@ def get_nmt_tokenizer(
     elif library == 'huggingface':
         logging.info(f'Getting HuggingFace AutoTokenizer with pretrained_model_name: {model_name}')
         return AutoTokenizer(
-            pretrained_model_name=model_name, vocab_file=vocab_file, **special_tokens_dict, use_fast=use_fast
+            pretrained_model_name=model_name,
+            vocab_file=vocab_file,
+            merges_file=merges_file,
+            **special_tokens_dict,
+            use_fast=use_fast,
         )
     elif library == 'sentencepiece':
-        logging.info(f'Getting SentencePiece with model: {model_name}')
+        logging.info(f'Getting SentencePiece with model: {tokenizer_model}')
         return nemo.collections.common.tokenizers.sentencepiece_tokenizer.SentencePieceTokenizer(
             model_path=tokenizer_model, special_tokens=special_tokens_dict
         )
@@ -153,14 +173,20 @@ def get_nmt_tokenizer(
         logging.info(f'Using byte-level tokenization')
         return ByteLevelTokenizer()
     elif library == 'megatron':
+        if model_name in megatron_tokenizer_model_map:
+            model_name = megatron_tokenizer_model_map[model_name]
         logging.info(
             f'Getting Megatron tokenizer for pretrained model name: {model_name} and custom vocab file: {vocab_file}'
         )
+<<<<<<< HEAD
         return get_tokenizer(tokenizer_name=model_name, vocab_file=vocab_file)
     elif library == "char":
         return get_tokenizer(
             tokenizer_name="char", vocab_file=vocab_file, special_tokens=special_tokens_dict, word_tokens=word_tokens
         )
+=======
+        return get_tokenizer(tokenizer_name=model_name, vocab_file=vocab_file, merges_file=merges_file)
+>>>>>>> main
     else:
         raise NotImplementedError(
             'Currently we only support "yttm", "huggingface", "sentencepiece", "megatron", and "byte-level" tokenizer'
