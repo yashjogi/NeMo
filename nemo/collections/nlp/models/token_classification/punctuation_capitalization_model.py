@@ -61,6 +61,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
 
         super().__init__(cfg=cfg, trainer=trainer)
 
+        self.world_size = 1
+        if trainer is not None:
+            self.world_size = trainer.num_nodes * trainer.num_gpus
+
         self.bert_model = get_lm_model(
             pretrained_model_name=cfg.language_model.pretrained_model_name,
             config_file=self.register_artifact('language_model.config_file', cfg.language_model.config_file),
