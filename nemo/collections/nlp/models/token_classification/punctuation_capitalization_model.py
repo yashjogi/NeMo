@@ -75,7 +75,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             activation=cfg.punct_head.activation,
             log_softmax=False,
             dropout=cfg.punct_head.fc_dropout,
-            num_layers=cfg.punct_head.punct_num_fc_layers,
+            num_layers=cfg.punct_head.num_fc_layers,
             use_transformer_init=cfg.punct_head.use_transformer_init,
         )
 
@@ -85,7 +85,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             activation=cfg.capit_head.activation,
             log_softmax=False,
             dropout=cfg.capit_head.fc_dropout,
-            num_layers=cfg.capit_head.capit_num_fc_layers,
+            num_layers=cfg.capit_head.num_fc_layers,
             use_transformer_init=cfg.capit_head.use_transformer_init,
         )
 
