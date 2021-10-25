@@ -295,11 +295,13 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             if train_data_config.use_tarred_dataset:
                 self.set_labels_config_parameters_for_tarred_case('punct_label_ids', 'punct_labels_file')
                 self.set_labels_config_parameters_for_tarred_case('capit_label_ids', 'capit_labels_file')
+                self.register_artifact('class_labels.punct_labels_file', self._cfg.class_labels.punct_labels_file)
+                self.register_artifact('class_labels.capit_labels_file', self._cfg.class_labels.capit_labels_file)
             else:
                 self._cfg.punct_label_ids = OmegaConf.create(self._train_dl.dataset.punct_label_ids)
                 self._cfg.capit_label_ids = OmegaConf.create(self._train_dl.dataset.capit_label_ids)
-            self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
-            self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
+                self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
+                self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
 
     def setup_validation_data(self, val_data_config: Optional[Dict] = None):
         """
