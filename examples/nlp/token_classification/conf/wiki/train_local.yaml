@@ -48,8 +48,8 @@ model:
   punct_label_ids: null # will be filled during training
   capit_label_ids: null # will be filled during training
   class_labels:
-    punct_labels_file: punct_label_ids.csv
-    capit_labels_file: capit_label_ids.csv
+    punct_labels_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/train_tarred/punct_label_ids.csv
+    capit_labels_file: /media/apeganov/DATA/wiki_unsplit_48_65_filtered_characters/train_tarred/capit_label_ids.csv
 
   train_ds:
     use_tarred_dataset: true

@@ -476,6 +476,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         add_masks_and_segment_ids_to_batch: bool = True,
         verbose: bool = True,
         pickle_features: bool = True,
+        save_label_ids: bool = True,
         njobs: Optional[int] = None,
         tokenization_progress_queue: Optional[mp.Queue] = None,
         batch_mark_up_progress_queue: Optional[mp.Queue] = None,
@@ -591,9 +592,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
                 punct_label_ids = create_label_ids(punct_unique_labels, self.pad_label)
                 capit_label_ids = create_label_ids(capit_unique_labels, self.pad_label)
-
-            self._save_label_ids(punct_label_ids, self.punct_label_ids_file)
-            self._save_label_ids(capit_label_ids, self.capit_label_ids_file)
+            if save_label_ids:
+                self._save_label_ids(punct_label_ids, self.punct_label_ids_file)
+                self._save_label_ids(capit_label_ids, self.capit_label_ids_file)
 
             features = get_features(
                 text_lines,

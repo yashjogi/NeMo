@@ -256,6 +256,24 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         else:
             raise ValueError(f'{data_dir} not found')
 
+    def set_labels_config_parameters_for_tarred_case(self, dict_param_name, file_param_name):
+        if self._cfg[dict_param_name] is None and self._cfg.class_labels[file_param_name] is None:
+            raise ValueError(
+                f'If your train dataset is tarred, then you have to provide one of parameters '
+                f'`{dict_param_name}` or `class_labels.{file_param_name}` in the model config.'
+            )
+        if self._cfg[dict_param_name] is None:
+            self._cfg[dict_param_name] = {}
+            with open(self._cfg.class_labels[file_param_name]) as f:
+                for i, line in enumerate(f):
+                    self._cfg[dict_param_name][line.strip()] = i
+        else:
+            with open(self._cfg.class_labels[file_param_name], 'w') as f:
+                labels, _ = zip(*sorted(self._cfg[dict_param_name].items(), key=lambda x: x[1]))
+                f.write('\n'.join(labels))
+                for i, line in enumerate(f):
+                    self._cfg[dict_param_name][line.strip()] = i
+
     def setup_training_data(self, train_data_config: Optional[DictConfig] = None):
         """Setup training data"""
         if train_data_config is None:
@@ -272,12 +290,14 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self._train_dl = self._setup_dataloader_from_config(cfg=train_data_config)
 
         if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+            if train_data_config.use_tarred_dataset:
+                self.set_labels_config_parameters_for_tarred_case('punct_label_ids', 'punct_labels_file')
+                self.set_labels_config_parameters_for_tarred_case('capit_label_ids', 'capit_labels_file')
+            else:
+                self._cfg.punct_label_ids = OmegaConf.create(self._train_dl.dataset.punct_label_ids)
+                self._cfg.capit_label_ids = OmegaConf.create(self._train_dl.dataset.capit_label_ids)
             self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
             self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
-
-            # save label maps to the config
-            self._cfg.punct_label_ids = OmegaConf.create(self._train_dl.dataset.punct_label_ids)
-            self._cfg.capit_label_ids = OmegaConf.create(self._train_dl.dataset.capit_label_ids)
 
     def setup_validation_data(self, val_data_config: Optional[Dict] = None):
         """
