@@ -83,8 +83,8 @@ class PunctuationCapitalizationModelConfig:
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
     )
-    punct_label_ids: None = None
-    capit_label_ids: None = None
+    punct_label_ids: type(None) = None
+    capit_label_ids: type(None) = None
     class_labels: Optional[ClassLabels] = ClassLabels()
 
     punct_head: HeadConfig = HeadConfig()
