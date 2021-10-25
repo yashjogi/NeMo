@@ -46,7 +46,7 @@ class LanguageModelConfig:
     pretrained_model_name: str = MISSING
     config_file: Optional[str] = None
     config: Optional[Dict] = None
-    checkpoint_file: Optional[str] = None
+    lm_checkpoint: Optional[str] = None
 
 
 @dataclass
