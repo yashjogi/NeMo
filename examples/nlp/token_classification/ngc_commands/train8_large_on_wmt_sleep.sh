@@ -6,7 +6,7 @@ OMP_NUM_THREADS=1
 git clone https://github.com/NVIDIA/NeMo
 mkdir -p /result/nemo_experiments
 cd NeMo
-git checkout iwslt_cascade
+git checkout feat/punc_tarred
 source reinstall.sh
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
@@ -20,5 +20,5 @@ ngc batch run \
   --name "ml-model.bert large_punctuation_capitalization_training_on_wmt" \
   --image "nvidia/pytorch:21.08-py3" \
   --result /result \
-  --datasetid 88512:/data \
+  --datasetid None:/data \
   --commandline "${command}"
