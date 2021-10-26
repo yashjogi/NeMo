@@ -22,7 +22,7 @@ EOF
 ngc batch run \
   --instance dgx1v.16g.1.norm \
   --name "ml-model.aayn cross_labels_training" \
-  --image "nvidia/pytorch:21.08-py3" \
+  --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
   --datasetid 90228:/data \
   --commandline "${command}"
