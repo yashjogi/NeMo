@@ -11,7 +11,6 @@
 #SBATCH --overcommit
 #SBATCH --ntasks-per-node=16     # n tasks per machine (one task per gpu) <required>
 set -x
-SLURM_ACCOUNT_DIR='swdl/swdl-langspeech'  # <Make sure you dont override SLURM_ACCOUNT!>
 USERID='apeganov'
 CONTAINER="gitlab-master.nvidia.com/apeganov/speechtranslation:latest"
 WANDB="${wandb}" # replace with your own WandB API key
@@ -26,7 +25,7 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="evelina_wiki_with_quotes_draco"
+EXPNAME="evelina_wiki_with_quotes_draco_bert_base"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'

@@ -1,4 +1,5 @@
 import argparse
+import json
 import re
 import string
 from collections import Counter
@@ -38,16 +39,18 @@ def collect_cross_vocabulary(input_file):
 
 
 def autoregressive_file_to_cross_format_file(input_file, output_file, vocab_file):
-    vocabulary = collect_cross_vocabulary(input_file)
-    if len(vocabulary) > len(ENCODINGS):
+    combinations = collect_cross_vocabulary(input_file)
+    if len(combinations) > len(ENCODINGS):
         raise ValueError(
-            f"Too many cross labels were found in file {input_file}. Number of cross labels: {len(vocabulary)}, "
+            f"Too many cross labels were found in file {input_file}. Number of cross labels: {len(combinations)}, "
             f"number of available encodings: {len(ENCODINGS)}. You probably need to add more characters to parameter "
             f"`ENCODINGS` if you wish to process file {input_file}."
         )
+    vocabulary = {}
+    for i, (s, ctr) in enumerate(combinations.items()):
+        vocabulary[ENCODINGS[i]] = {'string': s, "count": ctr}
     with vocab_file.open('w') as f:
-        for i, k in enumerate(vocabulary):
-            f.write
+        json.dump(vocabulary, f)
 
 
 
