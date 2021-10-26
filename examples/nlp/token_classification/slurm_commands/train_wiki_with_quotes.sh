@@ -30,8 +30,8 @@ EXPNAME="evelina_wiki_with_quotes_draco"
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
 USERID='apeganov'
-DATA="/gpfs/fs1/projects/${SLURM_ACCOUNT}/datasets/data/punctuation_capitalization/wiki_with_quotes_48_65"
 LUSTRE_ACCOUNT_PREFIX=/gpfs/fs1/projects/${SLURM_ACCOUNT}
+DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_with_quotes_48_65"
 RESULTS=${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/results/$PROJECT/$EXPNAME
 CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
