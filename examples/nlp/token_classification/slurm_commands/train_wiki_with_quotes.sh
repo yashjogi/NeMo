@@ -13,7 +13,7 @@
 set -x
 SLURM_ACCOUNT_DIR='swdl/swdl-langspeech'  # <Make sure you dont override SLURM_ACCOUNT!>
 USERID='apeganov'
-CONTAINER="gitlab-master.nvidia.com:5005/apeganov/speechtranslation:latest"
+CONTAINER="gitlab-master.nvidia.com/apeganov/speechtranslation:latest"
 WANDB="${wandb}" # replace with your own WandB API key
 
 # Training - we want to train for 300B tokens with a global batch size of at least 1M tokens
@@ -62,21 +62,21 @@ echo "*******STARTING********" \
 	model.test_ds.labels_file="/data/test/bert_labels.txt" \
 	model.class_labels.punct_labels_file="/data/train_tarred/punct_label_ids.csv" \
 	model.class_labels.capit_labels_file="/data/train_tarred/capit_label_ids.csv" \
-	trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
+	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
-	trainer.max_epochs=null \
+	+trainer.max_epochs=null \
 	trainer.max_steps=${MAX_STEPS} \
-	trainer.val_check_interval=${VAL_CHECK_INTERVAL} \
+	+trainer.val_check_interval=${VAL_CHECK_INTERVAL} \
 	exp_manager.wandb_logger_kwargs.name=${EXPNAME} \
 	exp_manager.wandb_logger_kwargs.project=${PROJECT} \
-	exp_manager.explicit_log_dir=/results \
-	exp_manager.resume_if_exists=True \
-	exp_manager.resume_ignore_no_checkpoint=True \
+	+exp_manager.explicit_log_dir=/results \
+	+exp_manager.resume_if_exists=True \
+	+exp_manager.resume_ignore_no_checkpoint=True \
 	exp_manager.create_checkpoint_callback=True \
-	exp_manager.checkpoint_callback_params.monitor=val_loss \
-	exp_manager.checkpoint_callback_params.save_top_k=3 \
-	exp_manager.checkpoint_callback_params.mode=min \
-	exp_manager.checkpoint_callback_params.always_save_nemo=False
+	+exp_manager.checkpoint_callback_params.monitor=val_loss \
+	+exp_manager.checkpoint_callback_params.save_top_k=3 \
+	+exp_manager.checkpoint_callback_params.mode=min \
+	+exp_manager.checkpoint_callback_params.always_save_nemo=False
 EOF
 
 srun -o $OUTFILE -e $ERRFILE --container-image="$CONTAINER" $MOUNTS bash -c "${cmd}"
