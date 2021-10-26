@@ -56,7 +56,7 @@ def collect_cross_vocabulary(input_file):
 
 
 def autoregressive_file_to_cross_format_file(
-        input_file, output_file, vocab_file, normalize_vocabulary, save_not_normalized_vocabulary
+        input_file, output_file, vocab_file, normalize_vocabulary, not_normalized_vocab_file
 ):
     combinations, normalized_combinations, num_lines = collect_cross_vocabulary(input_file)
     if len(combinations) > len(ENCODINGS):
@@ -73,8 +73,7 @@ def autoregressive_file_to_cross_format_file(
         normalized_vocabulary[ENCODINGS[i]] = {'string': s, "count": ctr}
     with vocab_file.open('w') as f:
         json.dump(normalized_vocabulary if normalize_vocabulary else vocabulary, f, indent=2)
-    if normalized_vocabulary and save_not_normalized_vocabulary:
-        not_normalized_vocab_file = Path(str(vocab_file) + '.not_normalized')
+    if normalized_vocabulary and not_normalized_vocab_file is not None:
         with not_normalized_vocab_file.open('w') as f:
             json.dump(vocabulary, f, indent=2)
     inverse_vocabulary = {v['string']: k for k, v in vocabulary.items()}
@@ -89,7 +88,9 @@ def autoregressive_file_to_cross_format_file(
 
 def main():
     args = get_args()
-    autoregressive_file_to_cross_format_file(args.input, args.output, args.vocab)
+    autoregressive_file_to_cross_format_file(
+        args.input, args.output, args.vocab, args.normalize, args.not_normalized_vocab_file
+    )
 
 
 if __name__ == "__main__":
