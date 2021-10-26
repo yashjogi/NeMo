@@ -20,6 +20,7 @@ WANDB="${wandb}" # replace with your own WandB API key
 # total_tokens = max_steps * global_batch_size_in_tokens
 # global_batch_size_in_tokens = micro_batch_size * data_parallel_size * accumulate_grad_batches * seq_length
 # data_parallel_size = num_nodes * num_gpus_per_node (no model parallel)
+MAX_STEPS=100000
 VAL_CHECK_INTERVAL=2000
 LOG_EVERY_N_STEPS=100
 

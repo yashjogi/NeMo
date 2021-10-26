@@ -33,7 +33,7 @@ def collect_cross_vocabulary(input_file):
             while line[start_i] not in CAPITALIZATION_LABELS:
                 start_i += 1
             assert (len(line) - start_i) % 2 == 0
-            vocabulary.update([''.join(line[i: i + 2]) for i in range()])
+            vocabulary.update([''.join(line[i: i + 2]) for i in range(start_i, (len(line) - start_i) // 2)])
 
 
 
