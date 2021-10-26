@@ -49,6 +49,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
     refs = []
     total_durations_to_asr = []
     original_durations = []
+    total_speech_segments = []
 
     with open(mfst, "r") as mfst_f:
         for l in mfst_f:
@@ -67,7 +68,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
                     asr.reset()
                     speech_segment = speech_segments[i] 
                     offset = speech_segment[0] - frame_len * 4
-                    duration = speech_segment[1] - speech_segment[0] + frame_len * 4
+                    duration = speech_segment[1] - speech_segment[0]
 
                     asr.read_audio_file(row['audio_filepath'], offset, duration, delay, model_stride_in_secs)
                     hyp = asr.transcribe(tokens_per_chunk, delay) + " "
@@ -76,28 +77,31 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
                     total_duration_to_asr += duration
 
                 final_hyp = final_hyp[1:-1]
-                print(final_hyp)
+                # print(final_hyp)
 
                 hyps.append(final_hyp)
                 refs.append(row['text'])
                 total_durations_to_asr.append(total_duration_to_asr)
                 original_durations.append(row['duration'])
+                total_speech_segments.append(speech_segments)
 
             else:
                 asr.read_audio_file(row['audio_filepath'], offset=0, duration=None, 
                                     delay=delay, model_stride_in_secs=model_stride_in_secs)
                 hyp = asr.transcribe(tokens_per_chunk, delay)
-                print(hyp)
+                # print(hyp)
                 hyps.append(hyp)
                 refs.append(row['text'])
                 total_durations_to_asr.append(row['duration'])
+                speech_segments = "ALL"
+                total_speech_segments.append(speech_segments)
 
     wer = word_error_rate(hypotheses=hyps, references=refs)
     print(wer)
     if vad:
         print(f"VAD reduces total durations for ASR inference from {int(sum(original_durations))} seconds to {int(sum(total_durations_to_asr))} seconds, by filtering out some noise or musci")
     
-    return hyps, refs, wer, total_durations_to_asr
+    return hyps, refs, wer, total_durations_to_asr, total_speech_segments
 
 
 
@@ -202,7 +206,7 @@ def main():
         batch_size=args.batch_size,
     )
 
-    hyps, refs, wer, total_durations_to_asr = get_wer_feat(
+    hyps, refs, wer, total_durations_to_asr, total_speech_segments = get_wer_feat(
         args.test_manifest,
         frame_asr,
         chunk_len,
@@ -236,7 +240,8 @@ def main():
                     "pred_text": hyp,
                     "text": refs[i],
                     "wer": round(word_error_rate(hypotheses=[hyp], references=[refs[i]]) * 100, 2),
-                    "total_duration_to_asr": total_durations_to_asr[i]
+                    "total_duration_to_asr": total_durations_to_asr[i],
+                    "total_speech_segments": total_speech_segments[i],
                 }
                 out_f.write(json.dumps(record) + '\n')
 
