@@ -8,7 +8,7 @@ from pathlib import Path
 
 ENCODINGS = string.ascii_letters + string.digits
 CAPITALIZATION_LABELS = 'uOU'
-CAPITALIZATION_RE = re.compile('([UuO])')
+CAPITALIZATION_WITH_FOLLOWING_PUNCTUATION_RE = re.compile('[UuO][^uUO]*')
 
 
 def get_args():
@@ -29,12 +29,7 @@ def collect_cross_vocabulary(input_file):
     vocabulary = Counter()
     with input_file.open() as f:
         for line in f:
-            line = CAPITALIZATION_RE.split(line.strip())
-            start_i = 0
-            while line[start_i] not in CAPITALIZATION_LABELS:
-                start_i += 1
-            assert (len(line) - start_i) % 2 == 0
-            vocabulary.update([''.join(line[i: i + 2]) for i in range(start_i, (len(line) - start_i) // 2)])
+            vocabulary.update(CAPITALIZATION_WITH_FOLLOWING_PUNCTUATION_RE.findall(line.strip()))
     return dict(sorted(vocabulary.items(), key=lambda x: -x[1]))
 
 
@@ -51,7 +46,12 @@ def autoregressive_file_to_cross_format_file(input_file, output_file, vocab_file
         vocabulary[ENCODINGS[i]] = {'string': s, "count": ctr}
     with vocab_file.open('w') as f:
         json.dump(vocabulary, f)
-
+    inverse_vocabulary = {v['string']: k for k, v in vocabulary.items()}
+    with input_file.open() as in_f, output_file.open() as out_f:
+        for line in in_f:
+            for piece in CAPITALIZATION_WITH_FOLLOWING_PUNCTUATION_RE.findall(line.strip()):
+                out_f.write(inverse_vocabulary[piece])
+        out_f.write('\n')
 
 
 def main():
