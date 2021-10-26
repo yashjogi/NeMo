@@ -89,7 +89,7 @@ def autoregressive_file_to_cross_format_file(
 def main():
     args = get_args()
     autoregressive_file_to_cross_format_file(
-        args.input, args.output, args.vocab, args.normalize, args.not_normalized_vocab_file
+        args.input, args.output, args.vocab, args.normalize, args.not_normalized_vocabulary
     )
 
 
