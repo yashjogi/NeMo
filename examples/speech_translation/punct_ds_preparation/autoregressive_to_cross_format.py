@@ -33,9 +33,9 @@ def get_args():
         args.output_vocab = args.output_vocab.expanduser()
     else:
         args.ready_vocab = args.ready_vocab.expanduser()
-    if args.output_vocab is None and (args.not_normalized_vocabulary is not None or args.normalize):
+    if args.output_vocab is None and args.not_normalized_vocabulary:
         raise ValueError(
-            f"If parameter `--ready_vocab` is provided you should not provide parameters `--normalize` and "
+            f"If parameter `--ready_vocab` is provided you should not provide parameter "
             f"`--not_normalized_vocabulary`."
         )
     if args.not_normalized_vocabulary is not None:
