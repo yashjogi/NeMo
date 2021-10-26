@@ -40,7 +40,15 @@ def collect_cross_vocabulary(input_file):
 def autoregressive_file_to_cross_format_file(input_file, output_file, vocab_file):
     vocabulary = collect_cross_vocabulary(input_file)
     if len(vocabulary) > len(ENCODINGS):
-        raise ValueError
+        raise ValueError(
+            f"Too many cross labels were found in file {input_file}. Number of cross labels: {len(vocabulary)}, "
+            f"number of available encodings: {len(ENCODINGS)}. You probably need to add more characters to parameter "
+            f"`ENCODINGS` if you wish to process file {input_file}."
+        )
+    with vocab_file.open('w') as f:
+        for i, k in enumerate(vocabulary):
+            f.write
+
 
 
 def main():
