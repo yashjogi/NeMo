@@ -30,7 +30,8 @@ def get_args():
     args.input = args.input.expanduser()
     args.output = args.output.expanduser()
     args.vocab = args.vocab.expanduser()
-    args.not_normalized_vocabulary = args.not_normalized_vocabulary.expanduser()
+    if args.not_normalized_vocabulary is not None:
+        args.not_normalized_vocabulary = args.not_normalized_vocabulary.expanduser()
     return args
 
 
