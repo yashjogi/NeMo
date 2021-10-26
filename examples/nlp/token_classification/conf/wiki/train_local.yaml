@@ -111,7 +111,7 @@ model:
 
   optim:
     name: adam
-    lr: 1e-4
+    lr: 3e-5
     weight_decay: 0.00
 
     sched:
