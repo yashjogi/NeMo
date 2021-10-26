@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -A ent_aiapps_asr
 #SBATCH -p batch                 # luna / backfill / interactive
-#SBATCH -N 2                    # number of nodes
+#SBATCH -N 1                    # number of nodes
 #SBATCH -t 8:00:00              # wall time  (4 for luna, 8 for backfill, 2 for interactive)
 #SBATCH --exclusive
 #SBATCH --mem=0
@@ -25,12 +25,15 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="wiki_with_quotes_draco"
+EXPNAME="evelina_wiki_with_quotes_draco"
 
 # Mounts
-DATA="/gpfs/fs1/projects/ent_aiapps/datasets/data/punctuation_capitalization/wiki_with_quotes_48_65"
-RESULTS="${GPFS}/results/${EXPNAME}"
-CODE="${GPFS}/repos/NeMo"
+SLURM_ACCOUNT='ent_aiapps'
+USERID='apeganov'
+DATA="/gpfs/fs1/projects/${SLURM_ACCOUNT}/datasets/data/punctuation_capitalization/wiki_with_quotes_48_65"
+LUSTRE_ACCOUNT_PREFIX=/gpfs/fs1/projects/${SLURM_ACCOUNT}
+RESULTS=${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/results/$PROJECT/$EXPNAME
+CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
 mkdir -p ${RESULTS}
 
@@ -48,8 +51,6 @@ echo "*******STARTING********" \
 && wandb login ${WANDB} \
 && echo "Starting training" \
 && cd /code/ \
-&& git rev-parse HEAD \
-&& export PYTHONPATH="/code/.:${PYTHONPATH}" \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
   /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
