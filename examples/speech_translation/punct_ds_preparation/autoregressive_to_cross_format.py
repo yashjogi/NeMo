@@ -77,7 +77,7 @@ def autoregressive_file_to_cross_format_file(
         with not_normalized_vocab_file.open('w') as f:
             json.dump(vocabulary, f, indent=2)
     inverse_vocabulary = {
-        v['string']: k for k, v in (normalized_vocabulary if normalize_vocabulary else vocabulary.items())
+        v['string']: k for k, v in (normalized_vocabulary.items() if normalize_vocabulary else vocabulary.items())
     }
     with input_file.open() as in_f, output_file.open('w') as out_f:
         for line in tqdm(in_f, total=num_lines, unit='line', desc="Encoding"):
