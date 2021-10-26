@@ -29,11 +29,11 @@ def collect_cross_vocabulary(input_file):
     with input_file.open() as f:
         for line in f:
             line = CAPITALIZATION_RE.split(line.strip())
-            started = False
-            for piece in line:
-                if started:
-                    if piece in CAPITALIZATION_LABELS:
-                        pass
+            start_i = 0
+            while line[start_i] not in CAPITALIZATION_LABELS:
+                start_i += 1
+            assert (len(line) - start_i) % 2 == 0
+            vocabulary.update([''.join(line[i: i + 2]) for i in range()])
 
 
 

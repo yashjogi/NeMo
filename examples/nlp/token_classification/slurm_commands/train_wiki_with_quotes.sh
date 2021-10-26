@@ -37,7 +37,7 @@ CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
 mkdir -p ${RESULTS}
 
-MOUNTS="--container-mounts=$CODE:/code,$RESULTS:/results,$PREPROC_DATA:/preproc_data"
+MOUNTS="--container-mounts=$CODE:/code,$RESULTS:/results,$DATA:/data"
 
 # Necessary Exports
 export HYDRA_FULL_ERROR=1
@@ -55,13 +55,13 @@ echo "*******STARTING********" \
   /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=train_local \
-	model.train_ds.metadata_file="${DATA}/train_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
-	model.validation_ds.text_file="${DATA}/dev/input.txt" \
-	model.validation_ds.labels_file="${DATA}/dev/bert_labels.txt" \
-	model.test_ds.text_file="${DATA}/test/input.txt" \
-	model.test_ds.labels_file="${DATA}/test/bert_labels.txt" \
-	model.class_labels.punct_labels_file="${DATA}/train_tarred/punct_label_ids.csv" \
-	model.class_labels.capit_labels_file="${DATA}/train_tarred/capit_label_ids.csv" \
+	model.train_ds.metadata_file="/data/train_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
+	model.validation_ds.text_file="/data/dev/input.txt" \
+	model.validation_ds.labels_file="/data/dev/bert_labels.txt" \
+	model.test_ds.text_file="/data/test/input.txt" \
+	model.test_ds.labels_file="/data/test/bert_labels.txt" \
+	model.class_labels.punct_labels_file="/data/train_tarred/punct_label_ids.csv" \
+	model.class_labels.capit_labels_file="/data/train_tarred/capit_label_ids.csv" \
 	trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
 	trainer.max_epochs=null \
