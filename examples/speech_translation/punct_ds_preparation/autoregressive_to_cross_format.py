@@ -34,11 +34,13 @@ def collect_cross_vocabulary(input_file):
                 start_i += 1
             assert (len(line) - start_i) % 2 == 0
             vocabulary.update([''.join(line[i: i + 2]) for i in range(start_i, (len(line) - start_i) // 2)])
-
+    return dict(sorted(vocabulary.items(), key=lambda x: -x[1]))
 
 
 def autoregressive_file_to_cross_format_file(input_file, output_file, vocab_file):
     vocabulary = collect_cross_vocabulary(input_file)
+    if len(vocabulary) > len(ENCODINGS):
+        raise ValueError
 
 
 def main():

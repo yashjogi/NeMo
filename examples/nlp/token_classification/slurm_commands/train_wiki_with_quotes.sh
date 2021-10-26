@@ -65,7 +65,6 @@ echo "*******STARTING********" \
 	model.class_labels.capit_labels_file="/data/train_tarred/capit_label_ids.csv" \
 	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
-	+trainer.max_epochs=null \
 	trainer.max_steps=${MAX_STEPS} \
 	+trainer.val_check_interval=${VAL_CHECK_INTERVAL} \
 	exp_manager.wandb_logger_kwargs.name=${EXPNAME} \
