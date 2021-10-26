@@ -83,7 +83,7 @@ def autoregressive_file_to_cross_format_file(
         for line in tqdm(in_f, total=num_lines, unit='line', desc="Encoding"):
             if normalized_vocabulary:
                 line = normalize(line)
-            for piece in CAPITALIZATION_WITH_FOLLOWING_PUNCTUATION_RE.findall(line.strip()):
+            for piece in CAPITALIZATION_WITH_FOLLOWING_PUNCTUATION_RE.findall(line.strip() + ' '):
                 out_f.write(inverse_vocabulary[piece])
         out_f.write('\n')
 
