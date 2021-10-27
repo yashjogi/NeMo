@@ -22,6 +22,7 @@ trainer:
   max_steps: 300000 # precedence over max_epochs
   accumulate_grad_batches: 1 # accumulates grads every k batches
   gradient_clip_val: 0.0
+  amp_backend: apex
   amp_level: O2 # O1/O2 for mixed precision
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: ddp
@@ -32,76 +33,63 @@ trainer:
   progress_bar_refresh_rate: 0
 
 exp_manager:
-  exp_dir: /result/nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
+  exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
   name: Punctuation_and_Capitalization  # The name of your model
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   checkpoint_callback_params:
     save_best_model: true
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: evelina_punc_cap_train_on_wmt_lr1e-4_steps300000
+    name: new_evelina_punc_cap_train_on_wmt_lr1e-4_steps300000
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
 
 model:
-  punct_label_ids: null # will be filled during training
-  capit_label_ids: null # will be filled during training
+  pad_label: 'O'
   class_labels:
     punct_labels_file: punct_label_ids.csv
     capit_labels_file: capit_label_ids.csv
-  dataset:
-    data_dir: /data/train # /path/to/training/data
-    # parameters for dataset preprocessing
-    max_seq_length: 512
-    pad_label: 'O'
-    ignore_extra_tokens: false
-    ignore_start_end: false
-    use_cache: true
-    # shared among dataloaders
-    num_workers:  2
-    pin_memory: true
-    drop_last: false
-
-    # required for inference
-    # For inference text is split into overlapping sequences of subtokens of length `max_seq_length` with step `step`.
-    # For example, if every character is a subtoken, max_seq_length=3 and step=2, than the string "abcdef" for
-    # inference will be split into ["abc", "bcd", "cde", "def"]
-    step: 32
-    # You may use margin if input sequence is longer than `max_seq_length`. If margin is not equal to zero than
-    # `margin` subtokens predictions at the start or the end of a segment (if it is not the start or the end of entire
-    # input sequence) are not used for punctuation and capitalization prediction.
-    margin: 8
+  ignore_extra_tokens: false
+  ignore_start_end: true  # TODO: try false
 
   train_ds:
-    text_file: text_train.txt
-    labels_file: labels_train.txt
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    use_tarred_dataset: false
+    text_file: /data/train/input.txt
+    labels_file: /data/train/bert_labels.txt
+    metadata_file: null
     shuffle: true
     num_samples: -1
-    batch_size: 64
+    tokens_in_batch: 15000
     persistent_workers: true
     pin_memory: true
 
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /data/dev # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
-    text_file: text_dev.txt
-    labels_file: labels_dev.txt
+    use_tarred_dataset: false
+    text_file: /data/dev/input.txt
+    labels_file: /data/dev/bert_labels.txt
+    metadata_file: null
     shuffle: false
     num_samples: -1
-    batch_size: 64
+    tokens_in_batch: 15000
     persistent_workers: true
     pin_memory: true
 
   test_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
-    ds_item: /data/test # expected format: [PATH_TO_DEV1,PATH_TO_DEV2] (Note no space between the paths and square brackets)
-    text_file: text_test.txt
-    labels_file: labels_test.txt
+    use_tarred_dataset: false
+    text_file: /data/test/input.txt
+    labels_file: /data/test/bert_labels.txt
+    metadata_file: null
     shuffle: false
     num_samples: -1
-    batch_size: 64
+    tokens_in_batch: 15000
+    persistent_workers: true
+    pin_memory: true
 
   tokenizer:
     tokenizer_name: ${model.language_model.pretrained_model_name} # or sentencepiece
@@ -114,18 +102,6 @@ model:
     lm_checkpoint: null
     config_file: null # json file, precedence over config
     config: null
-
-  punct_head:
-    punct_num_fc_layers: 1
-    fc_dropout: 0.1
-    activation: 'relu'
-    use_transformer_init: True
-
-  capit_head:
-    capit_num_fc_layers: 1
-    fc_dropout: 0.1
-    activation: 'relu'
-    use_transformer_init: true
 
   optim:
     name: adam

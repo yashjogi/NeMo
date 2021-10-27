@@ -3,26 +3,21 @@ WANDB_API_KEY="$1"
 read -r -d '' command << EOF
 set -e -x
 OMP_NUM_THREADS=8
-git clone https://github.com/NVIDIA/NeMo
-mkdir -p /result/nemo_experiments
 cd NeMo
-git checkout iwslt_cascade
-pip install -r requirements/requirements.txt
-pip install -r requirements/requirements_lightning.txt
-pip install -r requirements/requirements_test.txt
-pip install -r requirements/requirements_nlp.txt
-export PYTHONPATH="\$(pwd)"
+git checkout feat/punc_tarred
+git pull
+bash reinstall.sh
+mkdir -p /result/nemo_experiments
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
-python -c "from nemo.collections.nlp.modules import get_tokenizer;get_tokenizer('bert-base-uncased', use_fast=False)"
-sleep 100000
+sleep 200000
 set +e +x
 EOF
 
 ngc batch run \
   --instance dgx1v.16g.1.norm \
-  --name "ml-model.bert punctuation_capitalization_training_on_wmt" \
-  --image "nvidia/pytorch:21.08-py3" \
+  --name "ml-model.bert new_punctuation_capitalization_training_on_wmt" \
+  --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
-  --datasetid 88512:/data \
+  --datasetid 90462:/data \
   --commandline "${command}"
