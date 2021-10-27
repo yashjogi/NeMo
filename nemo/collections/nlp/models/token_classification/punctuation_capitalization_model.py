@@ -243,18 +243,18 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self.log('capit_f1', capit_f1)
         self.log('capit_recall', capit_recall)
 
-    def update_data_dir(self, data_dir: str) -> None:
-        """
-        Update data directory
-
-        Args:
-            data_dir: path to data directory
-        """
-        if os.path.exists(data_dir):
-            logging.info(f'Setting model.dataset.data_dir to {data_dir}.')
-            self._cfg.dataset.data_dir = data_dir
-        else:
-            raise ValueError(f'{data_dir} not found')
+    # def update_data_dir(self, data_dir: str) -> None:
+    #     """
+    #     Update data directory
+    #
+    #     Args:
+    #         data_dir: path to data directory
+    #     """
+    #     if os.path.exists(data_dir):
+    #         logging.info(f'Setting model.dataset.data_dir to {data_dir}.')
+    #         self._cfg.dataset.data_dir = data_dir
+    #     else:
+    #         raise ValueError(f'{data_dir} not found')
 
     def set_labels_config_parameters_for_tarred_case(self, dict_param_name, file_param_name):
         if self._cfg[dict_param_name] is None and self._cfg.class_labels[file_param_name] is None:
@@ -535,10 +535,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             punct_label = punct_ids_to_labels[punct_preds[j]]
             capit_label = capit_ids_to_labels[capit_preds[j]]
 
-            if capit_label != self._cfg.dataset.pad_label:
+            if capit_label != self._cfg.pad_label:
                 word = word.capitalize()
             query_with_punct_and_capit += word
-            if punct_label != self._cfg.dataset.pad_label:
+            if punct_label != self._cfg.pad_label:
                 query_with_punct_and_capit += punct_label
             query_with_punct_and_capit += ' '
         return query_with_punct_and_capit[:-1]

@@ -88,33 +88,48 @@ def main(cfg: DictConfig) -> None:
             f'Provide path to the pre-trained .nemo checkpoint or choose from {TokenClassificationModel.list_available_models()}'
         )
 
-    data_dir = cfg.model.dataset.get('data_dir', None)
-    if data_dir is None:
-        logging.error(
-            'No dataset directory provided. Skipping evaluation. '
-            'To run evaluation on a file, specify path to the directory that contains test_ds.text_file and test_ds.labels_file with "model.dataset.data_dir" argument.'
+    # data_dir = cfg.model.dataset.get('data_dir', None)
+    # if data_dir is None:
+    #     logging.error(
+    #         'No dataset directory provided. Skipping evaluation. '
+    #         'To run evaluation on a file, specify path to the directory that contains test_ds.text_file and test_ds.labels_file with "model.dataset.data_dir" argument.'
+    #     )
+    # elif not os.path.exists(data_dir):
+    #     logging.error(f'{data_dir} is not found, skipping evaluation on the test set.')
+    # else:
+    #     model.update_data_dir(data_dir=data_dir)
+    #     model._cfg.dataset = cfg.model.dataset
+    #
+    #     if not hasattr(cfg.model, 'test_ds'):
+    #         logging.error(f'model.test_ds was not found in the config, skipping evaluation')
+    #     elif model.prepare_test(trainer):
+    #         model.setup_test_data(cfg.model.test_ds)
+    #         trainer.test(model)
+    #
+    #         model.evaluate_from_file(
+    #             text_file=os.path.join(data_dir, cfg.model.test_ds.text_file),
+    #             labels_file=os.path.join(data_dir, cfg.model.test_ds.labels_file),
+    #             output_dir=exp_dir,
+    #             add_confusion_matrix=True,
+    #             normalize_confusion_matrix=True,
+    #         )
+    #     else:
+    #         logging.error('Skipping the evaluation. The trainer is not setup properly.')
+    if not hasattr(cfg.model, 'test_ds'):
+        logging.error(f'model.test_ds was not found in the config, skipping evaluation')
+    elif model.prepare_test(trainer):
+        model.setup_test_data(cfg.model.test_ds)
+        trainer.test(model)
+
+        model.evaluate_from_file(
+            text_file=os.path.join(data_dir, cfg.model.test_ds.text_file),
+            labels_file=os.path.join(data_dir, cfg.model.test_ds.labels_file),
+            output_dir=exp_dir,
+            add_confusion_matrix=True,
+            normalize_confusion_matrix=True,
         )
-    elif not os.path.exists(data_dir):
-        logging.error(f'{data_dir} is not found, skipping evaluation on the test set.')
     else:
-        model.update_data_dir(data_dir=data_dir)
-        model._cfg.dataset = cfg.model.dataset
-
-        if not hasattr(cfg.model, 'test_ds'):
-            logging.error(f'model.test_ds was not found in the config, skipping evaluation')
-        elif model.prepare_test(trainer):
-            model.setup_test_data(cfg.model.test_ds)
-            trainer.test(model)
-
-            model.evaluate_from_file(
-                text_file=os.path.join(data_dir, cfg.model.test_ds.text_file),
-                labels_file=os.path.join(data_dir, cfg.model.test_ds.labels_file),
-                output_dir=exp_dir,
-                add_confusion_matrix=True,
-                normalize_confusion_matrix=True,
-            )
-        else:
-            logging.error('Skipping the evaluation. The trainer is not setup properly.')
+        logging.error('Skipping the evaluation. The trainer is not setup properly.')
 
     # run an inference on a few examples
     queries = ['we bought four shirts from the nvidia gear store in santa clara.', 'Nvidia is a company.']
