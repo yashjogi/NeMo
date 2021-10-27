@@ -14,7 +14,7 @@
 
 import os
 from math import ceil
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -376,7 +376,13 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         )
 
     def _setup_infer_dataloader(
-        self, queries: List[str], batch_size: int, max_seq_length: int, step: int, margin: int,
+        self,
+        queries: List[str],
+        batch_size: int,
+        max_seq_length: int,
+        step: int,
+        margin: int,
+        dataloader_kwargs: Dict[str, Any],
     ) -> torch.utils.data.DataLoader:
         """
         Setup function for a infer data loader.
@@ -394,12 +400,6 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         Returns:
             A pytorch DataLoader.
         """
-        if max_seq_length is None:
-            max_seq_length = self._cfg.dataset.max_seq_length
-        if step is None:
-            step = self._cfg.dataset.step
-        if margin is None:
-            margin = self._cfg.dataset.margin
 
         dataset = BertPunctuationCapitalizationInferDataset(
             tokenizer=self.tokenizer, queries=queries, max_seq_length=max_seq_length, step=step, margin=margin
@@ -412,6 +412,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             num_workers=self._cfg.dataset.num_workers,
             pin_memory=self._cfg.dataset.pin_memory,
             drop_last=False,
+            **dataloader_kwargs,
         )
 
     @staticmethod
@@ -573,6 +574,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         step: int = 8,
         margin: int = 16,
         return_labels: bool = False,
+        dataloader_kwargs: Dict[str, Any] = None,
     ) -> List[str]:
         """
         Adds punctuation and capitalization to the queries. Use this method for inference.
@@ -606,6 +608,9 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             return_labels: whether to return labels in NeMo format (see https://docs.nvidia.com/deeplearning/nemo/
                 user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format) instead of queries
                 with restored punctuation and capitalization.
+            dataloader_kwargs: an optional dictionary with parameters of PyTorch data loader. May include keys:
+                ``'num_workers'``, ``'pin_memory'``, ``'worker_init_fn'``, ``'prefetch_factor'``,
+                ``'persistent_workers'``.
         Returns:
             result: text with added capitalization and punctuation or punctuation and capitalization labels
         """
@@ -618,7 +623,9 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         mode = self.training
         try:
             self.eval()
-            infer_datalayer = self._setup_infer_dataloader(queries, batch_size, max_seq_length, step, margin)
+            infer_datalayer = self._setup_infer_dataloader(
+                queries, batch_size, max_seq_length, step, margin, dataloader_kwargs
+            )
             # Predicted labels for queries. List of labels for every query
             all_punct_preds: List[List[int]] = [[] for _ in queries]
             all_capit_preds: List[List[int]] = [[] for _ in queries]

@@ -210,6 +210,7 @@ def main():
         step=args.step,
         margin=args.margin,
         return_labels=args.save_labels_instead_of_text,
+        dataloader_kwargs={'num_workers': 8, 'pin_memory': True},
     )
     if args.output_manifest is None:
         args.output_text.parent.mkdir(exist_ok=True, parents=True)
