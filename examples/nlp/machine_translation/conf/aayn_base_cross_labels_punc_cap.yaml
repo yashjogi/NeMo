@@ -148,5 +148,5 @@ exp_manager:
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: cross_labels_seq2seq
-    project: autoregressive_punctuation_speedup
+    project: autoregressive_punctuation_capitalization
     entity: anton_peganov

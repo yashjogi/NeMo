@@ -3,11 +3,7 @@ WANDB_API_KEY="$1"
 read -r -d '' command << EOF
 set -e -x
 mkdir /result/nemo_experiments
-git clone https://github.com/NVIDIA/NeMo
-cd NeMo
-git checkout feat/punc_tarred
-bash reinstall.sh
-cd examples/nlp/machine_translation
+cd /NeMo/examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 python create_autoregressive_char_vocabulary.py \
   --input /data/train/cross_labels.txt \
