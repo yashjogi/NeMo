@@ -13,7 +13,8 @@ python create_autoregressive_char_vocabulary.py \
   --output /workspace/cross_labels_char_vocab.txt \
   --characters_to_exclude $'\n' \
   --eos_token EOS \
-  --pad_token PAD
+  --pad_token PAD \
+  --bos_token BOS
 sleep 200000
 set +e +x
 EOF
