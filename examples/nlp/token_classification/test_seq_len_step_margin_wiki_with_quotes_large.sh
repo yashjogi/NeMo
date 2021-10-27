@@ -1,5 +1,5 @@
 python test_seq_len_step_margin.py \
-  --model_path ~/NWInf_results/autoregressive_punctuation_capitalization/evelina_wiki_with_quotes_draco_bert_large/checkpoints/Punctuation_and_Capitalization.nemo \
+  --model_path ~/NWInf_results/autoregressive_punctuation_capitalization/evelina_wiki_with_quotes_draco_bert_large/checkpoints/Punctuation_and_Capitalization.last.nemo \
   --labels ~/data/iwslt/IWSLT-SLT/eval/en-de/IWSLT.tst2019/for_testing_punctuation_model/labels_iwslt_en_text.txt \
   --source_text ~/data/iwslt/IWSLT-SLT/eval/en-de/IWSLT.tst2019/for_testing_punctuation_model/text_iwslt_en_text.txt \
   --output_dir ~/data/iwslt/IWSLT-SLT/eval/en-de/IWSLT.tst2019/for_testing_punctuation_model/evelina_model_with_quotes_draco_large_rno139414 \
