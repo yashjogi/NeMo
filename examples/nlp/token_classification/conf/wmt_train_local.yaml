@@ -100,18 +100,6 @@ model:
     config_file: null # json file, precedence over config
     config: null
 
-  punct_head:
-    punct_num_fc_layers: 1
-    fc_dropout: 0.1
-    activation: 'relu'
-    use_transformer_init: True
-
-  capit_head:
-    capit_num_fc_layers: 1
-    fc_dropout: 0.1
-    activation: 'relu'
-    use_transformer_init: true
-
   optim:
     name: adam
     lr: 1e-4
