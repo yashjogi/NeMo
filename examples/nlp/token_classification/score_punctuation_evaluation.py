@@ -32,7 +32,7 @@ def load_punctuation_capitalization_labels(text):
 def compute_scores(preds_text, labels_text):
     punct_preds, capit_preds = load_punctuation_capitalization_labels(preds_text)
     punct_labels, capit_labels = load_punctuation_capitalization_labels(labels_text)
-    return {
+    metrics = {
         "punctuation": {
             "accuracy": accuracy_score(punct_labels, punct_preds),
             "f1_macro": f1_score(punct_labels, punct_preds, average="macro"),
@@ -42,6 +42,17 @@ def compute_scores(preds_text, labels_text):
             "f1": f1_score(capit_labels, capit_preds),
         },
     }
+    unique_punct = set(punct_labels)
+    unique_capit = set(capit_labels)
+    for labels, preds, unique, key in [
+        (punct_labels, punct_preds, unique_punct, 'punctuation'),
+        (capit_labels, capit_preds, unique_capit, 'capitalization'),
+    ]:
+        for lbl in unique:
+            metrics['punctuation'][f"f1_'{lbl}'"] = f1_score(
+                labels, preds, labels=[lbl], average="micro", zero_division=0,
+            )
+    return metrics
 
 
 def main():
