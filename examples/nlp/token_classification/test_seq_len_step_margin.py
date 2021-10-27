@@ -229,6 +229,7 @@ def main():
                         max_seq_length=max_seq_length,
                         margin=margin,
                         step=step,
+                        dataloader_kwargs={'num_workers': 8},
                     )
                     success = True
                 except RuntimeError:

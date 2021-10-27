@@ -382,7 +382,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         max_seq_length: int,
         step: int,
         margin: int,
-        dataloader_kwargs: Dict[str, Any],
+        dataloader_kwargs: Optional[Dict[str, Any]],
     ) -> torch.utils.data.DataLoader:
         """
         Setup function for a infer data loader.
@@ -400,7 +400,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         Returns:
             A pytorch DataLoader.
         """
-
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
         dataset = BertPunctuationCapitalizationInferDataset(
             tokenizer=self.tokenizer, queries=queries, max_seq_length=max_seq_length, step=step, margin=margin
         )
