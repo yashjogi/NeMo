@@ -59,8 +59,8 @@ class HeadConfig:
 
 @dataclass
 class ClassLabels:
-    punct_labels_file: Optional[str] = None
-    capit_labels_file: Optional[str] = None
+    punct_labels_file: Optional[str] = "punct_label_ids.csv"
+    capit_labels_file: Optional[str] = "capit_label_ids.csv"
 
 
 @dataclass
