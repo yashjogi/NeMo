@@ -3,7 +3,10 @@ WANDB_API_KEY="$1"
 read -r -d '' command << EOF
 set -e -x
 mkdir /result/nemo_experiments
-cd /NeMo/examples/nlp/machine_translation
+cd NeMo
+git pull
+bash reinstall.sh
+cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 python create_autoregressive_char_vocabulary.py \
   --input /data/train/cross_labels.txt \
