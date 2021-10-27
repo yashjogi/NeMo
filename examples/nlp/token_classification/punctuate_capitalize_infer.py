@@ -202,7 +202,6 @@ def main():
         texts = []
         for item in manifest:
             texts.append(item[text_key])
-    print("len(texts):", len(texts))
     processed_texts = model.add_punctuation_capitalization(
         texts,
         batch_size=args.batch_size,
