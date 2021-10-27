@@ -165,6 +165,8 @@ def get_best_metrics_and_parameters(result):
                 series_names = set(step_result.keys())
                 metric_names = series_names - {MAX_SEQ_LENGTH_KEY}
                 for metric in metric_names:
+                    if metric not in best[task]:
+                        best[task][metric] = BEST_INIT.copy()
                     for v, msl in zip(step_result[metric], step_result[MAX_SEQ_LENGTH_KEY]):
                         if v > best[task][metric]["metric"]:
                             best[task][metric]["metric"] = v
@@ -246,12 +248,14 @@ def main():
                 margin_dict[margin] = {"step": {}}
             step_dict = margin_dict[margin]["step"]
             if step not in step_dict:
-                step_dict[step] = {metric: [value] for metric, value in scores[task].items()}
+                step_dict[step] = {metric: [value] for metric, value in task_scores.items()}
                 step_dict[step][MAX_SEQ_LENGTH_KEY] = [max_seq_length]
             else:
                 step_dict[step][MAX_SEQ_LENGTH_KEY].append(max_seq_length)
-                for metric, value in scores[task].items():
+                for metric, value in task_scores.items():
                     step_dict[step][metric].append(value)
+                    if metric not in best[task]:
+                        best[task][metric] = BEST_INIT.copy()
                     if value > best[task][metric]["metric"]:
                         best[task][metric]["metric"] = value
                         best[task][metric][MAX_SEQ_LENGTH_KEY] = max_seq_length
