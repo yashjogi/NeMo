@@ -409,8 +409,6 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             collate_fn=dataset.collate_fn,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=self._cfg.dataset.num_workers,
-            pin_memory=self._cfg.dataset.pin_memory,
             drop_last=False,
             **dataloader_kwargs,
         )
