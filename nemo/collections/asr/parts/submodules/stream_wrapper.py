@@ -132,6 +132,7 @@ class StreamWrapper(nn.Module):
         samplewise_inference: bool = True,
     ):
         super().__init__()
+        self.__dict__['__finished_init'] = False
 
         self.inner_module = module  # type: torch.nn.Module
         self.inference_batch_size = inference_batch_size
@@ -140,7 +141,7 @@ class StreamWrapper(nn.Module):
         self.state_shape = state_shape
         self.ring_buffer_size_in_time_dim = ring_buffer_size_in_time_dim
         self.samplewise_inference = samplewise_inference
-        self.stride = 1
+        self.stream_stride = 1
         self.built = False
 
         wrapped_module = module
@@ -156,6 +157,8 @@ class StreamWrapper(nn.Module):
             )
 
         self._initialize_ring_buffer_size_in_time_dim(wrapped_module)
+
+        self.__dict__['__finished_init'] = True
 
     def forward(self, *inputs):
         self._build_states(*inputs)
@@ -191,7 +194,7 @@ class StreamWrapper(nn.Module):
         elif _is_convolved_op(wrapped_module):
             padding = wrapped_module.padding
             strides = wrapped_module.stride
-            self.stride = strides[0]
+            self.stream_stride = strides[0]
 
             if self.mode not in (StreamInferenceMode.TRAINING, StreamInferenceMode.NON_STREAM_INFERENCE):
                 # if padding != 'valid':
@@ -225,7 +228,7 @@ class StreamWrapper(nn.Module):
         elif _is_pool_op(wrapped_module):
             strides = wrapped_module.stride
             kernel_size = wrapped_module.kernel_size
-            self.stride = strides[0]
+            self.stream_stride = strides[0]
 
             if (
                 self.mode not in (StreamInferenceMode.TRAINING, StreamInferenceMode.NON_STREAM_INFERENCE)
@@ -410,3 +413,24 @@ class StreamWrapper(nn.Module):
             inputs = (memory, *inputs[1:])
             output = self.cell(*inputs)
             return output, state_update
+
+    def __getattr__(self, attr):
+        if '__finished_init' in self.__dict__ and self.__dict__['__finished_init']:
+            if attr in self.__dict__:
+                print("in self", attr)
+                return getattr(self, attr)
+
+            print("not in self", attr)
+            return getattr(self.inner_module, attr)
+        else:
+            nn.Module.__getattr__(self, attr)
+
+    def __setattr__(self, key, value):
+        if '__finished_init' in self.__dict__ and self.__dict__['__finished_init']:
+            if key in self.__dict__:
+                return setattr(self, key, value)
+            else:
+                setattr(self.inner_module, key, value)
+        else:
+            print("module", key)
+            nn.Module.__setattr__(self, key, value)
