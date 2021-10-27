@@ -41,7 +41,7 @@ class StreamInferenceMode(Enum):
     NON_STREAM_INFERENCE = 'NON_STREAM_INFERENCE'
 
 
-def _is_conv_op(m):
+def _is_convolved_op(m: nn.Module):
     if isinstance(
         m,
         (
@@ -55,18 +55,29 @@ def _is_conv_op(m):
         return False
 
 
-def _is_pool_op(m):
+def _is_pool_op(m: nn.Module):
     if isinstance(m, (nn.AvgPool1d, nn.AvgPool2d)):
         return True
     else:
         return False
 
 
-def _is_global_time_dim_op(m):
+def _is_global_time_dim_op(m: nn.Module):
     if isinstance(m, (nn.Flatten, nn.AdaptiveMaxPool1d, nn.AdaptiveAvgPool1d),):
         return True
     else:
         return False
+
+
+def _get_time_dim_of_op(m: nn.Module):
+    if _is_convolved_op(m):
+        return -1
+    elif _is_pool_op(m):
+        return -1
+    elif _is_global_time_dim_op(m):
+        return -1
+    else:
+        raise ValueError(f"Op {m.__class__.__name__} is not supported")
 
 
 class StreamWrapper(nn.Module):
@@ -177,7 +188,7 @@ class StreamWrapper(nn.Module):
             # and do not check what is the type of the cell
             pass
 
-        elif _is_conv_op(wrapped_module):
+        elif _is_convolved_op(wrapped_module):
             padding = wrapped_module.padding
             strides = wrapped_module.stride
             self.stride = strides[0]
@@ -227,7 +238,7 @@ class StreamWrapper(nn.Module):
         elif _is_global_time_dim_op(wrapped_module):
             # effective kernel size in time dimension
             if self.state_shape:
-                self.ring_buffer_size_in_time_dim = self.state_shape[1]
+                self.ring_buffer_size_in_time_dim = self.state_shape[_get_time_dim_of_op(wrapped_module)]
 
         else:
             raise ValueError('Cell is not supported ', wrapped_module)
@@ -243,8 +254,8 @@ class StreamWrapper(nn.Module):
         input_shape = prime_input.shape
         wrapped_module = self.inner_module
 
-        if _is_conv_op(wrapped_module):
-            self.state_shape = [self.inference_batch_size, self.ring_buffer_size_in_time_dim] + input_shape[1:-1]
+        if _is_convolved_op(wrapped_module):
+            self.state_shape = [self.inference_batch_size] + input_shape[1:-1] + [self.ring_buffer_size_in_time_dim]
 
         elif _is_global_time_dim_op(wrapped_module) and not self.state_shape:
             if self.mode in (StreamInferenceMode.TRAINING, StreamInferenceMode.Modes.NON_STREAM_INFERENCE):
@@ -255,14 +266,14 @@ class StreamWrapper(nn.Module):
                 # It will be stored in the layer config
                 # Then used by clone_streaming_model to create state buffer,
                 # during layer initialization.
-                # [batch, time, feature, ...]
+                # [batch,feature, time]
                 self.state_shape = input_shape
                 self.state_shape[0] = self.inference_batch_size
 
         elif self.ring_buffer_size_in_time_dim:
             # it is a special case when ring_buffer_size_in_time_dim
             # is defined by user and cell is not defined in Stream wrapper
-            self.state_shape = [self.inference_batch_size, self.ring_buffer_size_in_time_dim] + input_shape[1:-1]
+            self.state_shape = [self.inference_batch_size] + input_shape[1:-1] + [self.ring_buffer_size_in_time_dim]
 
         # Build the state
         if self.mode == StreamInferenceMode.STREAM_INTERNAL_STATE_INFERENCE:
@@ -271,7 +282,7 @@ class StreamWrapper(nn.Module):
             if self.ring_buffer_size_in_time_dim:
                 self.states = torch.zeros(*self.state_shape, requires_grad=False)
                 # IF INTERNAL STATE, ATTACH TO MODULE
-                self.states = nn.Parameter(self.states, requires_grad=False)
+                # self.states = nn.Parameter(self.states, requires_grad=False)
 
         elif self.mode == StreamInferenceMode.STREAM_EXTERNAL_STATE_INFERENCE:
             # For streaming inference with extrnal states,
@@ -317,12 +328,13 @@ class StreamWrapper(nn.Module):
         else:
             pad_total_amount = self.ring_buffer_size_in_time_dim
 
+        time_axis = _get_time_dim_of_op(self.inner_module)
         if self.pad_time_dim == 'causal':
-            pad[1] = [pad_total_amount, 0]
+            pad[time_axis] = [pad_total_amount, 0]
 
         elif self.pad_time_dim == 'same':
             half = pad_total_amount // 2
-            pad[1] = [half, pad_total_amount - half]
+            pad[time_axis] = [half, pad_total_amount - half]
 
         input = F.pad(input, pad, 'constant')
         inputs = (input, *inputs[1:])
@@ -330,19 +342,21 @@ class StreamWrapper(nn.Module):
         return self.cell(*inputs)
 
     def _streaming_internal_state(self, *inputs):
-
         if self.samplewise_inference:
             input = inputs[0]
+            time_axis = _get_time_dim_of_op(self.inner_module)
 
             # The time dimenstion always has to equal 1 in streaming mode.
-            if input.shape[1] != 1:
-                raise ValueError('inputs[0].shape[1]: %d must be 1 ' % input.shape[1])
+            if input.shape[time_axis] != 1:
+                raise ValueError(f'inputs[0].shape[{time_axis}]: %d must be 1 ' % input.shape[time_axis])
 
-            # remove latest row [batch_size, (memory_size-1), feature_dim, channel]
-            memory = self.states[:, 1 : self.ring_buffer_size_in_time_dim, :]
+            # remove latest row [batch_size, (optional feature_dim), channel, (memory_size-1)]
+            memory = self.states[
+                ..., 1 : self.ring_buffer_size_in_time_dim,
+            ]
 
-            # add new row [batch_size, memory_size, feature_dim, channel]
-            memory = torch.cat([memory, input], dim=1)
+            # add new row [batch_size, feature_dim, channel, memory_size]
+            memory = torch.cat([memory, input], dim=time_axis)
 
             # assign_states = self.states.assign(memory)
             self.states = self.states * 0 + memory
@@ -353,9 +367,11 @@ class StreamWrapper(nn.Module):
             # add new row [batch_size, memory_size, feature_dim, channel]
             if self.ring_buffer_size_in_time_dim:
                 input = inputs[0]
-                memory = torch.cat([self.states, input], 1)
+                time_axis = _get_time_dim_of_op(self.inner_module)
 
-                state_update = memory[:, -self.ring_buffer_size_in_time_dim :, :]
+                memory = torch.cat([self.states, input], time_axis)
+
+                state_update = memory[..., -self.ring_buffer_size_in_time_dim :]
 
                 # assign_states = self.states.assign(state_update)
                 self.states = self.states * 0 + state_update
@@ -368,17 +384,18 @@ class StreamWrapper(nn.Module):
     def _streaming_external_state(self, state, *inputs):
         state = [] if state is None else state
         input = inputs[0]
+        time_axis = _get_time_dim_of_op(self.inner_module)
 
         if self.samplewise_inference:
             # The time dimenstion always has to equal 1 in streaming mode.
             if input.shape[1] != 1:
-                raise ValueError('inputs.shape[1]: %d must be 1 ' % input.shape[1])
+                raise ValueError(f'inputs.shape[{time_axis}]: %d must be 1 ' % input.shape[time_axis])
 
-            # remove latest row [batch_size, (memory_size-1), feature_dim, channel]
-            memory = state[:, 1:self.ring_buffer_size_in_time_dim, :]
+            # remove latest row [batch_size, feature_dim, channel, (memory_size-1)]
+            memory = state[..., 1 : self.ring_buffer_size_in_time_dim]
 
             # add new row [batch_size, memory_size, feature_dim, channel]
-            memory = torch.cat([memory, input], dim=1)
+            memory = torch.cat([memory, input], dim=time_axis)
 
             inputs = (memory, *inputs[1:])
 
@@ -386,9 +403,9 @@ class StreamWrapper(nn.Module):
             return output, memory
         else:
             # add new row [batch_size, memory_size, feature_dim, channel]
-            memory = torch.cat([state, input], dim=1)
+            memory = torch.cat([state, input], dim=time_axis)
 
-            state_update = memory[:, -self.ring_buffer_size_in_time_dim:, :]
+            state_update = memory[..., -self.ring_buffer_size_in_time_dim :]
 
             inputs = (memory, *inputs[1:])
             output = self.cell(*inputs)
