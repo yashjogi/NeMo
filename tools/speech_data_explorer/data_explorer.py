@@ -168,7 +168,7 @@ def load_data(data_filename, disable_caching=False, estimate_audio=False, vocab=
                 vocabulary[word] += 1
             for char in item['text']:
                 alphabet.add(char)
-            num_hours += item['duration']
+            num_hours += item['total_duration_to_asr']
 
             if 'pred_text' in item:
                 metrics_available = True
@@ -190,12 +190,11 @@ def load_data(data_filename, disable_caching=False, estimate_audio=False, vocab=
 
             data.append(
                 {
-                    'audio_filepath': item['audio_filepath'],
-                    'duration': round(item['duration'], 2),
+                    'total_duration_to_asr': round(item['total_duration_to_asr'], 2),
                     'num_words': num_words,
                     'num_chars': num_chars,
-                    'word_rate': round(num_words / item['duration'], 2),
-                    'char_rate': round(num_chars / item['duration'], 2),
+                    'word_rate': round(num_words / (item['total_duration_to_asr']+0.0001), 2),
+                    'char_rate': round(num_chars / (item['total_duration_to_asr']+0.0001), 2),
                     'text': item['text'],
                 }
             )
@@ -308,7 +307,7 @@ app = dash.Dash(
 )
 
 figures_labels = {
-    'duration': ['Duration', 'Duration, sec'],
+    'total_duration_to_asr': ['total_duration_to_asr', 'total_duration_to_asr, sec'],
     'num_words': ['Number of Words', '#words'],
     'num_chars': ['Number of Characters', '#chars'],
     'word_rate': ['Word Rate', '#words/sec'],
@@ -447,7 +446,7 @@ stats_layout += [
 for k in figures_hist:
     stats_layout += [
         dbc.Row(dbc.Col(html.H5(figures_hist[k][0]), className='text-secondary'), className='mt-3'),
-        dbc.Row(dbc.Col(dcc.Graph(id='duration-graph', figure=figures_hist[k][1]),),),
+        dbc.Row(dbc.Col(dcc.Graph(id='total_duration_to_asr-graph', figure=figures_hist[k][1]),),),
     ]
 
 if metrics_available:
@@ -688,7 +687,7 @@ def plot_signal(idx, data):
         audio, fs = librosa.load(filename, sr=None)
         if 'offset' in data[idx[0]]:
             audio = audio[
-                int(data[idx[0]]['offset'] * fs) : int((data[idx[0]]['offset'] + data[idx[0]]['duration']) * fs)
+                int(data[idx[0]]['offset'] * fs) : int((data[idx[0]]['offset'] + data[idx[0]]['total_duration_to_asr']) * fs)
             ]
         time_stride = 0.01
         hop_length = int(fs * time_stride)
@@ -740,7 +739,7 @@ def update_player(idx, data):
         signal, sr = librosa.load(filename, sr=None)
         if 'offset' in data[idx[0]]:
             signal = signal[
-                int(data[idx[0]]['offset'] * sr) : int((data[idx[0]]['offset'] + data[idx[0]]['duration']) * sr)
+                int(data[idx[0]]['offset'] * sr) : int((data[idx[0]]['offset'] + data[idx[0]]['total_duration_to_asr']) * sr)
             ]
         with io.BytesIO() as buf:
             # convert to PCM .wav

@@ -87,7 +87,8 @@ def write_vad_infer_manifest(file, args_func):
 
     filepath = file['audio_filepath']
     in_duration = file['duration']
-    in_offset = file['offset']
+    in_offset = file['offset'] if 'offset' in file else 0
+    print(in_offset)
 
     try:
         sr = 16000
@@ -727,7 +728,9 @@ def plot(
         threshold (float): threshold for prediction score (from 0 to 1).
     """
     plt.figure(figsize=[20, 2])
-    FRAME_LEN = 0.01
+    # FRAME_LEN = 0.01
+    FRAME_LEN = 0.16
+
 
     audio, sample_rate = librosa.load(path=path2audio_file, sr=16000, mono=True, offset=offset, duration=duration)
     dur = librosa.get_duration(audio, sr=sample_rate)
