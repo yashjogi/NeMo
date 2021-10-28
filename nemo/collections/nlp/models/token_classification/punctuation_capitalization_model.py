@@ -23,6 +23,7 @@ from pytorch_lightning import Trainer
 from tqdm import tqdm
 
 from nemo.collections.common.losses import AggregatorLoss, CrossEntropyLoss
+from nemo.collections.common.metrics import GlobalAverageLossMetric
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
     BertPunctuationCapitalizationDataset,
     BertPunctuationCapitalizationInferDataset,
@@ -94,20 +95,6 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self.loss = CrossEntropyLoss(logits_ndim=3)
         self.agg_loss = AggregatorLoss(num_inputs=2)
 
-        # setup to track metrics
-        self.punct_class_report = ClassificationReport(
-            num_classes=len(self._cfg.punct_label_ids),
-            label_ids=self._cfg.punct_label_ids,
-            mode='macro',
-            dist_sync_on_step=True,
-        )
-        self.capit_class_report = ClassificationReport(
-            num_classes=len(self._cfg.capit_label_ids),
-            label_ids=self._cfg.capit_label_ids,
-            mode='macro',
-            dist_sync_on_step=True,
-        )
-
     @typecheck()
     def forward(self, input_ids, attention_mask, token_type_ids=None):
         """
@@ -144,104 +131,95 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
 
         return {'loss': loss, 'lr': lr}
 
+    def eval_step(self, batch, mode, dataloader_idx):
+        """
+        Lightning calls this inside the validation loop with the data from the validation dataloader
+        passed in as `batch`.
+        """
+        loss, punct_logits, capit_logits = self._make_step(batch)
+        subtokens_mask = batch['subtokens_mask']
+        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
+        punct_labels = batch['punct_labels'][subtokens_mask]
+        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
+        capit_labels = batch['capit_labels'][subtokens_mask]
+        if dataloader_idx == 0:
+            getattr(self, f'{mode}_loss')(loss=loss, num_measurements=batch['loss_mask'].sum())
+            getattr(self, f'{mode}_punct_class_report')(punct_preds, punct_labels)
+            getattr(self, f'{mode}_capit_class_report')(capit_preds, capit_labels)
+        else:
+            getattr(self, f'{mode}_loss_{dataloader_idx}')(loss=loss, num_measurements=batch['loss_mask'].sum())
+            getattr(self, f'{mode}_punct_class_report_{dataloader_idx}')(punct_preds, punct_labels)
+            getattr(self, f'{mode}_capit_class_report_{dataloader_idx}')(capit_preds, capit_labels)
+
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        val_loss, punct_logits, capit_logits = self._make_step(batch)
-        subtokens_mask = batch['subtokens_mask']
-        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
-        punct_labels = batch['punct_labels'][subtokens_mask]
-        self.punct_class_report.update(punct_preds, punct_labels)
-
-        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
-        capit_labels = batch['capit_labels'][subtokens_mask]
-        self.capit_class_report.update(capit_preds, capit_labels)
-
-        return {
-            'val_loss': val_loss,
-            'punct_tp': self.punct_class_report.tp,
-            'punct_fn': self.punct_class_report.fn,
-            'punct_fp': self.punct_class_report.fp,
-            'capit_tp': self.capit_class_report.tp,
-            'capit_fn': self.capit_class_report.fn,
-            'capit_fp': self.capit_class_report.fp,
-        }
+        self.eval_step(batch, 'val', dataloader_idx)
 
     def test_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        test_loss, punct_logits, capit_logits = self._make_step(batch)
-        subtokens_mask = batch['subtokens_mask']
-        punct_preds = torch.argmax(punct_logits, axis=-1)[subtokens_mask]
-        punct_labels = batch['punct_labels'][subtokens_mask]
-        self.punct_class_report.update(punct_preds, punct_labels)
+        self.eval_step(batch, 'test', dataloader_idx)
 
-        capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
-        capit_labels = batch['capit_labels'][subtokens_mask]
-        self.capit_class_report.update(capit_preds, capit_labels)
+    def multi_eval_epoch_end(self, mode, dataloader_idx):
+        """
+        Called at the end of validation to aggregate outputs.
+        outputs: list of individual outputs of each validation step.
+        """
+        if dataloader_idx == 0:
+            loss = getattr(self, f'{mode}_loss').compute()
+            getattr(self, f'{mode}_loss').reset()
 
-        return {
-            'test_loss': test_loss,
-            'punct_tp': self.punct_class_report.tp,
-            'punct_fn': self.punct_class_report.fn,
-            'punct_fp': self.punct_class_report.fp,
-            'capit_tp': self.capit_class_report.tp,
-            'capit_fn': self.capit_class_report.fn,
-            'capit_fp': self.capit_class_report.fp,
+            punct_res = getattr(self, f'{mode}_punct_class_report').compute()
+            punct_precision, punct_recall, punct_f1, punct_report = punct_res
+            getattr(self, f'{mode}_punct_class_report').reset()
+
+            capit_res = getattr(self, f'{mode}_capit_class_report').compute()
+            capit_precision, capit_recall, capit_f1, capit_report = capit_res
+            getattr(self, f'{mode}_capit_class_report').reset()
+        else:
+            loss = getattr(self, f'{mode}_loss_{dataloader_idx}').compute()
+            getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
+
+            punct_res = getattr(self, f'{mode}_punct_class_report_{dataloader_idx}').compute()
+            punct_precision, punct_recall, punct_f1, punct_report = punct_res
+            getattr(self, f'{mode}_punct_class_report_{dataloader_idx}').reset()
+
+            capit_res = getattr(self, f'{mode}_capit_class_report_{dataloader_idx}').compute()
+            capit_precision, capit_recall, capit_f1, capit_report = capit_res
+            getattr(self, f'{mode}_capit_class_report_{dataloader_idx}').reset()
+        log_dict = {
+            'log': {
+                'loss': loss,
+                'punct_precision': punct_precision,
+                'punct_f1': punct_f1,
+                'punct_recall': punct_recall,
+                'capit_precision': capit_precision,
+                'capit_f1': capit_f1,
+                'capit_recall': capit_recall,
+            }
         }
+        logging.info(f'Punctuation report: {punct_report}')
+        logging.info(f'Capitalization report: {capit_report}')
+        return log_dict
 
     def multi_validation_epoch_end(self, outputs, dataloader_idx: int = 0):
         """
         Called at the end of validation to aggregate outputs.
         outputs: list of individual outputs of each validation step.
         """
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-
-        # calculate metrics and log classification report for Punctuation task
-        punct_precision, punct_recall, punct_f1, punct_report = self.punct_class_report.compute()
-        logging.info(f'Punctuation report: {punct_report}')
-
-        # calculate metrics and log classification report for Capitalization task
-        capit_precision, capit_recall, capit_f1, capit_report = self.capit_class_report.compute()
-        logging.info(f'Capitalization report: {capit_report}')
-
-        self.log('val_loss', avg_loss, prog_bar=True)
-        self.log('punct_precision', punct_precision)
-        self.log('punct_f1', punct_f1)
-        self.log('punct_recall', punct_recall)
-        self.log('capit_precision', capit_precision)
-        self.log('capit_f1', capit_f1)
-        self.log('capit_recall', capit_recall)
-
-        self.punct_class_report.reset()
-        self.capit_class_report.reset()
+        self.multi_eval_epoch_end('val', dataloader_idx)
 
     def multi_test_epoch_end(self, outputs, dataloader_idx: int = 0):
         """
             Called at the end of test to aggregate outputs.
             outputs: list of individual outputs of each validation step.
         """
-        avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
-
-        # calculate metrics and log classification report for Punctuation task
-        punct_precision, punct_recall, punct_f1, punct_report = self.punct_class_report.compute()
-        logging.info(f'Punctuation report: {punct_report}')
-
-        # calculate metrics and log classification report for Capitalization task
-        capit_precision, capit_recall, capit_f1, capit_report = self.capit_class_report.compute()
-        logging.info(f'Capitalization report: {capit_report}')
-
-        self.log('test_loss', avg_loss, prog_bar=True)
-        self.log('punct_precision', punct_precision)
-        self.log('punct_f1', punct_f1)
-        self.log('punct_recall', punct_recall)
-        self.log('capit_precision', capit_precision)
-        self.log('capit_f1', capit_f1)
-        self.log('capit_recall', capit_recall)
+        self.multi_eval_epoch_end('test', dataloader_idx)
 
     # def update_data_dir(self, data_dir: str) -> None:
     #     """
@@ -297,6 +275,22 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
             self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
 
+    def get_eval_metrics_kwargs(self):
+        loss_kw = {'dist_sync_on_step': False, 'take_avg_loss': True}
+        punct_kw = {
+            'num_classes': len(self._cfg.punct_label_ids),
+            'label_ids': self._cfg.punct_label_ids,
+            'mode': 'macro',
+            'dist_sync_on_step': False,
+        }
+        capit_kw = {
+            'num_classes': len(self._cfg.capit_label_ids),
+            'label_ids': self._cfg.capit_label_ids,
+            'mode': 'macro',
+            'dist_sync_on_step': False,
+        }
+        return loss_kw, punct_kw, capit_kw
+
     def setup_validation_data(self, val_data_config: Optional[Dict] = None):
         """
         Setup validaton data
@@ -307,11 +301,33 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             val_data_config = self._cfg.validation_ds
 
         self._validation_dl = self._setup_dataloader_from_config(cfg=val_data_config)
+        if self._validation_dl is not None:
+            loss_kw, punct_kw, capit_kw = self.get_eval_metrics_kwargs()
+            for dataloader_idx in range(len(self._validation_dl)):
+                if dataloader_idx == 0:
+                    setattr(self, 'val_loss', GlobalAverageLossMetric(**loss_kw))
+                    setattr(self, 'val_punct_class_report', ClassificationReport(**punct_kw))
+                    setattr(self, 'val_capit_class_report', ClassificationReport(**capit_kw))
+                else:
+                    setattr(self, f'val_loss_{dataloader_idx}', GlobalAverageLossMetric(**loss_kw))
+                    setattr(self, f'val_punct_class_report_{dataloader_idx}', ClassificationReport(**punct_kw))
+                    setattr(self, f'val_capit_class_report_{dataloader_idx}', ClassificationReport(**capit_kw))
 
     def setup_test_data(self, test_data_config: Optional[Dict] = None):
         if test_data_config is None:
             test_data_config = self._cfg.test_ds
         self._test_dl = self._setup_dataloader_from_config(cfg=test_data_config)
+        if self._test_dl is not None:
+            loss_kw, punct_kw, capit_kw = self.get_eval_metrics_kwargs()
+            for dataloader_idx in range(len(self._test_dl)):
+                if dataloader_idx == 0:
+                    setattr(self, 'test_loss', GlobalAverageLossMetric(**loss_kw))
+                    setattr(self, 'test_punct_class_report', ClassificationReport(**punct_kw))
+                    setattr(self, 'test_capit_class_report', ClassificationReport(**capit_kw))
+                else:
+                    setattr(self, f'test_loss_{dataloader_idx}', GlobalAverageLossMetric(**loss_kw))
+                    setattr(self, f'test_punct_class_report_{dataloader_idx}', ClassificationReport(**punct_kw))
+                    setattr(self, f'test_capit_class_report_{dataloader_idx}', ClassificationReport(**capit_kw))
 
     def _setup_dataloader_from_config(self, cfg: PunctuationCapitalizationDataConfig):
         # use data_dir specified in the ds_item to run evaluation on multiple datasets
