@@ -554,8 +554,8 @@ class FrameBatchVAD:
             if i == len(self.all_vad_preds)-1 :
                 end_of_seq = True
 
-            self.online_decision(current_pred, current_frame, end_of_seq, threshold=0.4)
-            
+            self.online_decision(current_pred, current_frame, end_of_seq, threshold)
+
             if end_of_seq:
                 break
             
