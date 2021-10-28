@@ -30,6 +30,7 @@ trainer:
   logger: false  # Provided by exp_manager
   log_every_n_steps: 50  # Interval of logging.
   check_val_every_n_epoch: 1
+  val_check_interval: 1
   progress_bar_refresh_rate: 0
 
 exp_manager:
@@ -41,7 +42,7 @@ exp_manager:
     monitor: punct_f1
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: new_evelina_punc_cap_train_on_wmt_lr1e-4_steps300000
+    name: debug_2_val_sets
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
 
@@ -72,7 +73,7 @@ model:
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
     ds_item:
-      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/dev_iwslt
+      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/IWSLT.tst2019
       - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/dev
     text_file: input.txt
     labels_file: bert_labels.txt
