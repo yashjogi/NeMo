@@ -69,12 +69,14 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
                     asr.reset()
                     speech_segment = speech_segments[i] 
                     offset = speech_segment[0] - frame_len * 4
-                    duration = speech_segment[1] - speech_segment[0]  + frame_len * 4
 
                     if row['duration'] and speech_segment[1] > row['duration']:
-                        duration = row['duration'] - speech_segment[0]
-                        
+                        end = row['duration']
+                    else:
+                        end = speech_segment[1]
 
+                    duration = end - speech_segment[0] + frame_len * 4
+                    
                     asr.read_audio_file(row['audio_filepath'], offset, duration, delay, model_stride_in_secs)
                     hyp = asr.transcribe(tokens_per_chunk, delay) + " "
                     # there should be some better method to merge the hyps of segments.

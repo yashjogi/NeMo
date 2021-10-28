@@ -555,8 +555,8 @@ class FrameBatchVAD:
                 end_of_seq = True
 
             self.online_decision(current_pred, current_frame, end_of_seq, threshold=0.4)
-
-            # if end_of_seq:
-            #     break
+            
+            if end_of_seq:
+                break
             
         return self.all_vad_preds, self.speech_segment
