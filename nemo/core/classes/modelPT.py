@@ -18,7 +18,6 @@ import os
 import uuid
 from abc import abstractmethod
 from os import path
-from os.path import expanduser
 from typing import Callable, Dict, List, Optional, Union
 
 import hydra
@@ -128,14 +127,15 @@ class ModelPT(LightningModule, Model):
         else:
             if 'train_ds' in self._cfg and self._cfg.train_ds is not None:
                 logging.warning(
-                    f"If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method "
-                    f"and provide a valid configuration file to setup the train data loader.\n"
+                    f"If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() "
+                    f"method and provide a valid configuration file to setup the train data loader.\n"
                     f"Train config : \n{OmegaConf.to_yaml(self._cfg.train_ds)}"
                 )
 
             if 'validation_ds' in self._cfg and self._cfg.validation_ds is not None:
                 logging.warning(
-                    f"If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method "
+                    f"If you intend to do validation, please call the ModelPT.setup_validation_data() or "
+                    f"ModelPT.setup_multiple_validation_data() method "
                     f"and provide a valid configuration file to setup the validation data loader(s). \n"
                     f"Validation config : \n{OmegaConf.to_yaml(self._cfg.validation_ds)}"
                 )
@@ -336,7 +336,6 @@ class ModelPT(LightningModule, Model):
         """
         Setups data loader to be used in validation
         Args:
-
             val_data_layer_config: validation data layer parameters.
         Returns:
 
@@ -645,7 +644,7 @@ class ModelPT(LightningModule, Model):
                 for k, v in dataloader_logs.items():
                     # If the key is `log`
                     if k == 'log':
-                        # Parse every element of the log, and attach the prefix name of the data loader
+                        # Parse every element of the log, and attach fthe prefix name of the data loader
                         log_dict = {}
 
                         for k_log, v_log in v.items():
