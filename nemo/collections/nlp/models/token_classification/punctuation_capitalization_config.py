@@ -85,6 +85,7 @@ class CommonDatasetParameters:
 
 @dataclass
 class PunctuationCapitalizationModelConfig:
+    dataset: Optional[CommonDatasetParameters] = CommonDatasetParameters()
     train_ds: Optional[PunctuationCapitalizationDataConfig] = PunctuationCapitalizationDataConfig(
         text_file=MISSING,
         labels_file=MISSING,
