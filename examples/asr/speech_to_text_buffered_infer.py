@@ -50,6 +50,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
     total_durations_to_asr = []
     original_durations = []
     total_speech_segments = []
+    total_streaming_vad_logits = []
 
     with open(mfst, "r") as mfst_f:
         for l in mfst_f:
@@ -84,6 +85,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
                 total_durations_to_asr.append(total_duration_to_asr)
                 original_durations.append(row['duration'])
                 total_speech_segments.append(speech_segments)
+                total_streaming_vad_logits.append(streaming_vad_logits)
 
             else:
                 asr.read_audio_file(row['audio_filepath'], offset=0, duration=None, 
@@ -101,7 +103,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
     if vad:
         print(f"VAD reduces total durations for ASR inference from {int(sum(original_durations))} seconds to {int(sum(total_durations_to_asr))} seconds, by filtering out some noise or musci")
     
-    return hyps, refs, wer, total_durations_to_asr, total_speech_segments
+    return hyps, refs, wer, total_durations_to_asr, total_speech_segments, total_streaming_vad_logits
 
 
 
@@ -206,7 +208,7 @@ def main():
         batch_size=args.batch_size,
     )
 
-    hyps, refs, wer, total_durations_to_asr, total_speech_segments = get_wer_feat(
+    hyps, refs, wer, total_durations_to_asr, total_speech_segments, total_streaming_vad_logits = get_wer_feat(
         args.test_manifest,
         frame_asr,
         chunk_len,
@@ -236,13 +238,23 @@ def main():
         os.makedirs(args.output_path, exist_ok=True)
         with open(hyp_json, "w") as out_f:
             for i, hyp in enumerate(hyps):
-                record = {
-                    "pred_text": hyp,
-                    "text": refs[i],
-                    "wer": round(word_error_rate(hypotheses=[hyp], references=[refs[i]]) * 100, 2),
-                    "total_duration_to_asr": total_durations_to_asr[i],
-                    "total_speech_segments": total_speech_segments[i],
-                }
+                if args.vad_before_asr:
+                    record = {
+                        "pred_text": hyp,
+                        "text": refs[i],
+                        "wer": round(word_error_rate(hypotheses=[hyp], references=[refs[i]]) * 100, 2),
+                        "total_duration_to_asr": total_durations_to_asr[i],
+                        "total_speech_segments": total_speech_segments[i],
+                        "total_streaming_vad_logits": str(total_streaming_vad_logits[i]),
+                    }
+                else:
+                    record = {
+                        "pred_text": hyp,
+                        "text": refs[i],
+                        "wer": round(word_error_rate(hypotheses=[hyp], references=[refs[i]]) * 100, 2),
+                        "total_duration_to_asr": total_durations_to_asr[i],
+                        "total_speech_segments": total_speech_segments[i],
+                    }
                 out_f.write(json.dumps(record) + '\n')
 
 
