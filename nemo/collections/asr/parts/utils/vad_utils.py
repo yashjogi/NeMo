@@ -718,7 +718,8 @@ def plot(
     duration=None,
     threshold=None,
     per_args=None,
-    FRAME_LEN=0.01
+    FRAME_LEN=0.01,
+    return_audio=True,
 ):
     """
     Plot VAD outputs for demonstration in tutorial
@@ -742,6 +743,7 @@ def plot(
 
     audio, sample_rate = librosa.load(path=path2audio_file, sr=16000, mono=True, offset=offset, duration=duration)
     dur = librosa.get_duration(audio, sr=sample_rate)
+
     time = np.arange(offset, offset + dur, FRAME_LEN)
     frame = frame[int(offset / FRAME_LEN) : int((offset + dur) / FRAME_LEN)]
 
@@ -779,7 +781,8 @@ def plot(
     ax2.set_ylabel('Preds and Probas')
     ax2.set_ylim([-0.1, 1.1])
     # return None
-    return ipd.Audio(audio, rate=16000)
+    if return_audio: 
+        return ipd.Audio(audio, rate=16000)
 
 
 def gen_pred_from_speech_segments(speech_segments, prob, shift_len=0.01):
