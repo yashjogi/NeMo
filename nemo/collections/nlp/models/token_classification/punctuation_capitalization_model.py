@@ -212,14 +212,14 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         Called at the end of validation to aggregate outputs.
         outputs: list of individual outputs of each validation step.
         """
-        self.multi_eval_epoch_end('val', dataloader_idx)
+        return self.multi_eval_epoch_end('val', dataloader_idx)
 
     def multi_test_epoch_end(self, outputs, dataloader_idx: int = 0):
         """
             Called at the end of test to aggregate outputs.
             outputs: list of individual outputs of each validation step.
         """
-        self.multi_eval_epoch_end('test', dataloader_idx)
+        return self.multi_eval_epoch_end('test', dataloader_idx)
 
     # def update_data_dir(self, data_dir: str) -> None:
     #     """
