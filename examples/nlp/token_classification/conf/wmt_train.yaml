@@ -38,6 +38,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   checkpoint_callback_params:
     save_best_model: true
+    monitor: punct_f1
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: new_evelina_punc_cap_train_on_wmt_lr1e-4_steps300000
@@ -45,12 +46,13 @@ exp_manager:
     entity: anton_peganov
 
 model:
-  pad_label: 'O'
   class_labels:
     punct_labels_file: punct_label_ids.csv
     capit_labels_file: capit_label_ids.csv
-  ignore_extra_tokens: false
-  ignore_start_end: true  # TODO: try false
+  dataset:
+    ignore_extra_tokens: false
+    ignore_start_end: true  # TODO: try false
+    pad_label: 'O'
 
   train_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for

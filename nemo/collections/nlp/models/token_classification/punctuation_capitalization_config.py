@@ -20,7 +20,6 @@ from omegaconf.omegaconf import MISSING
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
     PunctuationCapitalizationDataConfig
 )
-from nemo.collections.nlp.modules.common.token_classifier import TokenClassifierConfig
 from nemo.core.config.modelPT import OptimConfig, SchedConfig
 
 
@@ -50,8 +49,16 @@ class LanguageModelConfig:
 
 
 @dataclass
-class HeadConfig:
-    num_fc_layers: int = 1
+class PunctHeadConfig:
+    punct_num_fc_layers: int = 1
+    fc_dropout: float = 0.1
+    activation: str = 'relu'
+    use_transformer_init: bool = True
+
+
+@dataclass
+class CapitHeadConfig:
+    capit_num_fc_layers: int = 1
     fc_dropout: float = 0.1
     activation: str = 'relu'
     use_transformer_init: bool = True
@@ -61,6 +68,19 @@ class HeadConfig:
 class ClassLabels:
     punct_labels_file: Optional[str] = "punct_label_ids.csv"
     capit_labels_file: Optional[str] = "capit_label_ids.csv"
+
+
+@dataclass
+class CommonDatasetParameters:
+    data_dir: Optional[str] = None
+    max_seq_length: Optional[int] = 128
+    pad_label: str = MISSING
+    ignore_extra_tokens: bool = False
+    ignore_start_end: bool = True
+    use_cache: bool = True
+    num_workers: Optional[int] = 2
+    pin_memory: bool = False
+    drop_last: bool = False
 
 
 @dataclass
@@ -83,15 +103,12 @@ class PunctuationCapitalizationModelConfig:
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
     )
-    pad_label: str = MISSING
-    ignore_extra_tokens: bool = False
-    ignore_start_end: bool = True
     punct_label_ids: Optional[Dict[str, int]] = None
     capit_label_ids: Optional[Dict[str, int]] = None
     class_labels: Optional[ClassLabels] = ClassLabels()
 
-    punct_head: HeadConfig = HeadConfig()
-    capit_head: HeadConfig = HeadConfig()
+    punct_head: PunctHeadConfig = PunctHeadConfig()
+    capit_head: CapitHeadConfig = CapitHeadConfig()
 
     tokenizer: Any = MISSING
 

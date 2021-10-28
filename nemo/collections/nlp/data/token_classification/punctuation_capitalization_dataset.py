@@ -56,10 +56,11 @@ BATCH_BUILDING_PROGRESS_REPORT_PERIOD = 10 ** 4
 
 @dataclass
 class PunctuationCapitalizationDataConfig:
-    text_file: Optional[Any] = None  # Any = str or List[str]
-    labels_file: Optional[Any] = None  # Any = str or List[str]
+    ds_item: Optional[str] = None
+    text_file: Optional[Union[str, List[str]]] = None
+    labels_file: Optional[Union[str, List[str]]] = None
     use_tarred_dataset: bool = False
-    metadata_file: Optional[Any] = None  # Any = str or List[str]
+    metadata_file: Optional[Union[str, List[str]]] = None  # Any = str or List[str]
     tokens_in_batch: int = 512
     max_seq_length: int = 512
     num_samples: int = -1
@@ -453,8 +454,8 @@ class BertPunctuationCapitalizationDataset(Dataset):
 
     def __init__(
         self,
-        text_file: str,
-        label_file: str,
+        text_file: Union[str, os.PathLike],
+        label_file: Union[str, os.PathLike],
         max_seq_length: int,
         tokenizer: TokenizerSpec,
         num_samples: int = -1,
@@ -490,8 +491,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
             )
 
         # Cache features
-        data_dir = os.path.dirname(text_file)
-        filename = os.path.basename(text_file)
+        text_file, label_file = Path(text_file), Path(label_file)
+        data_dir = text_file.parent
+        filename = text_file.name
 
         if not filename.endswith('.txt'):
             raise ValueError("{text_file} should have extension .txt")
@@ -507,21 +509,16 @@ class BertPunctuationCapitalizationDataset(Dataset):
         self.batch_building_progress_queue = batch_building_progress_queue
         filename = filename[:-4]
         vocab_size = getattr(self.tokenizer, "vocab_size", 0)
-        features_pkl = os.path.join(
-            data_dir,
-            "cached_{}_{}_{}_{}_{}".format(
-                filename, self.tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
-            ),
+        features_pkl = data_dir / "cached_{}_{}_{}_{}_{}".format(
+            filename, self.tokenizer.name, str(max_seq_length), str(vocab_size), str(num_samples)
         )
 
-        self.punct_label_ids_file = os.path.join(data_dir, punct_label_ids_file)
-        self.capit_label_ids_file = os.path.join(data_dir, capit_label_ids_file)
+        self.punct_label_ids_file = data_dir / punct_label_ids_file
+        self.capit_label_ids_file = data_dir / capit_label_ids_file
 
         master_device = not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
-        cache_files_exist = (
-            os.path.exists(features_pkl)
-            and os.path.exists(self.punct_label_ids_file)
-            and os.path.exists(self.capit_label_ids_file)
+        cache_files_exist = all(
+            [features_pkl.is_file(), self.punct_label_ids_file.is_file(), self.capit_label_ids_file.is_file()]
         )
         features = None
         if master_device and not (cache_files_exist and use_cache):
@@ -760,7 +757,7 @@ class BertPunctuationCapitalizationDataset(Dataset):
         _, label_frequencies, _ = get_label_stats(merged_labels, data_dir + '/label_count_' + name + '.tsv')
         return label_frequencies
 
-    def _save_label_ids(self, label_ids: Dict[str, int], filename: str) -> None:
+    def _save_label_ids(self, label_ids: Dict[str, int], filename: Union[str, os.PathLike]) -> None:
         """ Saves label ids map to a file """
         with open(filename, 'w') as out:
             labels, _ = zip(*sorted(label_ids.items(), key=lambda x: x[1]))
@@ -786,14 +783,18 @@ class BertPunctuationCapitalizationDataset(Dataset):
 class BertPunctuationCapitalizationTarredDataset(IterableDataset):
     def __init__(
         self,
-        metadata_file: os.PathLike,
+        metadata_file: Union[os.PathLike, str],
         tokenizer: TokenizerSpec,
+        pad_label: str,
+        punct_label_ids_file: str = 'punct_label_ids.csv',
+        capit_label_ids_file: str = 'capit_label_ids.csv',
         ignore_extra_tokens: bool = False,
         ignore_start_end: bool = False,
         world_size: int = 1,
         global_rank: int = 0,
         shuffle_n: int = 1,
     ):
+        super().__init__()
         self.tokenizer = tokenizer
         metadata_file = Path(metadata_file).expanduser()
         with open(metadata_file) as f:
@@ -807,6 +808,12 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
                 self.tar_files.append(str(file_path))
             else:
                 self.tar_files.append(str(metadata_file.parent / file_path))
+        self.punct_label_ids_file = metadata_file.parent / punct_label_ids_file
+        self.punct_label_ids = self.load_label_ids(self.punct_label_ids_file)
+        self.capit_label_ids_file = metadata_file.parent / capit_label_ids_file
+        self.capit_label_ids = self.load_label_ids(self.capit_label_ids_file)
+        self.pad_label = pad_label
+        self.check_pad_label()
         begin_idx = (len(self.tar_files) // world_size) * global_rank
         end_idx = begin_idx + (len(self.tar_files) // world_size)
         logging.info(
@@ -822,6 +829,25 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
         else:
             logging.info("WebDataset will not shuffle files within the tar files.")
         self._dataset = self._dataset.to_tuple('__key__', 'batch.pyd').map(f=self._build_sample)
+
+    def check_pad_label(self):
+        for label_ids, label_file, task in [
+            (self.punct_label_ids, self.punct_label_ids_file, "punctuation"),
+            (self.capit_label_ids, self.capit_label_ids_file, "capitalization")
+        ]:
+            if self.punct_label_ids[self.pad_label] != 0:
+                raise ValueError(
+                    f"Pad label '{self.pad_label}' has non zero id {label_ids[self.pad_label]} in {task} "
+                    f"ids dictionary loaded from {label_file}."
+                )
+
+    @staticmethod
+    def load_label_ids(file_path):
+        ids = {}
+        with file_path.open() as f:
+            for i, line in enumerate(f):
+                ids[line.strip()] = i
+        return ids
 
     def decode_pyd(self, key, value):
         return pickle.loads(value)

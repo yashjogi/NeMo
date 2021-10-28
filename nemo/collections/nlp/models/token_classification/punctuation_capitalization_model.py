@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from math import ceil
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -77,7 +77,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             activation=cfg.punct_head.activation,
             log_softmax=False,
             dropout=cfg.punct_head.fc_dropout,
-            num_layers=cfg.punct_head.num_fc_layers,
+            num_layers=cfg.punct_head.punct_num_fc_layers,
             use_transformer_init=cfg.punct_head.use_transformer_init,
         )
 
@@ -87,7 +87,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             activation=cfg.capit_head.activation,
             log_softmax=False,
             dropout=cfg.capit_head.fc_dropout,
-            num_layers=cfg.capit_head.num_fc_layers,
+            num_layers=cfg.capit_head.capit_num_fc_layers,
             use_transformer_init=cfg.capit_head.use_transformer_init,
         )
 
@@ -256,25 +256,25 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
     #     else:
     #         raise ValueError(f'{data_dir} not found')
 
-    def set_labels_config_parameters_for_tarred_case(self, dict_param_name, file_param_name):
-        if self._cfg[dict_param_name] is None and self._cfg.class_labels[file_param_name] is None:
-            raise ValueError(
-                f'If your train dataset is tarred, then you have to provide one of parameters '
-                f'`{dict_param_name}` or `class_labels.{file_param_name}` in the model config.'
-            )
-        if self._cfg[dict_param_name] is None:
-            self._cfg[dict_param_name] = {}
-            with open(self._cfg.class_labels[file_param_name]) as f:
-                labels_dict = {}
-                for i, line in enumerate(f):
-                    labels_dict[line.strip()] = i
-                self._cfg[dict_param_name] = OmegaConf.create(labels_dict)
-        else:
-            with open(self._cfg.class_labels[file_param_name], 'w') as f:
-                labels, _ = zip(*sorted(self._cfg[dict_param_name].items(), key=lambda x: x[1]))
-                f.write('\n'.join(labels))
-                for i, line in enumerate(f):
-                    self._cfg[dict_param_name][line.strip()] = i
+    # def set_labels_config_parameters_for_tarred_case(self, dict_param_name, file_param_name):
+    #     if self._cfg[dict_param_name] is None and self._cfg.class_labels[file_param_name] is None:
+    #         raise ValueError(
+    #             f'If your train dataset is tarred, then you have to provide one of parameters '
+    #             f'`{dict_param_name}` or `class_labels.{file_param_name}` in the model config.'
+    #         )
+    #     if self._cfg[dict_param_name] is None:
+    #         self._cfg[dict_param_name] = {}
+    #         with open(self._cfg.class_labels[file_param_name]) as f:
+    #             labels_dict = {}
+    #             for i, line in enumerate(f):
+    #                 labels_dict[line.strip()] = i
+    #             self._cfg[dict_param_name] = OmegaConf.create(labels_dict)
+    #     else:
+    #         with open(self._cfg.class_labels[file_param_name], 'w') as f:
+    #             labels, _ = zip(*sorted(self._cfg[dict_param_name].items(), key=lambda x: x[1]))
+    #             f.write('\n'.join(labels))
+    #             for i, line in enumerate(f):
+    #                 self._cfg[dict_param_name][line.strip()] = i
 
     def setup_training_data(self, train_data_config: Optional[DictConfig] = None):
         """Setup training data"""
@@ -292,16 +292,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self._train_dl = self._setup_dataloader_from_config(cfg=train_data_config)
 
         if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
-            if train_data_config.use_tarred_dataset:
-                self.set_labels_config_parameters_for_tarred_case('punct_label_ids', 'punct_labels_file')
-                self.set_labels_config_parameters_for_tarred_case('capit_label_ids', 'capit_labels_file')
-                self.register_artifact('class_labels.punct_labels_file', self._cfg.class_labels.punct_labels_file)
-                self.register_artifact('class_labels.capit_labels_file', self._cfg.class_labels.capit_labels_file)
-            else:
-                self._cfg.punct_label_ids = OmegaConf.create(self._train_dl.dataset.punct_label_ids)
-                self._cfg.capit_label_ids = OmegaConf.create(self._train_dl.dataset.capit_label_ids)
-                self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
-                self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
+            self._cfg.punct_label_ids = OmegaConf.create(self._train_dl.dataset.punct_label_ids)
+            self._cfg.capit_label_ids = OmegaConf.create(self._train_dl.dataset.capit_label_ids)
+            self.register_artifact('class_labels.punct_labels_file', self._train_dl.dataset.punct_label_ids_file)
+            self.register_artifact('class_labels.capit_labels_file', self._train_dl.dataset.capit_label_ids_file)
 
     def setup_validation_data(self, val_data_config: Optional[Dict] = None):
         """
@@ -327,11 +321,16 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                     f"If parameter `use_tarred_dataset` is `True`, then a field `metadata_file` has to be a path "
                     f"to tarred dataset metadata file, whereas `None` is given."
                 )
+            ds_item = cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
+            metadata_file = Path(cfg.ds_item) / cfg.metadata_file if ds_item is not None else cfg.metadata_file
             dataset = BertPunctuationCapitalizationTarredDataset(
-                metadata_file=cfg.metadata_file,
+                metadata_file=metadata_file,
                 tokenizer=self.tokenizer,
-                ignore_extra_tokens=self._cfg.ignore_extra_tokens,
-                ignore_start_end=self._cfg.ignore_start_end,
+                pad_label=self._cfg.dataset.pad_label,
+                ignore_extra_tokens=self._cfg.dataset.ignore_extra_tokens,
+                ignore_start_end=self._cfg.dataset.ignore_start_end,
+                punct_label_ids_file=self._cfg.class_labels.punct_labels_file,
+                capit_label_ids_file=self._cfg.class_labels.capit_labels_file,
                 world_size=self.world_size,
                 global_rank=self.global_rank,
                 shuffle_n=cfg.tar_shuffle_n,
@@ -343,25 +342,26 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                     f"dataset config have to not `None`. Whereas `text_file={cfg.text_file}` and "
                     f"`label_file={cfg.labels_file}`."
                 )
+            ds_item = cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
+            if ds_item is None:
+                text_file, labels_file = cfg.text_file, cfg.labels_file
+            else:
+                text_file, labels_file = Path(cfg.ds_item) / cfg.text_file, Path(cfg.ds_item) / cfg.labels_file
             dataset = BertPunctuationCapitalizationDataset(
                 tokenizer=self.tokenizer,
-                text_file=cfg.text_file,
-                label_file=cfg.labels_file,
-                pad_label=self._cfg.pad_label,
+                text_file=text_file,
+                label_file=labels_file,
+                pad_label=self._cfg.dataset.pad_label,
                 punct_label_ids=self._cfg.punct_label_ids,
                 capit_label_ids=self._cfg.capit_label_ids,
                 max_seq_length=cfg.max_seq_length,
-                ignore_extra_tokens=self._cfg.ignore_extra_tokens,
-                ignore_start_end=self._cfg.ignore_start_end,
+                ignore_extra_tokens=self._cfg.dataset.ignore_extra_tokens,
+                ignore_start_end=self._cfg.dataset.ignore_start_end,
                 use_cache=cfg.use_cache,
                 num_samples=cfg.num_samples,
                 tokens_in_batch=cfg.tokens_in_batch,
-                punct_label_ids_file=self._cfg.class_labels.punct_labels_file
-                if 'class_labels' in self._cfg
-                else 'punct_label_ids.csv',
-                capit_label_ids_file=self._cfg.class_labels.capit_labels_file
-                if 'class_labels' in self._cfg
-                else 'capit_label_ids.csv',
+                punct_label_ids_file=self._cfg.class_labels.punct_labels_file,
+                capit_label_ids_file=self._cfg.class_labels.capit_labels_file,
                 njobs=cfg.get('njobs'),
                 verbose=False,
             )
@@ -535,10 +535,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
             punct_label = punct_ids_to_labels[punct_preds[j]]
             capit_label = capit_ids_to_labels[capit_preds[j]]
 
-            if capit_label != self._cfg.pad_label:
+            if capit_label != self._cfg.dataset.pad_label:
                 word = word.capitalize()
             query_with_punct_and_capit += word
-            if punct_label != self._cfg.pad_label:
+            if punct_label != self._cfg.dataset.pad_label:
                 query_with_punct_and_capit += punct_label
             query_with_punct_and_capit += ' '
         return query_with_punct_and_capit[:-1]

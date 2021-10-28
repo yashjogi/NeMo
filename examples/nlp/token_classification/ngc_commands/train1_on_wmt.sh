@@ -21,5 +21,5 @@ ngc batch run \
   --name "ml-model.bert new_punctuation_capitalization_training_on_wmt" \
   --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
-  --datasetid 90462:/data \
+  --datasetid 90512:/data \
   --commandline "${command}"
