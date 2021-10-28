@@ -477,7 +477,9 @@ class FrameBatchVAD:
         if offset < 0:
             offset = 0
         samples = get_samples(audio_filepath, offset, duration)
-        samples = np.pad(samples, (0, int(delay * model_stride_in_secs * self.vad_model._cfg.sample_rate)))
+        self.pad_end_len = int(delay * model_stride_in_secs * self.vad_model._cfg.sample_rate)
+        samples = np.pad(samples, (0, self.pad_end_len))
+
         frame_reader = AudioFeatureIterator(samples, self.frame_len, self.raw_preprocessor, self.vad_model.device)
         self.set_frame_reader(frame_reader)
 
@@ -549,8 +551,12 @@ class FrameBatchVAD:
             current_pred = self.all_vad_preds[i]
             current_frame = i * self.frame_len
             
-            if i == len(self.all_vad_preds)-1:
+            if i == len(self.all_vad_preds)-1 :
                 end_of_seq = True
+
             self.online_decision(current_pred, current_frame, end_of_seq, threshold=0.4)
-        
+
+            # if end_of_seq:
+            #     break
+            
         return self.all_vad_preds, self.speech_segment
