@@ -159,6 +159,8 @@ class StreamWrapper(nn.Module):
         self._initialize_ring_buffer_size_in_time_dim(wrapped_module)
 
         self.__dict__['__finished_init'] = True
+        print(list(self.__dict__.keys()))
+        print(list(self._modules.keys()))
 
     def forward(self, *inputs):
         self._build_states(*inputs)
@@ -417,10 +419,22 @@ class StreamWrapper(nn.Module):
     def __getattr__(self, attr):
         if '__finished_init' in self.__dict__ and self.__dict__['__finished_init']:
             if attr in self.__dict__:
-                print("in self", attr)
-                return getattr(self, attr)
+                return nn.Module.__getattr__(self, attr)
 
-            print("not in self", attr)
+            name = attr
+            if '_parameters' in self.__dict__:
+                _parameters = self.__dict__['_parameters']
+                if name in _parameters:
+                    return _parameters[name]
+            if '_buffers' in self.__dict__:
+                _buffers = self.__dict__['_buffers']
+                if name in _buffers:
+                    return _buffers[name]
+            if '_modules' in self.__dict__:
+                modules = self.__dict__['_modules']
+                if name in modules:
+                    return modules[name]
+
             return getattr(self.inner_module, attr)
         else:
             nn.Module.__getattr__(self, attr)
@@ -428,9 +442,8 @@ class StreamWrapper(nn.Module):
     def __setattr__(self, key, value):
         if '__finished_init' in self.__dict__ and self.__dict__['__finished_init']:
             if key in self.__dict__:
-                return setattr(self, key, value)
+                nn.Module.__setattr__(self, key, value)
             else:
                 setattr(self.inner_module, key, value)
         else:
-            print("module", key)
             nn.Module.__setattr__(self, key, value)

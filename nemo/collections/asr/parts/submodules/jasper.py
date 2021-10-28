@@ -22,6 +22,8 @@ from torch import Tensor
 from torch.nn.init import _calculate_correct_fan
 from torch.nn.modules.utils import _single
 
+
+from nemo.collections.asr.parts.submodules.stream_wrapper import StreamWrapper, StreamInferenceMode
 from nemo.collections.asr.parts.utils.activations import Swish
 from nemo.utils import logging
 
@@ -201,7 +203,7 @@ class MaskedConv1d(nn.Module):
         use_mask=True,
         quantize=False,
     ):
-        super(MaskedConv1d, self).__init__()
+        super().__init__()
 
         if not (heads == -1 or groups == in_channels):
             raise ValueError("Only use heads for depthwise convolutions")
@@ -240,15 +242,17 @@ class MaskedConv1d(nn.Module):
                 "https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization."
             )
         else:
-            self.conv = nn.Conv1d(
-                in_channels,
-                out_channels,
-                kernel_size,
-                stride=stride,
-                padding=padding,
-                dilation=dilation,
-                groups=groups,
-                bias=bias,
+            self.conv = StreamWrapper(
+                nn.Conv1d(
+                    in_channels,
+                    out_channels,
+                    kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    dilation=dilation,
+                    groups=groups,
+                    bias=bias,
+                )
             )
         self.use_mask = use_mask
         self.heads = heads
@@ -888,7 +892,7 @@ class JasperBlock(nn.Module):
             The output of the block after processing the input through `repeat` number of sub-blocks,
             as well as the lengths of the encoded audio after padding/striding.
         """
-        # type: (Tuple[List[Tensor], Optional[Tensor]]) -> Tuple[List[Tensor], Optional[Tensor]] # nopep8
+        ## type: (Tuple[List[Tensor], Optional[Tensor]]) -> Tuple[List[Tensor], Optional[Tensor]] # nopep8
         lens_orig = None
         xs = input_[0]
         if len(input_) == 2:
