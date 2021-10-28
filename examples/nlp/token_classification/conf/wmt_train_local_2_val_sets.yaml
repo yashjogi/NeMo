@@ -73,7 +73,7 @@ model:
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
     ds_item:
-      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/IWSLT.tst2019
+      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/IWSLT_tst2019
       - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/dev
     text_file: input.txt
     labels_file: bert_labels.txt
