@@ -57,10 +57,10 @@ BATCH_BUILDING_PROGRESS_REPORT_PERIOD = 10 ** 4
 @dataclass
 class PunctuationCapitalizationDataConfig:
     ds_item: Optional[str] = None
-    text_file: Optional[Union[str, List[str]]] = None
-    labels_file: Optional[Union[str, List[str]]] = None
+    text_file: Optional[Any] = None  # Any -- Union[str, List[str]]
+    labels_file: Optional[Any] = None  # Any = str or List[str]
     use_tarred_dataset: bool = False
-    metadata_file: Optional[Union[str, List[str]]] = None  # Any = str or List[str]
+    metadata_file: Optional[Any] = None  # Any = str or List[str]
     tokens_in_batch: int = 512
     max_seq_length: int = 512
     num_samples: int = -1
