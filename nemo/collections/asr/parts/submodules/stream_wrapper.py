@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -159,8 +160,6 @@ class StreamWrapper(nn.Module):
         self._initialize_ring_buffer_size_in_time_dim(wrapped_module)
 
         self.__dict__['__finished_init'] = True
-        print(list(self.__dict__.keys()))
-        print(list(self._modules.keys()))
 
     def forward(self, *inputs):
         self._build_states(*inputs)
@@ -260,7 +259,7 @@ class StreamWrapper(nn.Module):
         wrapped_module = self.inner_module
 
         if _is_convolved_op(wrapped_module):
-            self.state_shape = [self.inference_batch_size] + input_shape[1:-1] + [self.ring_buffer_size_in_time_dim]
+            self.state_shape = [self.inference_batch_size] + list(input_shape[1:-1]) + [self.ring_buffer_size_in_time_dim]
 
         elif _is_global_time_dim_op(wrapped_module) and not self.state_shape:
             if self.mode in (StreamInferenceMode.TRAINING, StreamInferenceMode.Modes.NON_STREAM_INFERENCE):
@@ -272,13 +271,13 @@ class StreamWrapper(nn.Module):
                 # Then used by clone_streaming_model to create state buffer,
                 # during layer initialization.
                 # [batch,feature, time]
-                self.state_shape = input_shape
+                self.state_shape = list(input_shape)
                 self.state_shape[0] = self.inference_batch_size
 
         elif self.ring_buffer_size_in_time_dim:
             # it is a special case when ring_buffer_size_in_time_dim
             # is defined by user and cell is not defined in Stream wrapper
-            self.state_shape = [self.inference_batch_size] + input_shape[1:-1] + [self.ring_buffer_size_in_time_dim]
+            self.state_shape = [self.inference_batch_size] + list(input_shape[1:-1]) + [self.ring_buffer_size_in_time_dim]
 
         # Build the state
         if self.mode == StreamInferenceMode.STREAM_INTERNAL_STATE_INFERENCE:
@@ -327,8 +326,8 @@ class StreamWrapper(nn.Module):
 
         # temporal padding
         input = inputs[0]
-        pad = [[0, 0]] * input.shape.rank
-        if self.use_one_step:
+        pad = [[0, 0]] * len(input.shape)
+        if self.samplewise_inference:
             pad_total_amount = self.ring_buffer_size_in_time_dim - 1
         else:
             pad_total_amount = self.ring_buffer_size_in_time_dim
@@ -341,10 +340,12 @@ class StreamWrapper(nn.Module):
             half = pad_total_amount // 2
             pad[time_axis] = [half, pad_total_amount - half]
 
-        input = F.pad(input, pad, 'constant')
+        if sum(pad[time_axis]) > 0:
+            input = F.pad(input, pad, 'constant')
+
         inputs = (input, *inputs[1:])
 
-        return self.cell(*inputs)
+        return self.inner_module(*inputs)
 
     def _streaming_internal_state(self, *inputs):
         if self.samplewise_inference:
@@ -367,7 +368,7 @@ class StreamWrapper(nn.Module):
             self.states = self.states * 0 + memory
 
             inputs = (memory, *inputs[1:])
-            return self.cell(*inputs)
+            return self.inner_module(*inputs)
         else:
             # add new row [batch_size, memory_size, feature_dim, channel]
             if self.ring_buffer_size_in_time_dim:
@@ -382,9 +383,9 @@ class StreamWrapper(nn.Module):
                 self.states = self.states * 0 + state_update
 
                 inputs = (state_update, *inputs[1:])
-                return self.cell(*inputs)
+                return self.inner_module(*inputs)
             else:
-                return self.cell(*inputs)
+                return self.inner_module(*inputs)
 
     def _streaming_external_state(self, state, *inputs):
         state = [] if state is None else state
@@ -404,7 +405,7 @@ class StreamWrapper(nn.Module):
 
             inputs = (memory, *inputs[1:])
 
-            output = self.cell(*inputs)
+            output = self.inner_module(*inputs)
             return output, memory
         else:
             # add new row [batch_size, memory_size, feature_dim, channel]
@@ -413,7 +414,7 @@ class StreamWrapper(nn.Module):
             state_update = memory[..., -self.ring_buffer_size_in_time_dim :]
 
             inputs = (memory, *inputs[1:])
-            output = self.cell(*inputs)
+            output = self.inner_module(*inputs)
             return output, state_update
 
     def __getattr__(self, attr):
@@ -447,3 +448,79 @@ class StreamWrapper(nn.Module):
                 setattr(self.inner_module, key, value)
         else:
             nn.Module.__setattr__(self, key, value)
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        r"""Saves module state to `destination` dictionary, containing a state
+        of the module, but not its descendants. This is called on every
+        submodule in :meth:`~torch.nn.Module.state_dict`.
+
+        In rare cases, subclasses can achieve class-specific behavior by
+        overriding this method with custom logic.
+
+        Args:
+            destination (dict): a dict where state will be stored
+            prefix (str): the prefix for parameters and buffers used in this
+                module
+        """
+        prefix = prefix.replace('inner_module.', '')
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        r"""Copies parameters and buffers from :attr:`state_dict` into only
+        this module, but not its descendants. This is called on every submodule
+        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this
+        module in input :attr:`state_dict` is provided as :attr:`local_metadata`.
+        For state dicts without metadata, :attr:`local_metadata` is empty.
+        Subclasses can achieve class-specific backward compatible loading using
+        the version number at `local_metadata.get("version", None)`.
+
+        .. note::
+            :attr:`state_dict` is not the same object as the input
+            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So
+            it can be modified.
+
+        Args:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+            prefix (str): the prefix for parameters and buffers used in this
+                module
+            local_metadata (dict): a dict containing the metadata for this module.
+                See
+            strict (bool): whether to strictly enforce that the keys in
+                :attr:`state_dict` with :attr:`prefix` match the names of
+                parameters and buffers in this module
+            missing_keys (list of str): if ``strict=True``, add missing keys to
+                this list
+            unexpected_keys (list of str): if ``strict=True``, add unexpected
+                keys to this list
+            error_msgs (list of str): error messages should be added to this
+                list, and will be reported together in
+                :meth:`~torch.nn.Module.load_state_dict`
+        """
+        # prefix = prefix + 'inner_module'
+
+        persistent_buffers = {k: v for k, v in self.inner_module.buffers() if k not in self.inner_module._non_persistent_buffers_set}
+        local_name_params = itertools.chain(self.inner_module._parameters.items(), persistent_buffers.items())
+        local_state = {k: v for k, v in local_name_params if v is not None}
+
+        for name, param in local_state.items():
+            key = prefix + 'inner_module.' + name
+            print("key", key)
+            if key in state_dict:
+                pass  # skip
+
+            old_key = prefix + name
+            if old_key in state_dict and key not in state_dict:
+                temp = state_dict[old_key]
+                del state_dict[old_key]
+                state_dict[key] = temp
+                print(f"replaced {old_key} with {key} in statedict")
+
+        return super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
+
+    # def state_dict(self, destination, prefix: str, keep_vars: bool):
+    #     return self.inner_module.state_dict(destination, prefix, keep_vars)
