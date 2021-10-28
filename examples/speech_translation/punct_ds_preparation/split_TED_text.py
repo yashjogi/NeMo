@@ -21,8 +21,8 @@ def main():
         for line in in_f:
             line = line.split()
             i = 0
-            while (i + 1) * args.length < len(line):
-                segments.append(' '.join(line[i * args.length: (i + 1) * args.length]))
+            while (i + 1) * args.segment_length < len(line):
+                segments.append(' '.join(line[i * args.segment_length: (i + 1) * args.segment_length]))
                 i += 1
         out_f.write('\n'.join(segments) + '\n')
 
