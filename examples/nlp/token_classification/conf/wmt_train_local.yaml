@@ -56,8 +56,8 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/train/input.txt
-    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/train/bert_labels.txt
+    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/train/input.txt
+    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/train/bert_labels.txt
     metadata_file: null
     shuffle: true
     num_samples: -1
@@ -69,8 +69,8 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/dev/input.txt
-    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/dev/bert_labels.txt
+    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/dev/input.txt
+    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/dev/bert_labels.txt
     metadata_file: null
     shuffle: false
     num_samples: -1
@@ -82,8 +82,8 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/test/input.txt
-    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_27.10.2021_3.13/for_ngc/test/bert_labels.txt
+    text_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/test/input.txt
+    labels_file: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_28.10.2021_10.13/for_ngc/test/bert_labels.txt
     metadata_file: null
     shuffle: false
     num_samples: -1
