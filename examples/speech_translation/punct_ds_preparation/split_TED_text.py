@@ -16,6 +16,7 @@ def get_args():
 def main():
     args = get_args()
     segments = []
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.input.open() as in_f, args.output.open('w') as out_f:
         for line in in_f:
             line = line.split()
