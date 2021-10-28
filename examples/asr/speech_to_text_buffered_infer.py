@@ -38,7 +38,7 @@ can_gpu = torch.cuda.is_available()
 
 
 def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, preprocessor_cfg, model_stride_in_secs, device, 
-                vad=None):
+                vad=None, threshold=0.4):
     # Create a preprocessor to convert audio samples into raw features,
     # Normalization will be done per buffer in frame_bufferer
     # Do not normalize whatever the model's preprocessor setting is
@@ -59,7 +59,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
             if vad:
                 vad.reset()
                 vad.read_audio_file(row['audio_filepath'], offset=0, duration=None, delay=vad_delay, model_stride_in_secs=1)          
-                streaming_vad_logits, speech_segments = vad.decode(threshold=0.4)
+                streaming_vad_logits, speech_segments = vad.decode(threshold=threshold)
                 speech_segments = [list(i) for i in speech_segments]
                 speech_segments.sort(key=lambda x: x[0])
 
@@ -143,6 +143,12 @@ def main():
         help="Whether to perform VAD before ASR",
         action='store_true',
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.4,
+        help="threshold",
+    )
 
     args = parser.parse_args()
     torch.set_grad_enabled(False)
@@ -193,7 +199,9 @@ def main():
     vad_mid_delay = math.ceil((chunk_len + (total_vad_buffer - chunk_len) / 2) / 1)
 
     frame_vad = None
+    threshold = args.threshold
     if args.vad_before_asr and args.vad_model:
+        
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         vad_model.eval()
         vad_model = vad_model.to(vad_model.device)
@@ -222,7 +230,8 @@ def main():
         cfg.preprocessor, # ASR and VAD have same preprocessor except normalization during training
         model_stride_in_secs,
         asr_model.device,
-        frame_vad
+        frame_vad,
+        threshold
     )
     
     logging.info(f"WER is {round(wer, 2)} when decoded with a delay of {round(mid_delay*model_stride_in_secs, 2)}s")
