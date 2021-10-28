@@ -37,7 +37,7 @@ from nemo.utils import logging
 can_gpu = torch.cuda.is_available()
 
 
-def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg, model_stride_in_secs, device, 
+def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, preprocessor_cfg, model_stride_in_secs, device, 
                 vad=None):
     # Create a preprocessor to convert audio samples into raw features,
     # Normalization will be done per buffer in frame_bufferer
@@ -58,7 +58,7 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, preprocessor_cfg
             row = json.loads(l.strip())
             if vad:
                 vad.reset()
-                vad.read_audio_file(row['audio_filepath'], offset=0, duration=None, delay=delay, model_stride_in_secs=model_stride_in_secs)          
+                vad.read_audio_file(row['audio_filepath'], offset=0, duration=None, delay=vad_delay, model_stride_in_secs=1)          
                 streaming_vad_logits, speech_segments = vad.decode(threshold=0.4)
                 speech_segments = [list(i) for i in speech_segments]
                 speech_segments.sort(key=lambda x: x[0])
@@ -181,13 +181,17 @@ def main():
 
     feature_stride = cfg.preprocessor['window_stride']
     model_stride_in_secs = feature_stride * args.model_stride
+
     total_buffer = args.total_buffer_in_secs
+    total_vad_buffer = args.total_vad_buffer_in_secs
 
     chunk_len = args.chunk_len_in_ms / 1000
 
     tokens_per_chunk = math.ceil(chunk_len / model_stride_in_secs)
     mid_delay = math.ceil((chunk_len + (total_buffer - chunk_len) / 2) / model_stride_in_secs)
-    
+
+    vad_mid_delay = math.ceil((chunk_len + (total_vad_buffer - chunk_len) / 2) / 1)
+
     frame_vad = None
     if args.vad_before_asr and args.vad_model:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -214,12 +218,13 @@ def main():
         chunk_len,
         tokens_per_chunk,
         mid_delay,
+        vad_mid_delay,
         cfg.preprocessor, # ASR and VAD have same preprocessor except normalization during training
         model_stride_in_secs,
         asr_model.device,
         frame_vad
     )
-
+    
     logging.info(f"WER is {round(wer, 2)} when decoded with a delay of {round(mid_delay*model_stride_in_secs, 2)}s")
 
     if args.output_path is not None:
