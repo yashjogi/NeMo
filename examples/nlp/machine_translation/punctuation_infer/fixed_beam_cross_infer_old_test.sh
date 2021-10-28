@@ -4,7 +4,7 @@ model_path="ngc_results/aayn_base_min_punc_cross/2371822_from_scratch_original_s
 mkdir -p "$(dirname "${output}")"
 python nmt_transformer_infer.py \
     --model="${model_path}" \
-    --srctext="${ds_path}/test/input.txt" \
+    --srctext="${ds_path}/text_test.txt" \
     --tgtout="${output}" \
     --target_lang en \
     --source_lang en \
