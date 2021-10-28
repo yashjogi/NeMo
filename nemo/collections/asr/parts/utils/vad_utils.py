@@ -712,12 +712,13 @@ def pred_rttm_map(vad_pred, groundtruth_RTTM, vad_pred_method="frame"):
 
 def plot(
     path2audio_file,
-    path2_vad_pred,
+    vad_pred,
     path2ground_truth_label=None,
     offset=0,
     duration=None,
     threshold=None,
     per_args=None,
+    FRAME_LEN=0.01
 ):
     """
     Plot VAD outputs for demonstration in tutorial
@@ -727,16 +728,21 @@ def plot(
         path2ground_truth_label(str): path to groundtruth label file.
         threshold (float): threshold for prediction score (from 0 to 1).
     """
+    
+    if isinstance(vad_pred, str):
+        try:
+            frame = np.loadtxt(vad_pred)
+        except:
+            raise ValueError(f"Fail to load vad_pred from {vad_pred}")
+    
+    else:
+        frame = vad_pred
+        
     plt.figure(figsize=[20, 2])
-    # FRAME_LEN = 0.01
-    FRAME_LEN = 0.16
-
 
     audio, sample_rate = librosa.load(path=path2audio_file, sr=16000, mono=True, offset=offset, duration=duration)
     dur = librosa.get_duration(audio, sr=sample_rate)
-
     time = np.arange(offset, offset + dur, FRAME_LEN)
-    frame = np.loadtxt(path2_vad_pred)
     frame = frame[int(offset / FRAME_LEN) : int((offset + dur) / FRAME_LEN)]
 
     len_pred = len(frame)
@@ -748,7 +754,8 @@ def plot(
     ax1.set_ylim([-1, 1])
     ax2 = ax1.twinx()
 
-    prob = frame
+    prob = np.array(frame)
+
     if threshold and per_args:
         raise ValueError("threshold and per_args cannot be used at same time!")
     if not threshold and not per_args:
