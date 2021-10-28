@@ -56,7 +56,7 @@ BATCH_BUILDING_PROGRESS_REPORT_PERIOD = 10 ** 4
 
 @dataclass
 class PunctuationCapitalizationDataConfig:
-    ds_item: Optional[str] = None
+    ds_item: Optional[Any] = None  # Any = str or List[str]
     text_file: Optional[Any] = None  # Any -- Union[str, List[str]]
     labels_file: Optional[Any] = None  # Any = str or List[str]
     use_tarred_dataset: bool = False
