@@ -321,7 +321,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                     f"If parameter `use_tarred_dataset` is `True`, then a field `metadata_file` has to be a path "
                     f"to tarred dataset metadata file, whereas `None` is given."
                 )
-            ds_item = cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
+            ds_item = self._cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
             metadata_file = Path(cfg.ds_item) / cfg.metadata_file if ds_item is not None else cfg.metadata_file
             dataset = BertPunctuationCapitalizationTarredDataset(
                 metadata_file=metadata_file,
@@ -342,7 +342,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                     f"dataset config have to not `None`. Whereas `text_file={cfg.text_file}` and "
                     f"`label_file={cfg.labels_file}`."
                 )
-            ds_item = cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
+            ds_item = self._cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
             if ds_item is None:
                 text_file, labels_file = cfg.text_file, cfg.labels_file
             else:
