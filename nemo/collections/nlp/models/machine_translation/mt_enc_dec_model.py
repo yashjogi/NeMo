@@ -179,7 +179,7 @@ class MTEncDecModel(EncDecNLPModel):
             config_dict=decoder_cfg_dict,
             encoder=False,
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
-            encoder_token_embedding=self.encoder.token_embedding,
+            encoder_token_embedding=self.encoder._embedding.token_embedding,
         )
 
         # validate hidden_size of encoder and decoder
