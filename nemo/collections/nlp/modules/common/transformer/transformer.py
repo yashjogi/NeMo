@@ -213,7 +213,7 @@ class TransformerDecoderNM(DecoderModule, Exportable):
             pre_ln_final_layer_norm=pre_ln_final_layer_norm,
         )
 
-    @typecheck()
+    #@typecheck()
     def forward(
         self,
         input_ids,
