@@ -383,7 +383,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
 
     def extend_for_beam_search(self, tensor):
         return tensor.unsqueeze(1).repeat(
-            *([1] + [self.beam_size] + [1] * (tensor.dim - 1))
+            *([1] + [self.beam_size] + [1] * (tensor.ndim - 1))
         ).view(-1, *tensor.shape[1:])
 
     def _forward(
