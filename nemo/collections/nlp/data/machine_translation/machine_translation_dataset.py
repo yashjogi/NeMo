@@ -257,6 +257,11 @@ class TranslationDataset(Dataset):
                 replacements = np.zeros_like(batches[batch_idx]["tgt_word_mask"], dtype=np.int32)
                 replacements[batches[batch_idx]["tgt_word_mask"]] = src_ids_[src_mask]
                 batches[batch_idx]["tgt_replacements"] = replacements
+                if batches[batch_idx]['tgt_ids'].shape != batches[batch_idx]['tgt_word_mask'].shape:
+                    print(
+                        "batches[batch_idx]['tgt_ids'].shape, batches[batch_idx]['tgt_word_mask'].shape:",
+                        batches[batch_idx]['tgt_ids'].shape, batches[batch_idx]['tgt_word_mask'].shape
+                    )
         return batches
 
     def pack_data_into_batches(self, src_ids, tgt_ids):
