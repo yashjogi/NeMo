@@ -106,7 +106,11 @@ class TransformerEmbedding(nn.Module):
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
 
         token_embeddings = self.token_embedding(input_ids)
-        if self.replacement_embedding is not None:
+        if self.replacement_embedding is not None and replacements is not None:
+            if replacement_mask is None:
+                raise ValueError(
+                    "Parameters `replacements` and `replacement_mask` have to be either both `None` or both not `None`"
+                )
             token_embeddings[replacement_mask] = self.replacement_embedding(replacements[replacement_mask])
         position_embeddings = self.position_embedding(position_ids)
         embeddings = token_embeddings + position_embeddings
