@@ -85,8 +85,10 @@ def get_first_token_mask(ids, tokenizer):
 
 
 def get_word_mask(ids, tokenizer):
-    print("ids, tokenizer.word_ids:", ids, tokenizer.word_ids)
-    return np.isin(ids, tokenizer.word_ids)
+    masks = []
+    for sent_ids in ids:
+        masks.append([id_ in tokenizer.word_ids for id_ in sent_ids])
+    return masks
 
 
 class TranslationDataset(Dataset):
@@ -224,8 +226,6 @@ class TranslationDataset(Dataset):
                     )
                 src_mask = np.zeros_like(src_ids_, dtype=np.bool)
                 for i, sentence_idx in enumerate(b):
-                    print(f"src_word_first_token_mask[{sentence_idx}], tgt_word_mask[{sentence_idx}]:",
-                          src_word_first_token_mask[sentence_idx], tgt_word_mask[sentence_idx])
                     if sum(src_word_first_token_mask[sentence_idx]) != sum(tgt_word_mask[sentence_idx]):
                         raise ValueError(
                             f"Number of word starting tokens and number of word labels are not equal in sentence "
