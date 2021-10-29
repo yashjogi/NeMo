@@ -12,7 +12,7 @@ model:
   preproc_out_dir: /result/preprocessed_data # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
-  tips_for_decoder: true
+  use_decoder_tips: true
 
   train_ds:
     src_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
