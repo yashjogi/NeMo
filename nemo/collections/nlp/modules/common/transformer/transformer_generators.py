@@ -153,6 +153,8 @@ class GreedySequenceGenerator:
         encoder_input_mask=None,
         return_beam_scores=False,
         num_tgt_words=None,
+        ground_truth_tgt_replacement_mask=None,
+        ground_truth_tgt_replacements=None,
     ):
         assert not return_beam_scores
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
@@ -187,6 +189,8 @@ class GreedySequenceGenerator:
         encoder_input_mask=None,
         return_beam_scores=False,
         num_tgt_words=None,
+        ground_truth_tgt_replacement_mask=None,
+        ground_truth_tgt_replacements=None,
     ):
         with self.as_frozen():
             return self._forward(
@@ -194,7 +198,9 @@ class GreedySequenceGenerator:
                 encoder_hidden_states,
                 encoder_input_mask,
                 return_beam_scores=return_beam_scores,
-                num_tgt_words=num_tgt_words
+                num_tgt_words=num_tgt_words,
+                ground_truth_tgt_replacement_mask=ground_truth_tgt_replacement_mask,
+                ground_truth_tgt_replacements=ground_truth_tgt_replacements,
             )
 
     def freeze(self) -> None:

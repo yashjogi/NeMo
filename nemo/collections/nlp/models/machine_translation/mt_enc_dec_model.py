@@ -848,6 +848,8 @@ class MTEncDecModel(EncDecNLPModel):
         return_beam_scores: bool = False,
         cache={},
         num_tgt_words: Optional[List[int]] = None,
+        tgt_replacement_mask=None,
+        tgt_replacements=None,
     ):
         """
         Translates a minibatch of inputs from source language to target language.
@@ -873,6 +875,8 @@ class MTEncDecModel(EncDecNLPModel):
                 encoder_input_mask=src_mask,
                 return_beam_scores=return_beam_scores,
                 num_tgt_words=num_tgt_words,
+                ground_truth_tgt_replacement_mask=tgt_replacement_mask,
+                ground_truth_tgt_replacements=tgt_replacements,
             )
             if timer is not None:
                 timer.stop("sampler")
