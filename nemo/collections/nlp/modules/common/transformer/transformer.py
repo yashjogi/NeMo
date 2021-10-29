@@ -231,7 +231,7 @@ class TransformerDecoderNM(DecoderModule, Exportable):
             decoder_mask = decoder_mask[:, -1:]
             decoder_mems = torch.transpose(decoder_mems, 0, 1)
         decoder_embeddings = self._embedding(
-            input_ids=input_ids, start_pos=start_pos, tgt_word_mask=replacement_mask, tgt_replacements=replacements
+            input_ids=input_ids, start_pos=start_pos, replacement_mask=replacement_mask, replacements=replacements
         )
         decoder_hidden_states = self._decoder(
             decoder_states=decoder_embeddings,
