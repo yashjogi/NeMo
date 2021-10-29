@@ -34,13 +34,21 @@ class YouTokenToMeTokenizer(TokenizerSpec):
             self.word_ids = None
         else:
             self.word_ids = self.tokens_to_ids(word_tokens)
-        word_start_character = self.ids_to_tokens([4])[0]
+        self.separator_id = 4
+        self.word_start_character = self.ids_to_tokens([self.separator_id])[0]
         self.start_word_ids = {
-            i for i, v in enumerate(self.tokenizer.vocab()) if v.startswith(word_start_character) and i != 4
+            i for i, v in enumerate(self.tokenizer.vocab()) if
+            v.startswith(self.word_start_character) and i != self.separator_id
         }
 
     def is_word_start(self, ids):
-        return [id_ in self.start_word_ids for id_ in ids]
+        return [
+            id_ in self.start_word_ids
+            or id_ != self.separator_id
+            and id_ not in self.special_tokens
+            and (i == 0 or ids[i - 1] == self.separator_id)
+            for i, id_ in enumerate(ids)
+        ]
 
     def text_to_tokens(self, text):
         return self.tokenizer.encode(
