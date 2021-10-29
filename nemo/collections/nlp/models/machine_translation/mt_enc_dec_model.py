@@ -283,8 +283,8 @@ class MTEncDecModel(EncDecNLPModel):
             decoder_mask=tgt_mask,
             encoder_embeddings=src_hiddens,
             encoder_mask=src_mask,
-            tgt_word_mask=tgt_word_mask,
-            tgt_replacements=tgt_replacements,
+            replacement_mask=tgt_word_mask,
+            replacements=tgt_replacements,
         )
         log_probs = self.log_softmax(hidden_states=tgt_hiddens)
         return log_probs
