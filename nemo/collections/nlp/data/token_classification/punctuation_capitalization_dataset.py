@@ -70,6 +70,7 @@ class PunctuationCapitalizationDataConfig:
     verbose: bool = True
     pickle_features: bool = True
     njobs: Optional[int] = None
+    shuffle: bool = True
     drop_last: bool = False
     pin_memory: bool = False
     num_workers: int = 8
