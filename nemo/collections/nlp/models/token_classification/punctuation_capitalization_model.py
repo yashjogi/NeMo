@@ -20,6 +20,7 @@ import numpy as np
 import torch
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import Trainer
+from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 from tqdm import tqdm
 
 from nemo.collections.common.losses import AggregatorLoss, CrossEntropyLoss
@@ -164,6 +165,10 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         passed in as `batch`.
         """
         self.eval_step(batch, 'test', dataloader_idx)
+
+    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        if self._cfg.shuffle_train_dataset:
+            self.train_dataloader().dataset.shuffle()
 
     def multi_eval_epoch_end(self, mode, dataloader_idx):
         """

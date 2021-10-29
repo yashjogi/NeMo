@@ -113,6 +113,8 @@ class PunctuationCapitalizationModelConfig:
 
     tokenizer: Any = MISSING
 
+    shuffle_train_dataset: bool = False
+
     language_model: LanguageModelConfig = LanguageModelConfig()
 
     optim: Optional[OptimConfig] = MTOptimConfig()

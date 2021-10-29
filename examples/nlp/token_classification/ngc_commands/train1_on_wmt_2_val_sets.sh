@@ -11,7 +11,7 @@ mkdir -p /result/nemo_experiments
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
 python punctuation_capitalization_train.py --config-path=conf \
-    --config-name new_evelina_punc_cap_train_on_wmt_lr1e-4_steps300000 \
+    --config-name wmt_train_2_val_sets \
     trainer.gpus=1
 set +e +x
 EOF
