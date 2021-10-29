@@ -198,8 +198,8 @@ class TranslationDataset(Dataset):
         if self.add_src_num_words_to_batch:
             res.append(self.batches[idx]["src_num_words"])
         if self.add_tgt_word_replacement_to_batch:
-            res.append(self.batches[idx]['tgt_word_mask'])
-            res.append(self.batches[idx]['tgt_replacements'])
+            res.append(self.batches[idx]['tgt_word_mask'][:, :-1])
+            res.append(self.batches[idx]['tgt_replacements'][:, :-1])
         return tuple(res)
 
     def pad_batches(
@@ -257,11 +257,6 @@ class TranslationDataset(Dataset):
                 replacements = np.zeros_like(batches[batch_idx]["tgt_word_mask"], dtype=np.int32)
                 replacements[batches[batch_idx]["tgt_word_mask"]] = src_ids_[src_mask]
                 batches[batch_idx]["tgt_replacements"] = replacements
-                if batches[batch_idx]['tgt_ids'].shape != batches[batch_idx]['tgt_word_mask'].shape:
-                    print(
-                        "batches[batch_idx]['tgt_ids'].shape, batches[batch_idx]['tgt_word_mask'].shape:",
-                        batches[batch_idx]['tgt_ids'].shape, batches[batch_idx]['tgt_word_mask'].shape
-                    )
         return batches
 
     def pack_data_into_batches(self, src_ids, tgt_ids):
