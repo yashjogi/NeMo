@@ -234,11 +234,11 @@ class TranslationDataset(Dataset):
                     src_mask[i, : len(src_word_first_token_mask[sentence_idx])] = src_word_first_token_mask[
                         sentence_idx
                     ]
-                tgt_mask = np.zeros_like(src_ids_, dtype=np.bool)
+                tgt_mask = np.zeros_like(tgt_ids_, dtype=np.bool)
                 for i, sentence_idx in enumerate(b):
-                    print(f"tgt_word_mask[{sentence_idx}]:", tgt_word_mask[sentence_idx])
-                    print(f"tgt_mask.shape:", tgt_mask.shape)
-                    print(f"tgt_ids[{sentence_idx}]:", tgt_ids[sentence_idx])
+                    # print(f"tgt_word_mask[{sentence_idx}]:", tgt_word_mask[sentence_idx])
+                    # print(f"tgt_mask.shape:", tgt_mask.shape)
+                    # print(f"tgt_ids[{sentence_idx}]:", tgt_ids[sentence_idx])
                     tgt_mask[i, : len(tgt_word_mask[sentence_idx])] = tgt_word_mask[sentence_idx]
                 replacements = np.zeros_like(batches[batch_idx]["tgt_word_mask"], dtype=np.int32)
                 replacements[batches[batch_idx]["tgt_word_mask"]] = src_ids_[src_mask]
