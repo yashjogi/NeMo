@@ -394,6 +394,13 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         ground_truth_tgt_replacements=None,
     ):
         device = next(self.decoder.parameters()).device
+        if ground_truth_tgt_replacement_mask is not None:
+            if ground_truth_tgt_replacements is None:
+                raise ValueError(
+                    f"Parameters `ground_truth_tgt_replacement_mask` should be not `None` or `None` simultaneously."
+                )
+            ground_truth_tgt_replacement_mask = ground_truth_tgt_replacement_mask.to(device)
+            ground_truth_tgt_replacements = ground_truth_tgt_replacements.to(device)
         if num_tgt_words is not None:
             num_tgt_words = num_tgt_words.to(device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
