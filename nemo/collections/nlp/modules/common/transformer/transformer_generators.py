@@ -107,16 +107,10 @@ class GreedySequenceGenerator:
                 encoder_input_mask,
                 decoder_mems_list,
                 return_mems=True,
-                replacements=replacements,
             )
         else:
             decoder_mems_list = self.decoder.forward(
-                decoder_hidden_states,
-                decoder_input_mask,
-                decoder_mems_list,
-                return_mems=True,
-                replacement_mask=replacement_mask,
-                replacements=replacements,
+                decoder_hidden_states, decoder_input_mask, decoder_mems_list, return_mems=True,
             )
         log_probs = self.log_softmax.forward(hidden_states=decoder_mems_list[-1][:, -1:])
         return log_probs, decoder_mems_list
