@@ -15,8 +15,8 @@ model:
   use_decoder_tips: true
 
   train_ds:
-    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
-    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
