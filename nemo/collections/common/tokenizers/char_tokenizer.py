@@ -48,6 +48,7 @@ class CharTokenizer(TokenizerSpec):
     rf"""
     Each character is a token.
     Args:
+<<<<<<< HEAD
         vocab_file: path to file with vocabulary which consists of valid Python string literals separated by the new
             line character. Such literals must contain 1 character. Examples of valid Python literals: ``'a'``,
             ``'\n'``, ``"'"``, ``'ж'``, ``'\u8976'``. File ``vocab_file`` has to be in ``'utf-8'`` encoding.
@@ -65,6 +66,22 @@ class CharTokenizer(TokenizerSpec):
             or ``special_token_to_append`` are equal to ``'mask'``. The substring ``'<MASK>'`` will appear in the
             output of ``ids_to_text`` of ``tokens_to_text`` methods if you do not pass string ``'mask'`` in the
             ``special_tokens_to_remove_while_decoding`` constructor parameter.
+=======
+        vocab_file: path to file with vocabulary for a tokenizer. The file consists of valid Python string literals 
+            separated by the new line character. Such literals must contain 1 character. Examples of valid Python 
+            literals: ``'a'``, ``'\n'``, ``"'"``, ``'ж'``, ``'\u8976'``. Optionally the first line in the file can be a
+            JSON dictionary of special tokens. The keys of the special tokens dictionary are ``'mask_token'``,
+            ``'bos_token'`` and so on. Some special tokens names can be omitted in the special tokens dictionary line.
+            A file ``vocab_file`` has to be in ``'utf-8'`` encoding.
+        mask_token: mask token. The following is applicable to all special tokens. Parameter ``mask_token`` is used
+            for adding mask token to vocabulary or for modification of mask token present in special tokens dictionary
+            in the first line of file ``vocab_file``. Parameter ``mask_token`` can be either of type ``bool`` or a 
+            ``str`` of length 1. 
+            
+            If ``mask_token`` is ``bool`` it has to be ``False``. If ``mask_token`` is ``True`` an exception is raised.
+            If ``mask_token`` is ``False`` and ``mask_token`` is present in special tokens dictionary in vocabulary
+            file ``vocab_file``, then ``mask_token`` is remove from special tokens dictionary.
+>>>>>>> main
             
             If the parameter ``mask_token`` is a string, then such strings in the input sequence are interpreted as
             mask tokens.
@@ -154,8 +171,8 @@ class CharTokenizer(TokenizerSpec):
         else:
             self.word_ids = self.tokens_to_ids(word_tokens)
 
-    @staticmethod
-    def check_special_tokens_dict_from_file(special_tokens_dict, vocab_file):
+    @classmethod
+    def check_special_tokens_dict_from_file(cls, special_tokens_dict, vocab_file):
         for k, v in special_tokens_dict.items():
             if k[-6:] != '_token' or not SpecialTokenString.has_value(k[:-6]):
                 raise ValueError(
@@ -173,8 +190,36 @@ class CharTokenizer(TokenizerSpec):
                     f"empty strings, whereas value of item '{k}' is an empty string."
                 )
 
+        cls.check_special_tokens_dict_for_duplicate_values(
+            special_tokens_dict, f"Loaded from vocabulary file {vocab_file}"
+        )
+
     @staticmethod
+    def check_special_tokens_dict_for_duplicate_values(special_tokens_dict, err_msg_prefix):
+        if len(special_tokens_dict) != len(set(special_tokens_dict.values())):
+            tokens_with_equal_values = []
+            duplicate_values = []
+            for k, v in list(reversed(list(special_tokens_dict.items())))[:-1]:
+                tokens = [k]
+                for kk, vv in special_tokens_dict.items():
+                    if kk == k:
+                        break
+                    if v == vv:
+                        tokens.append(kk)
+                if len(tokens) > 1:
+                    duplicate_values.append(v)
+                    tokens_with_equal_values.append(tokens)
+            if duplicate_values:
+                dup_values_msg = '. '.join(
+                    [f"Tokens {t} have value '{v}'" for t, v in zip(tokens_with_equal_values, duplicate_values)]
+                )
+                raise ValueError(
+                    err_msg_prefix + f" special tokens dictionary has duplicate values. " + dup_values_msg
+                )
+
+    @classmethod
     def update_special_tokens_dict(
+        cls,
         init_special_tokens_dict: Dict[str, str],
         mask_token: Optional[Union[str, bool]] = None,
         bos_token: Optional[Union[str, bool]] = None,
@@ -210,6 +255,10 @@ class CharTokenizer(TokenizerSpec):
                     )
                 else:
                     special_tokens_dict[name] = value
+        cls.check_special_tokens_dict_for_duplicate_values(
+            special_tokens_dict,
+            "After updating special tokens dictionary with tokens passed in `CharTokenizer` constructor parameters",
+        )
         return special_tokens_dict
 
     @staticmethod
@@ -219,20 +268,6 @@ class CharTokenizer(TokenizerSpec):
                 f"Each line in vocabulary have to be a Python string literal containing 1 character. "
                 f"Encountered {repr(token)} on line {line_i} in file {vocab_file}."
             )
-
-    # @staticmethod
-    # def check_special_token_value(parameter_name, value):
-    #     if isinstance(value, str):
-    #         if len(value) > 1:
-    #             raise ValueError(
-    #                 f"If `CharTokenizer` constructor parameter `{parameter_name}` is a string, then it has to "
-    #                 f"contain only 1 character. Given string '{value}' of length {len(value)}."
-    #             )
-    #     elif not isinstance(value, bool):
-    #         raise ValueError(
-    #             f"`CharTokenizer` constructor parameter `{parameter_name}` has to be a `str` or a `bool`, whereas it "
-    #             f"belongs to type {type(value)}"
-    #         )
 
     @staticmethod
     def check_special_token_name(parameter_name, value, special_tokens_dict):
@@ -281,15 +316,15 @@ class CharTokenizer(TokenizerSpec):
         tokens = []
         if self.special_token_to_prepend is not None:
             tokens.append(getattr(self, self.special_token_to_prepend))
-        for token in token_candidates:
+        for i, token in enumerate(token_candidates):
             if token in self.vocab:
                 tokens.append(token)
             elif self.unk_token is not None:
                 tokens.append(self.unk_token)
             else:
                 warnings.warn(
-                    f"Character {repr(token)} is not present in vocabulary and no `<UNK>` token was set. Character "
-                    f"{repr(token)} is discarded."
+                    f"Character {repr(token)} in position {i} is not present in vocabulary and no `<UNK>` token was "
+                    f"set. Character {repr(token)} is discarded."
                 )
         if self.special_token_to_append is not None:
             tokens.append(getattr(self, self.special_token_to_append))
@@ -376,9 +411,20 @@ class CharTokenizer(TokenizerSpec):
         ):
             if value is not None:
                 if not isinstance(value, str):
-                    raise ValueError(f"The type of parameter `{name}` has to be `None` or `str`, found `{type(value)}`")
+                    raise ValueError(
+                        f"The type of parameter `{name}` has to be `None` or `str`, found `{type(value)}`"
+                    )
                 elif len(value) == 0:
                     raise ValueError(f"If the parameter `{name}` is `str`, then its length has to be nonzero.")
+                elif value in special_tokens_dict.values():
+                    other_name = None
+                    for k, v in special_tokens_dict.items():
+                        if v == value:
+                            other_name = k
+                    raise ValueError(
+                        f"The value {repr(value)} of special token `{name}` is the same as the value of special token "
+                        f"`{other_name}`."
+                    )
                 special_tokens_dict[name] = value
         return special_tokens_dict
 
@@ -432,7 +478,17 @@ class CharTokenizer(TokenizerSpec):
     ):
         """
         Creates character vocabulary and saves it to file ``save_path``. You should provide one of parameters ``text``
-        and ``text_file_name``.
+        and ``text_file_name``. The format of created character vocabulary file is following:
+        ```
+        {['mask_token': "ANY NON EMPTY STRING", ]['bos_token': "ANY NON EMPTY STRING", ] and so on}
+        ' '
+        'e'
+        ...
+        ```
+        The first line is a JSON which contains special tokens. This special token are set using parameters
+        ``mas_token``, ``bos_token``, ``eos_token``, ``pad_token``, ``sep_token``, ``cls_token``, ``unk_token``.
+        Other lines in created vocabulary file are Python string literals containing one character each.
+
         Args:
             save_path: path to the output text file. If ``save_path`` parent directory does not exist it will be created
             text: string which characters are used for vocabulary creation.
@@ -441,6 +497,16 @@ class CharTokenizer(TokenizerSpec):
             characters_to_exclude: a list of characters which will not be added to vocabulary.
             vocab_size: vocabulary size. If this parameter is set only most frequent ``vocab_size`` characters are added
                 to vocabulary.
+            mask_token: mask token
+            bos_token: the beginning of sequence token
+            eos_token: the end of sequence token. Usually equal to sep_token.
+            pad_token: token to use for padding.
+            sep_token: token used for separating sequences.
+            cls_token: class token. Usually equal to bos_token.
+            unk_token: token to use for unknown tokens. If the parameter ``unk_token`` is set and there is a character
+                in the input of ``text_to_ids`` of ``text_to_tokens`` methods which is not in the vocabulary, then
+                such an unknown character is tokenized into ``unk_token``. If the parameter ``unk_token`` is ``False``,
+                then unknown tokens are discarded.
         """
         special_tokens_dict = cls.create_special_tokens_dict(
             mask_token, bos_token, eos_token, pad_token, sep_token, cls_token, unk_token
