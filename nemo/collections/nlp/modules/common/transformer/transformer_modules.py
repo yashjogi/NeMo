@@ -106,7 +106,8 @@ class TransformerEmbedding(nn.Module):
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
 
         token_embeddings = self.token_embedding(input_ids)
-        token_embeddings[replacement_mask] = self.replacement_embedding(replacements[replacement_mask])
+        if self.replacement_embedding is not None:
+            token_embeddings[replacement_mask] = self.replacement_embedding(replacements[replacement_mask])
         position_embeddings = self.position_embedding(position_ids)
         embeddings = token_embeddings + position_embeddings
 
