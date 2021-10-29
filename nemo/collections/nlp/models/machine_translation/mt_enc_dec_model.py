@@ -351,7 +351,13 @@ class MTEncDecModel(EncDecNLPModel):
         log_probs = self(*forward_args)
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
-        _, translations = self.batch_translate(src=src_ids, src_mask=src_mask, num_tgt_words=num_src_words)
+        _, translations = self.batch_translate(
+            src=src_ids,
+            src_mask=src_mask,
+            num_tgt_words=num_src_words,
+            tgt_replacement_mask=tgt_word_mask,
+            tgt_replacements=tgt_replacements,
+        )
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
         else:

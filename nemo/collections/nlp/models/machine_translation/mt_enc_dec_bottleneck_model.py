@@ -305,7 +305,13 @@ class MTBottleneckModel(MTEncDecModel):
 
     @torch.no_grad()
     def batch_translate(
-        self, src: torch.LongTensor, src_mask: torch.LongTensor, return_beam_scores: bool = False, cache={}
+        self,
+        src: torch.LongTensor,
+        src_mask: torch.LongTensor,
+        return_beam_scores: bool = False,
+        cache={},
+        tgt_replacement_mask=None,
+        tgt_replacements=None,
     ):
         """
         Translates a minibatch of inputs from source language to target language.
@@ -346,6 +352,8 @@ class MTBottleneckModel(MTEncDecModel):
                 encoder_hidden_states=context_hiddens,
                 encoder_input_mask=enc_mask,
                 return_beam_scores=return_beam_scores,
+                ground_truth_tgt_replacement_mask=tgt_replacement_mask,
+                ground_truth_tgt_replacements=tgt_replacements,
             )
             if timer is not None:
                 timer.stop("sampler")
