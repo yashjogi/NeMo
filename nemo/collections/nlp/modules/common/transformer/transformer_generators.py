@@ -370,6 +370,11 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         self, prefixes, num_generated_words, ground_truth_tgt_replacement_mask, ground_truth_tgt_replacements
     ):
         replacement_mask = is_in(prefixes, self.decoder_word_ids)
+        print("replacement_mask.shape:", replacement_mask.shape)
+        print(
+            "Number of nonzero in ground_truth_tgt_replacement_mask:",
+            torch.nonzero(ground_truth_tgt_replacement_mask).shape[0]
+        )
         replacement_indices = torch.nonzero(
             (ground_truth_tgt_replacement_mask.cumsum(dim=-1) * ground_truth_tgt_replacement_mask).eq(
                 num_generated_words.unsqueeze(1)
