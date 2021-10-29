@@ -651,21 +651,25 @@ class ModelPT(LightningModule, Model):
                             # If we are logging the metric, but dont provide it at result level,
                             # store it twice - once in log and once in result level.
                             # Also mark log with prefix name to avoid log level clash with other data loaders
-                            if k_log not in output_dict['log'] and dataloader_idx == self._val_dl_idx:
-                                new_k_log = k_log
 
-                                # Also insert duplicate key with prefix for ease of comparison / avoid name clash
-                                log_dict[dataloader_prefix + k_log] = v_log
+                            # if k_log not in output_dict['log'] and dataloader_idx == self._val_dl_idx:
+                            #     new_k_log = k_log
+                            #
+                            #     # Also insert duplicate key with prefix for ease of comparison / avoid name clash
+                            #     log_dict[dataloader_prefix + k_log] = v_log
+                            #
+                            # else:
+                            #     # Simply prepend prefix to key and save
+                            #     new_k_log = dataloader_prefix + k_log
 
-                            else:
-                                # Simply prepend prefix to key and save
-                                new_k_log = dataloader_prefix + k_log
+                            new_k_log = dataloader_prefix + k_log
 
                             # Store log value
                             log_dict[new_k_log] = v_log
 
                         # Update log storage of individual data loader
                         output_logs = output_dict['log']
+                        # output_logs = {}
                         output_logs.update(log_dict)
 
                         # Update global log storage
