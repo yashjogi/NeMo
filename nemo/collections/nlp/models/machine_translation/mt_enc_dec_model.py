@@ -497,10 +497,12 @@ class MTEncDecModel(EncDecNLPModel):
 
         self.encoder_tokenizer = get_nmt_tokenizer(
             library=encoder_tokenizer_library,
-            tokenizer_model=self.register_artifact("encoder_tokenizer.tokenizer_model", encoder_tokenizer_model),
+            tokenizer_model=self.register_artifact(
+                "encoder_tokenizer.tokenizer_model", encoder_tokenizer_model, verify_src_exists=True),
             bpe_dropout=encoder_bpe_dropout,
             model_name=encoder_model_name,
-            vocab_file=self.register_artifact("encoder_tokenizer.vocab_file", encoder_tokenizer_vocab_file),
+            vocab_file=self.register_artifact(
+                "encoder_tokenizer.vocab_file", encoder_tokenizer_vocab_file, verify_src_exists=True),
             special_tokens=None,
             use_fast=False,
             r2l=encoder_r2l,
