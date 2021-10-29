@@ -25,10 +25,6 @@ class YouTokenToMeTokenizer(TokenizerSpec):
     def __init__(self, model_path, bpe_dropout=0.0, legacy=False, r2l=False, word_tokens=None):
         model_path = Path(model_path).expanduser()
         self.tokenizer = yttm.BPE(model=str(model_path))
-        word_start_character = self.ids_to_tokens([4])[0]
-        self.start_word_ids = {
-            i for i, v in enumerate(self.tokenizer.vocab()) if v.startswith(word_start_character) and i != 4
-        }
         self.vocab_size = len(self.tokenizer.vocab())
         self.special_tokens = self.tokens_to_ids(["<PAD>", "<UNK>", "<BOS>", "<EOS>"])
         self.bpe_dropout = bpe_dropout
@@ -38,6 +34,10 @@ class YouTokenToMeTokenizer(TokenizerSpec):
             self.word_ids = None
         else:
             self.word_ids = self.tokens_to_ids(word_tokens)
+        word_start_character = self.ids_to_tokens([4])[0]
+        self.start_word_ids = {
+            i for i, v in enumerate(self.tokenizer.vocab()) if v.startswith(word_start_character) and i != 4
+        }
 
     def is_word_start(self, ids):
         return [id_ in self.start_word_ids for id_ in ids]
