@@ -143,7 +143,7 @@ class MTEncDecModel(EncDecNLPModel):
             # After this call, the model will have  self.source_processor and self.target_processor objects
             self.setup_pre_and_post_processing_utils(self.src_language, self.tgt_language)
             self.multilingual_ids = [None]
-
+        self.use_decoder_tips = cfg.use_decoder_tips
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
         if cfg.get('increase_l2_fetch_granularity', False):
@@ -238,7 +238,6 @@ class MTEncDecModel(EncDecNLPModel):
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
         self.filter_beam_ids = cfg.get("filter_beam_ids", True)
-        self.use_decoder_tips = cfg.use_decoder_tips
 
     def _validate_encoder_decoder_hidden_size(self):
         """
