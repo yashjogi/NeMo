@@ -95,9 +95,10 @@ class GreedySequenceGenerator:
             pos: starting position in positional encoding
         """
 
-        decoder_hidden_states = self.embedding.forward(decoder_input_ids, start_pos=pos)
+        decoder_hidden_states = self.embedding.forward(
+            decoder_input_ids, start_pos=pos, replacement_mask=replacement_mask, replacements=replacements
+        )
         decoder_input_mask = mask_padded_tokens(decoder_input_ids, self.pad).float()
-        print("type of decoder:", type(self.decoder))
         if encoder_hidden_states is not None:
             decoder_mems_list = self.decoder.forward(
                 decoder_hidden_states,
@@ -106,7 +107,6 @@ class GreedySequenceGenerator:
                 encoder_input_mask,
                 decoder_mems_list,
                 return_mems=True,
-                replacement_mask=replacement_mask,
                 replacements=replacements,
             )
         else:
