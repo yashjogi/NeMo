@@ -229,7 +229,8 @@ class TranslationDataset(Dataset):
                     if sum(src_word_first_token_mask[sentence_idx]) != sum(tgt_word_mask[sentence_idx]):
                         raise ValueError(
                             f"Number of word starting tokens and number of word labels are not equal in sentence "
-                            f"{sentence_idx}."
+                            f"{sentence_idx}. Number of starting tokens: {sum(src_word_first_token_mask[sentence_idx])}"
+                            f"Number of word labels: {sum(tgt_word_mask[sentence_idx])}."
                         )
                     src_mask[i, : len(src_word_first_token_mask[sentence_idx])] = src_word_first_token_mask[
                         sentence_idx
