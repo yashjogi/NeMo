@@ -176,6 +176,8 @@ class TranslationDataset(Dataset):
             src_num_words=src_num_words,
             src_word_first_token_mask=src_word_first_token_mask,
             tgt_word_mask=tgt_word_mask,
+            tokenizer_src=tokenizer_src,
+            tokenizer_tgt=tokenizer_tgt,
         )
 
     def __len__(self):
@@ -200,7 +202,17 @@ class TranslationDataset(Dataset):
             res.append(self.batches[idx]['tgt_replacements'])
         return tuple(res)
 
-    def pad_batches(self, src_ids, tgt_ids, batch_indices, src_num_words, src_word_first_token_mask, tgt_word_mask):
+    def pad_batches(
+        self,
+        src_ids,
+        tgt_ids,
+        batch_indices,
+        src_num_words,
+        src_word_first_token_mask,
+        tgt_word_mask,
+        tokenizer_src=None,
+        tokenizer_tgt=None,
+    ):
         """
         Augments source and target ids in the batches with padding symbol
         to make the lengths of all sentences in the batches equal.
@@ -229,8 +241,11 @@ class TranslationDataset(Dataset):
                     if sum(src_word_first_token_mask[sentence_idx]) != sum(tgt_word_mask[sentence_idx]):
                         raise ValueError(
                             f"Number of word starting tokens and number of word labels are not equal in sentence "
-                            f"{sentence_idx}. Number of starting tokens: {sum(src_word_first_token_mask[sentence_idx])}"
-                            f"Number of word labels: {sum(tgt_word_mask[sentence_idx])}."
+                            f"{sentence_idx}. Number of starting tokens: "
+                            f"{sum(src_word_first_token_mask[sentence_idx])}. "
+                            f"Number of word labels: {sum(tgt_word_mask[sentence_idx])}. "
+                            f"src_tokens: {tokenizer_src.ids_to_tokens(src_ids[sentence_idx])} "
+                            f"tgt_tokens: {tokenizer_tgt.ids_to_tokens(tgt_ids[sentence_idx])}"
                         )
                     src_mask[i, : len(src_word_first_token_mask[sentence_idx])] = src_word_first_token_mask[
                         sentence_idx
