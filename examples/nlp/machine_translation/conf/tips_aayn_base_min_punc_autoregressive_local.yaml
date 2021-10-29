@@ -66,13 +66,13 @@ model:
 
   encoder_tokenizer:
     library: yttm
-    tokenizer_model: /data/input.BPE.8192.model
+    tokenizer_model: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43//input.BPE.8192.model
     bpe_dropout: 0.0
     r2l: false
 
   decoder_tokenizer:
     library: yttm
-    tokenizer_model: /data/autoregressive_labels.BPE.10.model
+    tokenizer_model: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43//autoregressive_labels.BPE.10.model
     bpe_dropout: 0.0
     r2l: false
     word_tokens:
