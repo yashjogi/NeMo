@@ -80,7 +80,7 @@ def get_number_of_words(ids, tokenizer):
 def get_first_token_mask(ids, tokenizer):
     masks = []
     for sent_ids in ids:
-        sent_ids.append(tokenizer.is_word_start(sent_ids))
+        masks.append(tokenizer.is_word_start(sent_ids))
     return masks
 
 
