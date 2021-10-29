@@ -85,6 +85,7 @@ def get_first_token_mask(ids, tokenizer):
 
 
 def get_word_mask(ids, tokenizer):
+    print("ids, tokenizer.word_ids:", ids, tokenizer.word_ids)
     return np.isin(ids, tokenizer.word_ids)
 
 
