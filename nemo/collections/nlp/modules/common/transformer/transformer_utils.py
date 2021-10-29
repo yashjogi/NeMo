@@ -15,6 +15,7 @@
 
 from typing import Optional, Union
 
+import torch.nn
 from omegaconf.dictconfig import DictConfig
 
 from nemo.collections.nlp.modules.common.huggingface.huggingface_decoder import HuggingFaceDecoderModule
@@ -29,6 +30,7 @@ def get_nemo_transformer(
     config_dict: Optional[Union[dict, DictConfig]] = None,
     encoder: bool = True,
     pre_ln_final_layer_norm: bool = True,
+    encoder_token_embedding: torch.nn.Embedding = None,
 ) -> Union[TransformerEncoderNM, TransformerDecoderNM]:
     """Returns NeMo transformer.
     The following configurations are mandatory:
@@ -129,6 +131,7 @@ def get_nemo_transformer(
             pre_ln=cfg.get('pre_ln', False),
             pre_ln_final_layer_norm=pre_ln_final_layer_norm,
             num_token_types=cfg.get('num_token_types', 2),
+            replacement_token_embedding=encoder_token_embedding,
         )
 
     return model

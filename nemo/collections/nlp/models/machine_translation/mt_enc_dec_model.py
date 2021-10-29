@@ -179,6 +179,7 @@ class MTEncDecModel(EncDecNLPModel):
             config_dict=decoder_cfg_dict,
             encoder=False,
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
+            encoder_token_embedding=self.encoder.token_embedding,
         )
 
         # validate hidden_size of encoder and decoder
@@ -237,6 +238,7 @@ class MTEncDecModel(EncDecNLPModel):
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
         self.filter_beam_ids = cfg.get("filter_beam_ids", True)
+        self.use_decoder_tips = cfg.use_decoder_tips
 
     def _validate_encoder_decoder_hidden_size(self):
         """
@@ -270,7 +272,7 @@ class MTEncDecModel(EncDecNLPModel):
         return not invalid_ids
 
     @typecheck()
-    def forward(self, src, src_mask, tgt, tgt_mask, src_first_token_in_word_mask=None):
+    def forward(self, src, src_mask, tgt, tgt_mask, tgt_word_mask=None, tgt_replacements=None):
         if self.validate_input_ids:
             # test src/tgt for id range (i.e., hellp in catching wrong tokenizer)
             self.test_encoder_ids(src, raise_error=True)
@@ -282,8 +284,8 @@ class MTEncDecModel(EncDecNLPModel):
             decoder_mask=tgt_mask,
             encoder_embeddings=src_hiddens,
             encoder_mask=src_mask,
-            src=src,
-            src_first_token_in_word_mask=src_first_token_in_word_mask,
+            tgt_word_mask=tgt_word_mask,
+            tgt_replacements=tgt_replacements,
         )
         log_probs = self.log_softmax(hidden_states=tgt_hiddens)
         return log_probs
@@ -299,8 +301,13 @@ class MTEncDecModel(EncDecNLPModel):
                 # Dataset returns already batched data and the first dimension of size 1 added by DataLoader
                 # is excess.
                 batch[i] = batch[i].squeeze(dim=0)
-        src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
-        log_probs = self(src_ids, src_mask, tgt_ids, tgt_mask)
+        if self.use_decoder_tips:
+            src_ids, src_mask, tgt_ids, tgt_mask, labels, tgt_word_mask, tgt_replacements = batch
+            forward_args = (src_ids, src_mask, tgt_ids, tgt_mask, tgt_word_mask, tgt_replacements)
+        else:
+            src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
+            forward_args = (src_ids, src_mask, tgt_ids, tgt_mask)
+        log_probs = self(*forward_args)
         train_loss = self.loss_fn(log_probs=log_probs, labels=labels)
         tensorboard_logs = {
             'train_loss': train_loss,
@@ -323,12 +330,21 @@ class MTEncDecModel(EncDecNLPModel):
         add_src_num_words_to_batch = (
             self.add_src_num_words_to_batch_validation if mode == "val" else self.add_src_num_words_to_batch_test
         )
-        if add_src_num_words_to_batch:
-            src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words = batch
+        if self.use_decoder_tips:
+            if add_src_num_words_to_batch:
+                src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words, tgt_word_mask, tgt_replacements = batch
+            else:
+                src_ids, src_mask, tgt_ids, tgt_mask, labels, tgt_word_mask, tgt_replacements = batch
+                num_src_words = None
+            forward_args = (src_ids, src_mask, tgt_ids, tgt_mask, tgt_word_mask, tgt_replacements)
         else:
-            src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
-            num_src_words = None
-        log_probs = self(src_ids, src_mask, tgt_ids, tgt_mask)
+            if add_src_num_words_to_batch:
+                src_ids, src_mask, tgt_ids, tgt_mask, labels, num_src_words = batch
+            else:
+                src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
+                num_src_words = None
+            forward_args = (src_ids, src_mask, tgt_ids, tgt_mask)
+        log_probs = self(*forward_args)
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
         _, translations = self.batch_translate(src=src_ids, src_mask=src_mask, num_tgt_words=num_src_words)
@@ -662,6 +678,7 @@ class MTEncDecModel(EncDecNLPModel):
                     prepend_id=self.multilingual_ids[idx] if self.multilingual else None,
                     add_src_num_words_to_batch=cfg.get("add_src_num_words_to_batch", False),
                     prepend_eos_in_tgt=cfg.get('prepend_eos_in_tgt', False),
+                    add_tgt_word_replacement_to_batch=cfg.use_decoder_tips,
                 )
                 dataset.batchify(self.encoder_tokenizer, self.decoder_tokenizer)
                 datasets.append(dataset)
@@ -752,6 +769,7 @@ class MTEncDecModel(EncDecNLPModel):
                 prepend_id=self.multilingual_ids[prepend_idx] if self.multilingual else None,
                 add_src_num_words_to_batch=cfg.get("add_src_num_words_to_batch", False),
                 prepend_eos_in_tgt=cfg.get("prepend_eos_in_tgt", False),
+                add_tgt_word_replacement_to_batch=cfg.use_decoder_tips,
             )
             dataset.batchify(self.encoder_tokenizer, self.decoder_tokenizer)
 

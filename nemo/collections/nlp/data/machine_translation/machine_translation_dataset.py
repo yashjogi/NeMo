@@ -84,6 +84,10 @@ def get_first_token_mask(ids, tokenizer):
     return masks
 
 
+def get_word_mask(ids, tokenizer):
+    return np.isin(ids, tokenizer.word_ids)
+
+
 class TranslationDataset(Dataset):
     def __init__(
         self,
@@ -101,7 +105,7 @@ class TranslationDataset(Dataset):
         reverse_lang_direction: bool = False,
         prepend_id: int = None,
         add_src_num_words_to_batch: bool = False,
-        add_word_beginning_mask_to_batch: bool = False,
+        add_tgt_word_replacement_to_batch: bool = False,
         prepend_eos_in_tgt: bool = False
     ):
         self.dataset_src = dataset_src
@@ -118,7 +122,7 @@ class TranslationDataset(Dataset):
         self.reverse_lang_direction = reverse_lang_direction
         self.prepend_id = prepend_id
         self.add_src_num_words_to_batch = add_src_num_words_to_batch
-        self.add_word_beginning_mask_to_batch = add_word_beginning_mask_to_batch
+        self.add_tgt_word_replacement_to_batch = add_tgt_word_replacement_to_batch
         self.prepend_eos_in_tgt = prepend_eos_in_tgt
 
         # deprecation warnings for cache_ids, use_cache, and cache_data_per_node
@@ -153,11 +157,11 @@ class TranslationDataset(Dataset):
                 max_tokens_ratio=self.max_seq_length_ratio,
             )
         src_num_words = get_number_of_words(src_ids, tokenizer_src) if self.add_src_num_words_to_batch else None
-        src_word_first_token_mask = (
-            get_first_token_mask(src_ids, tokenizer_src)
-            if self.add_word_beginning_mask_to_batch
-            else None
-        )
+        if self.add_tgt_word_replacement_to_batch:
+            src_word_first_token_mask = get_first_token_mask(src_ids, tokenizer_src)
+            tgt_word_mask = get_word_mask(tgt_ids, tokenizer_tgt)
+        else:
+            src_word_first_token_mask, tgt_word_mask = None, None
         self.src_pad_id = tokenizer_src.pad_id
         self.tgt_pad_id = tokenizer_tgt.pad_id
 
@@ -168,6 +172,7 @@ class TranslationDataset(Dataset):
             self.batch_indices,
             src_num_words=src_num_words,
             src_word_first_token_mask=src_word_first_token_mask,
+            tgt_word_mask=tgt_word_mask,
         )
 
     def __len__(self):
@@ -187,11 +192,12 @@ class TranslationDataset(Dataset):
         res = [src_ids, src_mask, tgt_ids, tgt_mask, labels]
         if self.add_src_num_words_to_batch:
             res.append(self.batches[idx]["src_num_words"])
-        if self.add_word_beginning_mask_to_batch:
-            res.append(self.batches[idx]['src_word_first_token_mask'])
+        if self.add_tgt_word_replacement_to_batch:
+            res.append(self.batches[idx]['tgt_word_mask'])
+            res.append(self.batches[idx]['tgt_replacements'])
         return tuple(res)
 
-    def pad_batches(self, src_ids, tgt_ids, batch_indices, src_num_words, src_word_first_token_mask):
+    def pad_batches(self, src_ids, tgt_ids, batch_indices, src_num_words, src_word_first_token_mask, tgt_word_mask):
         """
         Augments source and target ids in the batches with padding symbol
         to make the lengths of all sentences in the batches equal.
@@ -211,10 +217,26 @@ class TranslationDataset(Dataset):
                     [src_num_words[sentence_idx] for sentence_idx in b], dtype=np.int32
                 )
             if src_word_first_token_mask is not None:
-                mask = np.zeros_like(src_ids_, dtype=np.bool)
+                if tgt_word_mask is None:
+                    raise ValueError(
+                        "Parameters `src_word_first_token_mask` and `tgt_word_mask` have to be provided simultaneously"
+                    )
+                src_mask = np.zeros_like(src_ids_, dtype=np.bool)
                 for i, sentence_idx in enumerate(b):
-                    mask[i, : len(src_word_first_token_mask[sentence_idx])] = src_word_first_token_mask[sentence_idx]
-                batches[batch_idx]["src_word_first_token_mask"] = mask
+                    if src_word_first_token_mask[sentence_idx].sum() != tgt_word_mask[sentence_idx].sum():
+                        raise ValueError(
+                            f"Number of word starting tokens and number of word labels are not equal in sentence "
+                            f"{sentence_idx}."
+                        )
+                    src_mask[i, : len(src_word_first_token_mask[sentence_idx])] = src_word_first_token_mask[
+                        sentence_idx
+                    ]
+                tgt_mask = np.zeros_like(src_ids_, dtype=np.bool)
+                for i, sentence_idx in enumerate(b):
+                    tgt_mask[i, : len(tgt_word_mask[sentence_idx])] = tgt_word_mask[sentence_idx]
+                replacements = np.zeros_like(batches[batch_idx]["tgt_word_mask"], dtype=np.int32)
+                replacements[batches[batch_idx]["tgt_word_mask"]] = src_ids_[src_mask]
+                batches[batch_idx]["tgt_replacements"] = replacements
         return batches
 
     def pack_data_into_batches(self, src_ids, tgt_ids):

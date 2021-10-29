@@ -15,21 +15,19 @@ model:
   tips_for_decoder: true
 
   train_ds:
-    src_file_name: null
-    tgt_file_name: null
-    use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
-    # config for preprocessing training data and creating a tarred datset automatically
-    metadata_file: /data/train_autoregressive_tarred/metadata.tokens.16384.json
-    tar_file_prefix: parallel # prefix for tar file names
+    src_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
+    tgt_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
+    tokens_in_batch: 16384
+    clean: false
+    max_seq_length: 512
     shuffle: true
     drop_last: false
     pin_memory: false
     num_workers: 8
-    add_word_beginning_mask_to_batch: true
 
   validation_ds:
-    src_file_name: /data/dev/input.txt
-    tgt_file_name: /data/dev/autoregressive_labels.txt
+    src_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
+    tgt_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
@@ -39,11 +37,10 @@ model:
     pin_memory: false
     num_workers: 8
     add_src_num_words_to_batch: true
-    add_word_beginning_mask_to_batch: true
 
   test_ds:
-    src_file_name: /data/test/input.txt
-    tgt_file_name: /data/test/autoregressive_labels.txt
+    src_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
+    tgt_file_name: ~/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
@@ -53,7 +50,6 @@ model:
     pin_memory: false
     num_workers: 8
     add_src_num_words_to_batch: true
-    add_word_beginning_mask_to_batch: true
 
   optim:
     name: adam

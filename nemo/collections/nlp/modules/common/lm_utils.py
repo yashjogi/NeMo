@@ -16,6 +16,7 @@
 import os
 from typing import List, Optional, Union
 
+import torch.nn
 from attr import asdict
 
 from nemo.collections.nlp.modules.common.bert_module import BertModule
@@ -124,7 +125,8 @@ def get_transformer(
     config_dict: Optional[dict] = None,
     checkpoint_file: Optional[str] = None,
     encoder: bool = True,
-    pre_ln_final_layer_norm=True,
+    pre_ln_final_layer_norm: bool = True,
+    encoder_token_embedding: Optional[torch.nn.Embedding] = None,
 ) -> Union[EncoderModule, DecoderModule]:
     """Gets Transformer based model to be used as an Encoder or Decoder in NeMo NLP.
        First choose the library to get the transformer from. This can be huggingface,
@@ -165,6 +167,7 @@ def get_transformer(
             config_dict=config_dict,
             encoder=encoder,
             pre_ln_final_layer_norm=pre_ln_final_layer_norm,
+            encoder_token_embedding=encoder_token_embedding,
         )
 
         if checkpoint_file is not None:

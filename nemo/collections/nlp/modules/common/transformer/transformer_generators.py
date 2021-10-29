@@ -77,6 +77,8 @@ class GreedySequenceGenerator:
         encoder_input_mask=None,
         decoder_mems_list=None,
         pos=0,
+        replacement_mask=None,
+        replacements=None,
     ):
         """
         One step of autoregressive output generation.
@@ -104,6 +106,8 @@ class GreedySequenceGenerator:
                 encoder_input_mask,
                 decoder_mems_list,
                 return_mems=True,
+                replacement_mask=replacement_mask,
+                replacements=replacements,
             )
         else:
             decoder_mems_list = self.decoder.forward(
@@ -357,6 +361,21 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         num_generated_words += is_in(result_prefixes, self.decoder_word_ids)
         return result_scores, result_prefixes, num_generated_words
 
+    def get_replacements(
+        self, prefixes, num_generated_words, ground_truth_tgt_replacement_mask, ground_truth_tgt_replacements
+    ):
+        replacement_mask = is_in(prefixes, self.decoder_word_ids)
+        replacement_indices = torch.nonzero(
+            (ground_truth_tgt_replacement_mask.cumsum(dim=-1) * ground_truth_tgt_replacement_mask).eq(
+                num_generated_words.unsqueeze(1)
+            )
+        )
+        replacement = torch.zeros_like(replacement_mask, dtype=torch.int32)
+        replacement[replacement_mask] = ground_truth_tgt_replacements[
+            replacement_indices[:, 0], replacement_indices[:, 1]
+        ]
+        return replacement_mask, replacement
+
     def _forward(
         self,
         decoder_input_ids=None,
@@ -364,6 +383,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         encoder_input_mask=None,
         return_beam_scores=False,
         num_tgt_words=None,
+        ground_truth_tgt_replacement_mask=None,
+        ground_truth_tgt_replacements=None,
     ):
         device = next(self.decoder.parameters()).device
         if num_tgt_words is not None:
@@ -376,7 +397,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # scores, prefixes = torch.topk(log_probs.permute(0, 2, 1), self.beam_size, dim=1)
         if self.decoder_word_ids is not None and num_tgt_words is not None:
             # num_generated_words = is_in(prefixes, self.decoder_word_ids).int().sum(dim=1)
-            num_generated_words = torch.zeros(log_probs.shape[0], device=device)
+            num_generated_words = torch.zeros(log_probs.shape[0], device=device, dtype=torch.int32)
         else:
             num_generated_words = None
         scores, prefixes, num_generated_words = self.topk_with_tgt(
@@ -422,8 +443,17 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             pad_mask = pad_profile.repeat(1, self.beam_size)
 
             # generate and score candidates for prefixes continuation
+            replacement_mask, replacements = self.get_replacements(
+                prefixes[:, -1:], num_generated_words, ground_truth_tgt_replacement_mask, ground_truth_tgt_replacements
+            )
             log_probs, decoder_mems_list = self._one_step_forward(
-                prefixes[:, -1:], encoder_hidden_states, encoder_input_mask, decoder_mems_list, i + 1
+                prefixes[:, -1:],
+                encoder_hidden_states,
+                encoder_input_mask,
+                decoder_mems_list,
+                i + 1,
+                replacement_mask,
+                replacements,
             )
             scores_i, prefixes_i, num_generated_words = self.topk_with_tgt(
                 log_probs[:, -1, :], num_generated_words, num_tgt_words, pad_mask

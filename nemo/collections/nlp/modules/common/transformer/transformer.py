@@ -178,7 +178,7 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         hidden_act: str = 'relu',
         pre_ln: bool = False,
         pre_ln_final_layer_norm: bool = True,
-        encoder_embedding: Optional[TransformerEmbedding] = None,
+        replacement_token_embedding: Optional[torch.nn.Embedding] = None,
     ):
         super().__init__()
 
@@ -190,8 +190,6 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         if pre_ln_final_layer_norm:
             self.num_states += 1
 
-        self._encoder_embedding = encoder_embedding
-
         self._embedding = TransformerEmbedding(
             vocab_size=self.vocab_size,
             hidden_size=self.hidden_size,
@@ -199,6 +197,7 @@ class TransformerDecoderNM(DecoderModule, Exportable):
             num_token_types=num_token_types,
             embedding_dropout=embedding_dropout,
             learn_positional_encodings=learn_positional_encodings,
+            replacement_embedding=replacement_token_embedding,
         )
 
         self._decoder = TransformerDecoder(
@@ -222,8 +221,8 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         encoder_embeddings,
         encoder_mask,
         decoder_mems=None,
-        src=None,
-        src_first_token_in_word_mask=None,
+        replacement_mask=None,
+        replacements=None,
     ):
         start_pos = 0
         if decoder_mems is not None:
@@ -231,13 +230,9 @@ class TransformerDecoderNM(DecoderModule, Exportable):
             input_ids = input_ids[:, -1:]
             decoder_mask = decoder_mask[:, -1:]
             decoder_mems = torch.transpose(decoder_mems, 0, 1)
-        decoder_embeddings = self._embedding(input_ids=input_ids, start_pos=start_pos)
-        if self._encoder_embedding is not None:
-            if src is None or src_first_token_in_word_mask is None:
-                raise ValueError(
-                    "If decoder constructor is provided with encoder embeddings, then you should pass "
-                    "`src_first_token_in_word_mask` adn `src` parameters to decoder `forward` method."
-                )
+        decoder_embeddings = self._embedding(
+            input_ids=input_ids, start_pos=start_pos, tgt_word_mask=replacement_mask, tgt_replacements=replacements
+        )
         decoder_hidden_states = self._decoder(
             decoder_states=decoder_embeddings,
             decoder_mask=decoder_mask,

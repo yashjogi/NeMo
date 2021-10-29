@@ -78,9 +78,10 @@ class TransformerEmbedding(nn.Module):
         num_token_types=2,
         embedding_dropout=0.0,
         learn_positional_encodings=False,
+        replacement_embedding=None
     ):
         super().__init__()
-
+        self.replacement_embedding = replacement_embedding
         self.max_sequence_length = max_sequence_length
         self.token_embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
         if learn_positional_encodings:
@@ -92,7 +93,7 @@ class TransformerEmbedding(nn.Module):
         self.layer_norm = nn.LayerNorm(hidden_size, eps=1e-5)
         self.dropout = nn.Dropout(embedding_dropout)
 
-    def forward(self, input_ids, token_type_ids=None, start_pos=0):
+    def forward(self, input_ids, token_type_ids=None, start_pos=0, replacement_mask=None, replacements=None):
         seq_length = input_ids.size(1)
         if seq_length > self.max_sequence_length:
             raise ValueError(
@@ -105,6 +106,7 @@ class TransformerEmbedding(nn.Module):
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
 
         token_embeddings = self.token_embedding(input_ids)
+        token_embeddings[replacement_mask] = self.replacement_embedding(replacements[replacement_mask])
         position_embeddings = self.position_embedding(position_ids)
         embeddings = token_embeddings + position_embeddings
 
