@@ -70,7 +70,6 @@ class PunctuationCapitalizationDataConfig:
     verbose: bool = True
     pickle_features: bool = True
     njobs: Optional[int] = None
-    shuffle: bool = False
     drop_last: bool = False
     pin_memory: bool = False
     num_workers: int = 8
@@ -619,19 +618,19 @@ class BertPunctuationCapitalizationDataset(Dataset):
             if self.verbose:
                 logging.info(f'Features restored from {features_pkl}')
 
-        input_ids = features[0]
-        subtokens_mask = features[1]
-        punct_labels = features[2]
-        capit_labels = features[3]
+        self.input_ids = features[0]
+        self.subtokens_mask = features[1]
+        self.punct_labels = features[2]
+        self.capit_labels = features[3]
         self.punct_label_ids = punct_label_ids
         self.capit_label_ids = capit_label_ids
         self.batches = self.pack_into_batches(
-            input_ids, subtokens_mask, punct_labels, capit_labels
+            self.input_ids, self.subtokens_mask, self.punct_labels, self.capit_labels
         )
 
         if get_label_frequencies:
-            self.punct_label_frequencies = self._calculate_label_frequencies(punct_labels, data_dir, 'punct')
-            self.capit_label_frequencies = self._calculate_label_frequencies(capit_labels, data_dir, 'capit')
+            self.punct_label_frequencies = self._calculate_label_frequencies(self.punct_labels, data_dir, 'punct')
+            self.capit_label_frequencies = self._calculate_label_frequencies(self.capit_labels, data_dir, 'capit')
 
     def pad(self, vectors, length, value):
         result = []
@@ -697,8 +696,9 @@ class BertPunctuationCapitalizationDataset(Dataset):
     def pack_into_batches(
         self, input_ids, subtokens_mask, punct_labels, capit_labels
     ):
-        zipped = sorted(zip(input_ids, subtokens_mask, punct_labels, capit_labels), key=lambda x: x[0].shape[0])
-        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*zipped)
+        zipped = list(zip(input_ids, subtokens_mask, punct_labels, capit_labels))
+        random.shuffle(zipped)
+        input_ids, subtokens_mask, punct_labels, capit_labels = zip(*sorted(zipped, key=lambda x: x[0].shape[0]))
         batch_beginnings, batch_sizes, batch_seq_lengths = self.mark_up_batches(input_ids)
         batches = []
         if self.batch_building_progress_queue is None:
@@ -748,6 +748,12 @@ class BertPunctuationCapitalizationDataset(Dataset):
             self.batch_building_progress_queue.put(progress_made)
         random.shuffle(batches)
         return batches
+
+    def shuffle(self):
+        logging.info("Shuffling training dataset")
+        self.batches = self.pack_into_batches(
+            self.input_ids, self.subtokens_mask, self.punct_labels, self.capit_labels
+        )
 
     def _calculate_label_frequencies(self, all_labels: List[int], data_dir: str, name: str) -> Dict[str, float]:
         """ Calculates labels frequencies """
