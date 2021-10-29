@@ -375,6 +375,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 num_generated_words.unsqueeze(1)
             )
         )
+        print("replacement_indices.shape:", replacement_indices.shape)
         replacement = torch.zeros_like(replacement_mask, dtype=torch.int32)
         replacement[replacement_mask] = ground_truth_tgt_replacements[
             replacement_indices[:, 0], replacement_indices[:, 1]
