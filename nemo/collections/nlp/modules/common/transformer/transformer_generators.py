@@ -97,7 +97,7 @@ class GreedySequenceGenerator:
 
         decoder_hidden_states = self.embedding.forward(decoder_input_ids, start_pos=pos)
         decoder_input_mask = mask_padded_tokens(decoder_input_ids, self.pad).float()
-
+        print("type of decoder:", type(self.decoder))
         if encoder_hidden_states is not None:
             decoder_mems_list = self.decoder.forward(
                 decoder_hidden_states,
@@ -111,7 +111,12 @@ class GreedySequenceGenerator:
             )
         else:
             decoder_mems_list = self.decoder.forward(
-                decoder_hidden_states, decoder_input_mask, decoder_mems_list, return_mems=True
+                decoder_hidden_states,
+                decoder_input_mask,
+                decoder_mems_list,
+                return_mems=True,
+                replacement_mask=replacement_mask,
+                replacements=replacements,
             )
         log_probs = self.log_softmax.forward(hidden_states=decoder_mems_list[-1][:, -1:])
         return log_probs, decoder_mems_list
