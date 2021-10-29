@@ -223,7 +223,7 @@ class TranslationDataset(Dataset):
                     )
                 src_mask = np.zeros_like(src_ids_, dtype=np.bool)
                 for i, sentence_idx in enumerate(b):
-                    if src_word_first_token_mask[sentence_idx].sum() != tgt_word_mask[sentence_idx].sum():
+                    if sum(src_word_first_token_mask[sentence_idx]) != sum(tgt_word_mask[sentence_idx]):
                         raise ValueError(
                             f"Number of word starting tokens and number of word labels are not equal in sentence "
                             f"{sentence_idx}."
