@@ -22,8 +22,9 @@ model:
     tar_file_prefix: parallel # prefix for tar file names
     shuffle: true
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   validation_ds:
     src_file_name: /data/dev/input.txt
@@ -34,8 +35,9 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   test_ds:
     src_file_name: /data/test/input.txt
@@ -46,8 +48,9 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
+    persistent_workers: true
 
   optim:
     name: adam
@@ -137,6 +140,8 @@ exp_manager:
   exp_dir: /result/nemo_experiments
   name: AAYNBase
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: free_bs_min_punc_autoregressive_dataset_aayn_base_bs16384_1gpu_lr1e-4_steps300000_BPEdp0_dp0.1_lblsmoothing0

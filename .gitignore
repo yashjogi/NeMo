@@ -173,4 +173,5 @@ examples/neural_graphs/*.yml
 
 .hydra/
 nemo_experiments/
+examples/speech_translation/punct_prepared_datasets/
 

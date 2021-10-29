@@ -14,6 +14,7 @@
 
 import argparse
 import os
+from pathlib import Path
 
 from nemo.collections.nlp.data.machine_translation.preproc_mt_data import MTDataPreproc
 
@@ -76,8 +77,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--n_preproc_jobs', type=int, default=-2, help='Number of processes to use for creating the tarred dataset.',
     )
-
+    parser.add_argument("--prepend_eos_in_tgt", action='store_true')
+    parser.add_argument("--decoder_vocab_file", type=Path)
     args = parser.parse_args()
+    if args.deocder_vocab_file is not None:
+        args.decoder_vocab_file = args.decoder_vocab_file.expanduser()
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
@@ -123,6 +127,7 @@ if __name__ == '__main__':
         decoder_tokenizer_model=decoder_tokenizer_model,
         decoder_bpe_dropout=args.decoder_tokenizer_bpe_dropout,
         decoder_r2l=args.decoder_tokenizer_r2l,
+        decoder_vocab_file=args.decoder_vocab_file,
     )
 
     _, _ = MTDataPreproc.preprocess_parallel_dataset(
@@ -149,4 +154,5 @@ if __name__ == '__main__':
         global_rank=0,
         world_size=1,
         n_jobs=args.n_preproc_jobs,
+        prepend_eos_in_tgt=args.prepend_eos_in_tgt,
     )

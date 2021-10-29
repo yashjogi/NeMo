@@ -18,7 +18,7 @@ import os
 import uuid
 from abc import abstractmethod
 from os import path
-from os.path import expanduser
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import hydra
@@ -128,14 +128,15 @@ class ModelPT(LightningModule, Model):
         else:
             if 'train_ds' in self._cfg and self._cfg.train_ds is not None:
                 logging.warning(
-                    f"If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method "
-                    f"and provide a valid configuration file to setup the train data loader.\n"
+                    f"If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() "
+                    f"method and provide a valid configuration file to setup the train data loader.\n"
                     f"Train config : \n{OmegaConf.to_yaml(self._cfg.train_ds)}"
                 )
 
             if 'validation_ds' in self._cfg and self._cfg.validation_ds is not None:
                 logging.warning(
-                    f"If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method "
+                    f"If you intend to do validation, please call the ModelPT.setup_validation_data() or "
+                    f"ModelPT.setup_multiple_validation_data() method "
                     f"and provide a valid configuration file to setup the validation data loader(s). \n"
                     f"Validation config : \n{OmegaConf.to_yaml(self._cfg.validation_ds)}"
                 )
@@ -201,7 +202,6 @@ class ModelPT(LightningModule, Model):
 
         return self._save_restore_connector.register_artifact(self, config_path, src, verify_src_exists)
 
-    @rank_zero_only
     def save_to(self, save_path: str):
         """
         Saves model instance (weights and configuration) into .nemo file
@@ -215,12 +215,27 @@ class ModelPT(LightningModule, Model):
             save_path: Path to .nemo file where model instance should be saved
         """
 
-        # Add NeMo rank check as well
-        if not is_global_rank_zero():
-            return
-        else:
-            save_path = os.path.abspath(os.path.expanduser(save_path))
-            self._save_restore_connector.save_to(self, save_path)
+        def maybe_make_save_dir(path: 'pathlib.Path'):
+            if not path.parent.exists():
+                path.parent.mkdir(parents=True)
+
+        save_path = Path(save_path).expanduser().resolve()
+        app_state = AppState()
+        if app_state.model_parallel_size is not None:
+            if app_state.model_parallel_size > 1:
+                if type(self._save_restore_connector) == SaveRestoreConnector:
+                    raise ValueError(
+                        'Default NeMo SaveRestoreConnector will not work in model parallel mode. You should use a '
+                        'connector which supports model parallel mode, such as NLPSaveRestoreConnector in NLP. You '
+                        'can also use a custom one.'
+                    )
+            if app_state.data_parallel_rank == 0:
+                maybe_make_save_dir(save_path)
+            # connector checks for ranks properly, no need to check here
+            self._save_restore_connector.save_to(self, str(save_path))  # downstream tasks expect str, not Path
+        elif is_global_rank_zero():
+            maybe_make_save_dir(save_path)
+            self._save_restore_connector.save_to(self, str(save_path))  # downstream tasks expect str, not Path
 
     @classmethod
     def restore_from(
@@ -231,6 +246,7 @@ class ModelPT(LightningModule, Model):
         strict: bool = True,
         return_config: bool = False,
         save_restore_connector: SaveRestoreConnector = None,
+        trainer: Optional[Trainer] = None,
     ):
         """
         Restores model instance (weights and configuration) from .nemo file.
@@ -244,6 +260,8 @@ class ModelPT(LightningModule, Model):
             strict: Passed to load_state_dict. By default True.
             return_config: If set to true, will return just the underlying config of the restored
                 model as an OmegaConf DictConfig object without instantiating the model.
+            trainer: Optional, a pytorch lightning Trainer object that will be forwarded to the
+                instantiated model's constructor.
             save_restore_connector (SaveRestoreConnector): Can be overrided to add custom save and restore logic.
 
             Example:
@@ -268,7 +286,7 @@ class ModelPT(LightningModule, Model):
 
         cls.update_save_restore_connector(save_restore_connector)
         instance = cls._save_restore_connector.restore_from(
-            cls, restore_path, override_config_path, map_location, strict, return_config
+            cls, restore_path, override_config_path, map_location, strict, return_config, trainer
         )
         if isinstance(instance, ModelPT):
             instance._save_restore_connector = save_restore_connector
@@ -322,7 +340,6 @@ class ModelPT(LightningModule, Model):
         """
         Setups data loader to be used in validation
         Args:
-
             val_data_layer_config: validation data layer parameters.
         Returns:
 
@@ -631,28 +648,32 @@ class ModelPT(LightningModule, Model):
                 for k, v in dataloader_logs.items():
                     # If the key is `log`
                     if k == 'log':
-                        # Parse every element of the log, and attach the prefix name of the data loader
+                        # Parse every element of the log, and attach fthe prefix name of the data loader
                         log_dict = {}
 
                         for k_log, v_log in v.items():
                             # If we are logging the metric, but dont provide it at result level,
                             # store it twice - once in log and once in result level.
                             # Also mark log with prefix name to avoid log level clash with other data loaders
-                            if k_log not in output_dict['log'] and dataloader_idx == self._val_dl_idx:
-                                new_k_log = k_log
 
-                                # Also insert duplicate key with prefix for ease of comparison / avoid name clash
-                                log_dict[dataloader_prefix + k_log] = v_log
+                            # if k_log not in output_dict['log'] and dataloader_idx == self._val_dl_idx:
+                            #     new_k_log = k_log
+                            #
+                            #     # Also insert duplicate key with prefix for ease of comparison / avoid name clash
+                            #     log_dict[dataloader_prefix + k_log] = v_log
+                            #
+                            # else:
+                            #     # Simply prepend prefix to key and save
+                            #     new_k_log = dataloader_prefix + k_log
 
-                            else:
-                                # Simply prepend prefix to key and save
-                                new_k_log = dataloader_prefix + k_log
+                            new_k_log = dataloader_prefix + k_log
 
                             # Store log value
                             log_dict[new_k_log] = v_log
 
                         # Update log storage of individual data loader
                         output_logs = output_dict['log']
+                        # output_logs = {}
                         output_logs.update(log_dict)
 
                         # Update global log storage

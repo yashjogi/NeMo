@@ -29,11 +29,12 @@ model:
     shuffle: true
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
     concat_sampling_technique: temperature # only used with ConcatTranslationDataset 
     concat_sampling_temperature: 5 # only used with ConcatTranslationDataset 
-    concat_sampling_probabilities: null # only used with ConcatTranslationDataset 
+    concat_sampling_probabilities: null # only used with ConcatTranslationDataset
+    persistent_workers: true
 
   validation_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_all_punctuation/dev/input.txt
@@ -44,9 +45,10 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
     add_src_num_words_to_batch: true
+    persistent_workers: true
 
   test_ds:
     src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data_all_punctuation/dev/input.txt
@@ -57,9 +59,10 @@ model:
     shuffle: false
     num_samples: -1
     drop_last: false
-    pin_memory: false
+    pin_memory: true
     num_workers: 8
     add_src_num_words_to_batch: true
+    persistent_workers: true
 
   optim:
     name: adam
@@ -150,4 +153,7 @@ trainer:
 
 exp_manager:
   name: AAYNBase
+  create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
   files_to_copy: []

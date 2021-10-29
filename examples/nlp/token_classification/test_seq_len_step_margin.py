@@ -1,6 +1,6 @@
 import sys
 
-sys.path = ["/home/lab/NeMo"] + sys.path
+sys.path = ["/home/apeganov/NeMo"] + sys.path
 
 import json
 import re
@@ -11,12 +11,12 @@ from itertools import product
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import torch
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 
 from score_punctuation_evaluation import PUNCT_LABELS_TO_NUMBERS, compute_scores
 
 
-MAX_NUM_SUBTOKENS_IN_INPUT = 8184
 MAX_SEQ_LENGTH_KEY = "max_seq_length"
 
 
@@ -51,6 +51,8 @@ def get_args():
     parser.add_argument("--margin", "-m", nargs="+", type=int, default=[0, 1, 2, 4, 8, 12, 16, 24, 32])
     parser.add_argument("--step", "-s", nargs="+", type=int, default=[1, 2, 4, 6, 8, 11, 14, 30, 62, 126, 254, 510])
     parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
+    parser.add_argument("--num_subtokens_in_input", "-N", default=17000, type=int)
+    parser.add_argument("--num_subtokens_step", "-S", default=500, type=int)
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -163,6 +165,8 @@ def get_best_metrics_and_parameters(result):
                 series_names = set(step_result.keys())
                 metric_names = series_names - {MAX_SEQ_LENGTH_KEY}
                 for metric in metric_names:
+                    if metric not in best[task]:
+                        best[task][metric] = BEST_INIT.copy()
                     for v, msl in zip(step_result[metric], step_result[MAX_SEQ_LENGTH_KEY]):
                         if v > best[task][metric]["metric"]:
                             best[task][metric]["metric"] = v
@@ -209,6 +213,7 @@ def main():
             result = json.load(f)
             result = make_margins_and_steps_integers(result)
         best = get_best_metrics_and_parameters(result)
+    num_subtokens_in_input = args.num_subtokens_in_input
     for max_seq_length, margin, step in product(args.max_seq_length, args.margin, args.step):
         dscr = f"max_seq_length={max_seq_length}, margin={margin}, step={step}"
         print(dscr)
@@ -216,13 +221,22 @@ def main():
             print(f"SKIPPING because parameter set {dscr} is impossible")
             continue
         try:
-            processed = model.add_punctuation_capitalization(
-                texts,
-                batch_size=MAX_NUM_SUBTOKENS_IN_INPUT // max_seq_length,
-                max_seq_length=max_seq_length,
-                margin=margin,
-                step=step,
-            )
+            success = False
+            while not success:
+                try:
+                    torch.cuda.empty_cache()
+                    processed = model.add_punctuation_capitalization(
+                        texts,
+                        batch_size=num_subtokens_in_input // max_seq_length,
+                        max_seq_length=max_seq_length,
+                        margin=margin,
+                        step=step,
+                        dataloader_kwargs={'num_workers': 8},
+                    )
+                    success = True
+                except RuntimeError:
+                    num_subtokens_in_input -= args.num_subtokens_step
+                    print(f"Number of subtokens in input is reduced to {num_subtokens_in_input}")
         except ValueError:
             print(f"SKIPPING because parameter set {dscr} is impossible")
             continue
@@ -234,12 +248,14 @@ def main():
                 margin_dict[margin] = {"step": {}}
             step_dict = margin_dict[margin]["step"]
             if step not in step_dict:
-                step_dict[step] = {metric: [value] for metric, value in scores[task].items()}
+                step_dict[step] = {metric: [value] for metric, value in task_scores.items()}
                 step_dict[step][MAX_SEQ_LENGTH_KEY] = [max_seq_length]
             else:
                 step_dict[step][MAX_SEQ_LENGTH_KEY].append(max_seq_length)
-                for metric, value in scores[task].items():
+                for metric, value in task_scores.items():
                     step_dict[step][metric].append(value)
+                    if metric not in best[task]:
+                        best[task][metric] = BEST_INIT.copy()
                     if value > best[task][metric]["metric"]:
                         best[task][metric]["metric"] = value
                         best[task][metric][MAX_SEQ_LENGTH_KEY] = max_seq_length

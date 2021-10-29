@@ -12,6 +12,7 @@ git clone https://github.com/PeganovAnton/mwerSegmenter
 Parameters of the script are
   dataset_dir: path to directory with year dataset. Obtained when archive IWSLT-SLT.tst2019.en-de.tgz is unpacked
   asr_model: pretrained NGC name or path to NeMo ASR checkpoint
+  punctuation_model: pretrained NGC name of PunctuationCapitalizationModel or path to .nemo file
   translation_model: pretrained NGC name or path to NeMo NMT checkpoint
   output_dir: path to directory where results will be stored
   segmented: whether segment input audio before transcription using markup provided in dataset. 1 - segment,
@@ -21,6 +22,7 @@ Parameters of the script are
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
+  punctuation_en_bert \
   ~/checkpoints/wmt21_en_de_backtranslated_24x6_averaged.nemo \
   ~/iwslt_2019_test_result \
   0 \
@@ -32,10 +34,11 @@ set -e
 
 dataset_dir="$(realpath "$1")"
 asr_model="$2"  # Path to checkpoint or NGC pretrained name
-translation_model="$3"
-output_dir="$(realpath "$4")"
-segmented="$5"  # 1 or 0
-mwerSegmenter="$6"  # 1 or 0
+punctuation_model="$3"  # Path to checkpoint or NGC pretrained name
+translation_model="$4"
+output_dir="$(realpath "$5")"
+segmented="$6"  # 1 or 0
+mwerSegmenter="$7"  # 1 or 0
 
 
 audio_dir="${dataset_dir}/wavs"
@@ -60,7 +63,7 @@ fi
 
 
 printf "Creating IWSLT manifest..\n"
-python create_iwslt_manifest.py -a "${audio_dir}" \
+python test_iwslt_and_perform_all_ops_common_scripts/create_iwslt_manifest.py -a "${audio_dir}" \
   -t "${dataset_dir}/IWSLT.TED.tst2019.en-de.en.xml" \
   -o "${en_ground_truth_manifest}"
 
@@ -68,7 +71,7 @@ python create_iwslt_manifest.py -a "${audio_dir}" \
 if [ "${segmented}" -eq 1 ]; then
   printf "\n\nSplitting audio files..\n"
   split_data_path="${output_dir}/split"
-  python iwslt_split_audio.py -a "${dataset_dir}/wavs" \
+  python test_iwslt_and_perform_all_ops_common_scripts/iwslt_split_audio.py -a "${dataset_dir}/wavs" \
     -s "${dataset_dir}/IWSLT.TED.tst2019.en-de.yaml" \
     -d "${split_data_path}"
   split_transcripts="${dataset_dir}/split_transcripts/${asr_model_name}"
@@ -84,7 +87,10 @@ if [ "${segmented}" -eq 1 ]; then
         batch_size=4
     fi
   done
-  python join_split_wav_manifests.py -S "${split_transcripts}" -o "${transcript_no_numbers}" -n "${audio_dir}"
+  python test_iwslt_and_perform_all_ops_common_scripts/join_split_wav_manifests.py \
+    -S "${split_transcripts}" \
+    -o "${transcript_no_numbers}" \
+    -n "${audio_dir}"
 else
   if [ "${segmented}" -ne 0 ]; then
     echo "Wrong value '${segmented}' of fifth parameter of 'translate_and_score.sh'. Only '0' and '1' are supported."
@@ -106,7 +112,7 @@ else
   transcript="${output_dir}/transcripts_not_segmented_input/${asr_model_name}.manifest"
 fi
 mkdir -p "$(dirname "${transcript}")"
-python text_to_numbers.py -i "${transcript_no_numbers}" -o "${transcript}"
+python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py -i "${transcript_no_numbers}" -o "${transcript}"
 
 
 printf "\n\nComputing WER..\n"
@@ -116,7 +122,7 @@ if [ "${segmented}" -eq 1 ]; then
 else
   wer_dir="not_segmented"
 fi
-wer="$(python wer_between_2_manifests.py "${transcript}" "${en_ground_truth_manifest}" \
+wer="$(python iwslt_scoring/wer_between_2_manifests.py "${transcript}" "${en_ground_truth_manifest}" \
       -o "${wer_by_transcript_and_audio}/${wer_dir}/${asr_model_name}.json")"
 echo "WER: ${wer}"
 
@@ -127,7 +133,8 @@ if [ "${segmented}" -eq 1 ]; then
 else
   punc_dir="${output_dir}/punc_transcripts_not_segmented_input"
 fi
-python punc_cap.py -a "${en_ground_truth_manifest}" \
+python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
+  -m "${punctuation_model}" \
   -p "${transcript}" \
   -o "${punc_dir}/${asr_model_name}.txt"
 
@@ -139,7 +146,8 @@ else
   translation_dir="${output_dir}/translations_not_segmented_input"
 fi
 translated_text="${translation_dir}/${translation_model_name}/${asr_model_name}.txt"
-python translate_iwslt.py "${translation_model_parameter}" "${translation_model}" \
+python test_iwslt_and_perform_all_ops_common_scripts/translate_iwslt.py \
+  "${translation_model_parameter}" "${translation_model}" \
   -i "${punc_dir}/${asr_model_name}.txt" \
   -o "${translated_text}" \
   -s
@@ -183,16 +191,21 @@ if [ "${mwerSegmenter}" -eq 1 ]; then
   conda deactivate
   )
   reference="${output_dir}/iwslt_de_text_by_segs.txt"
-  python xml_2_text_segs_2_lines.py -i "${dataset_dir}/IWSLT.TED.tst2019.en-de.de.xml" -o "${reference}"
+  python test_iwslt_and_perform_all_ops_common_scripts/xml_2_text_segs_2_lines.py \
+    -i "${dataset_dir}/IWSLT.TED.tst2019.en-de.de.xml" \
+    -o "${reference}"
   mkdir -p "$(dirname "${translated_text_for_scoring}")"
-  python xml_2_text_segs_2_lines.py -i "${translated_mwer_xml}" -o "${translated_text_for_scoring}"
+  python test_iwslt_and_perform_all_ops_common_scripts/xml_2_text_segs_2_lines.py \
+    -i "${translated_mwer_xml}" \
+    -o "${translated_text_for_scoring}"
 else
   if [ "${segmented}" -ne 0 ]; then
     echo "Wrong value '${mwerSegmenter}' of sixth parameter of 'translate_and_score.sh'. Only '0' and '1' are supported."
   fi
   translated_text_for_scoring="${translated_text}"
   reference="${output_dir}/iwslt_de_text_by_wavs.txt"
-  python prepare_iwslt_text_for_translation.py -a "${en_ground_truth_manifest}" \
+  python test_iwslt_and_perform_all_ops_common_scripts/prepare_iwslt_text_for_translation.py \
+    -a "${en_ground_truth_manifest}" \
     -t "${dataset_dir}/IWSLT.TED.tst2019.en-de.de.xml" \
     -o "${reference}" \
     -j
@@ -226,7 +239,7 @@ if [ "${mwerSegmenter}" -eq 1 ]; then
     separate_files_translations="${output_dir}/translations_for_docs_in_separate_files_not_segmented_input"
     bleu_separate_files="${output_dir}/BLUE_by_docs_not_segmented_input"
   fi
-  bash compute_bleu_for_separate_talks_one_model.sh \
+  bash iwslt_scoring/compute_bleu_for_separate_talks_one_model.sh \
     "${translated_mwer_xml}" \
     "${dataset_dir}/IWSLT.TED.tst2019.en-de.de.xml" \
     "${separate_files_translations}/${translation_model_name}/${asr_model_name}" \

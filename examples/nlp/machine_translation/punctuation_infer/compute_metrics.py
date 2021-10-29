@@ -45,6 +45,23 @@ def get_args():
         "user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format",
         action="store_true",
     )
+    parser.add_argument(
+        "--reference_evelina_data_format",
+        "-R",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--hypothesis_evelina_data_format",
+        "-E",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--normalize_punctuation_in_hyp",
+        "-n",
+        help="If 2 or punctuation characters were inserted replace them with the first one and a space. If punctuation "
+        "after space is inserted replace it with space.",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.hyp = args.hyp.expanduser()
     args.ref = args.ref.expanduser()
@@ -67,14 +84,16 @@ def transform_to_autoregressive_format(line, line_i):
     return result
 
 
-def read_lines(path, capitalization_labels, include_leading_punctuation_in_metrics, evelina_data_format):
+def read_lines(
+    path, capitalization_labels, include_leading_punctuation_in_metrics, evelina_data_format, normalize_punctuation_
+):
     lstrip_re = re.compile(f"^[^{capitalization_labels}]+")
     rstrip_re = re.compile(f"[^{capitalization_labels}]*$")
     capitalization_re = re.compile(f'[{capitalization_labels}]', flags=re.I)
     punctuation, capitalization, lines = [], [], []
     with path.open() as f:
         for i, line in enumerate(f):
-
+            line = line.strip('\n')
             if evelina_data_format:
                 line = transform_to_autoregressive_format(line, i)
             if include_leading_punctuation_in_metrics:
@@ -86,7 +105,9 @@ def read_lines(path, capitalization_labels, include_leading_punctuation_in_metri
                 line += ' '
             lines.append(line)
             capitalization.append(capitalization_re.findall(line))
-            punctuation.append(list(filter(lambda x: x, capitalization_re.split(line))))
+            punctuation.append(
+                [x[0] + ' ' if x[0] != ' ' else ' ' for x in filter(lambda x: x, capitalization_re.split(line))]
+            )
     return punctuation, capitalization, lines
 
 
@@ -105,10 +126,18 @@ def pad_or_clip_hyp(hyp, ref, pad_id):
 def main():
     args = get_args()
     hyp_punctuation, hyp_capitalization, hyp_lines = read_lines(
-        args.hyp, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
+        args.hyp,
+        args.capitalization_labels,
+        args.include_leading_punctuation_in_metrics,
+        args.evelina_data_format or args.hypothesis_evelina_data_format,
+        args.normalize_punctuation_in_hyp,
     )
     ref_punctuation, ref_capitalization, ref_lines = read_lines(
-        args.ref, args.capitalization_labels, args.include_leading_punctuation_in_metrics, args.evelina_data_format
+        args.ref,
+        args.capitalization_labels,
+        args.include_leading_punctuation_in_metrics,
+        args.evelina_data_format or args.reference_evelina_data_format,
+        False,
     )
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:

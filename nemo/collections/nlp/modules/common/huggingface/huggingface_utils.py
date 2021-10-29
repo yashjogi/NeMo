@@ -106,6 +106,7 @@ def get_huggingface_lm_model(
                 return model_class(config_class.from_json_file(config_file))
         if config_dict:
             config_class = HUGGINGFACE_MODELS[model_type]["config"]
+            logging.info("Initializing Hugging Face model from config...")
             return model_class(config=config_class(**config_dict))
         else:
             return model_class.from_pretrained(pretrained_model_name)

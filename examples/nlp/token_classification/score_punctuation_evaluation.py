@@ -8,6 +8,8 @@ from sklearn.metrics import accuracy_score, f1_score
 
 CAPIT_LABELS_TO_NUMBERS = {"O": 0, "U": 1}
 PUNCT_LABELS_TO_NUMBERS = {"O": 0, ",": 1, ".": 2, "?": 3}
+NUMBERS_TO_CAPIT_LABELS = {v: k for k, v in CAPIT_LABELS_TO_NUMBERS.items()}
+NUMBERS_TO_PUNCT_LABELS = {v: k for k, v in PUNCT_LABELS_TO_NUMBERS.items()}
 
 
 SEPARATORS = re.compile(r"\s+")
@@ -32,7 +34,7 @@ def load_punctuation_capitalization_labels(text):
 def compute_scores(preds_text, labels_text):
     punct_preds, capit_preds = load_punctuation_capitalization_labels(preds_text)
     punct_labels, capit_labels = load_punctuation_capitalization_labels(labels_text)
-    return {
+    metrics = {
         "punctuation": {
             "accuracy": accuracy_score(punct_labels, punct_preds),
             "f1_macro": f1_score(punct_labels, punct_preds, average="macro"),
@@ -42,6 +44,17 @@ def compute_scores(preds_text, labels_text):
             "f1": f1_score(capit_labels, capit_preds),
         },
     }
+    unique_punct = set(punct_labels)
+    unique_capit = set(capit_labels)
+    for labels, preds, unique, key, number_to_label in [
+        (punct_labels, punct_preds, unique_punct, 'punctuation', NUMBERS_TO_PUNCT_LABELS),
+        (capit_labels, capit_preds, unique_capit, 'capitalization', NUMBERS_TO_CAPIT_LABELS),
+    ]:
+        for lbl_id in unique:
+            metrics[key][f"f1_'{number_to_label[lbl_id]}'"] = f1_score(
+                labels, preds, labels=[lbl_id], average="micro", zero_division=0,
+            )
+    return metrics
 
 
 def main():
