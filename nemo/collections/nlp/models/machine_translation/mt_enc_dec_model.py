@@ -272,6 +272,11 @@ class MTEncDecModel(EncDecNLPModel):
 
     @typecheck()
     def forward(self, src, src_mask, tgt, tgt_mask, tgt_word_mask=None, tgt_replacements=None):
+        print(
+            "src, src_mask, tgt, tgt_mask, tgt_word_mask, tgt_replacements:",
+            src.shape, src_mask.shape, tgt.shape, tgt_mask.shape, None if tgt_word_mask is None else tgt_word_mask.shape,
+            None if tgt_replacements is None else tgt_replacements.shape
+        )
         if self.validate_input_ids:
             # test src/tgt for id range (i.e., hellp in catching wrong tokenizer)
             self.test_encoder_ids(src, raise_error=True)

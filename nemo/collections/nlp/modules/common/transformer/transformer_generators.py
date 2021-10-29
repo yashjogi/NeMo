@@ -446,7 +446,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
             replacement_mask, replacements = self.get_replacements(
                 prefixes[:, -1:], num_generated_words, ground_truth_tgt_replacement_mask, ground_truth_tgt_replacements
             )
-            print("prefixes[:, -1:].shape:", prefixes[:, -1:].shape)
+            # print("prefixes[:, -1:].shape:", prefixes[:, -1:].shape)
             log_probs, decoder_mems_list = self._one_step_forward(
                 prefixes[:, -1:],
                 encoder_hidden_states,
