@@ -371,17 +371,20 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
     ):
         replacement_mask = is_in(prefixes, self.decoder_word_ids)
         replacement_indices = torch.nonzero(
-            (ground_truth_tgt_replacement_mask.cumsum(dim=-1) * ground_truth_tgt_replacement_mask).unsqueeze(1).repeat(
-                1, self.beam_size, 1
-            ).view(
-                -1, ground_truth_tgt_replacement_mask.shape[-1]
-            ).eq(num_generated_words.unsqueeze(1))
+            (ground_truth_tgt_replacement_mask.cumsum(dim=-1) * ground_truth_tgt_replacement_mask).eq(
+                num_generated_words.unsqueeze(1)
+            )
         )
         replacement = torch.zeros_like(replacement_mask, dtype=torch.int32)
         replacement[replacement_mask] = ground_truth_tgt_replacements[
             replacement_indices[:, 0], replacement_indices[:, 1]
         ]
         return replacement_mask, replacement
+
+    def extend_for_beam_search(self, tensor):
+        return tensor.unsqueeze(1).repeat(
+            *([1] + [self.beam_size] + [1] * (tensor.dim - 1))
+        ).view(-1, *tensor.shape[1:])
 
     def _forward(
         self,
@@ -401,6 +404,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
                 )
             ground_truth_tgt_replacement_mask = ground_truth_tgt_replacement_mask.to(device)
             ground_truth_tgt_replacements = ground_truth_tgt_replacements.to(device)
+            ground_truth_tgt_replacement_mask = self.extend_for_beam_search(ground_truth_tgt_replacement_mask)
+            ground_truth_tgt_replacements = self.extend_for_beam_search(ground_truth_tgt_replacements)
         if num_tgt_words is not None:
             num_tgt_words = num_tgt_words.to(device).unsqueeze(1).repeat(1, self.beam_size).view(-1)
         tgt, batch_size, max_generation_length = self._prepare_for_search(decoder_input_ids, encoder_hidden_states)
