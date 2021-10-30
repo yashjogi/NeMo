@@ -79,11 +79,12 @@ class TestWordErrorRate:
         return torch.Tensor(string_in_id_form).unsqueeze(0)
 
     def get_wer(self, wer, prediction: str, reference: str):
-        wer(
-            predictions=self.__string_to_ctc_tensor(prediction),
-            targets=self.__reference_string_to_tensor(reference),
-            target_lengths=torch.tensor([len(reference)]),
-        )
+        predictions_tensor = self.__string_to_ctc_tensor(prediction)
+        targets_tensor = self.__reference_string_to_tensor(reference)
+        if wer.batch_dim_index > 0:
+            targets_tensor.transpose_(0, 1)
+            predictions_tensor.transpose_(0, 1)
+        wer(predictions=predictions_tensor, targets=targets_tensor, target_lengths=torch.tensor([len(reference)]))
         res, _, _ = wer.compute()
         res = res.detach().cpu()
         # return res[0] / res[1]
@@ -99,8 +100,9 @@ class TestWordErrorRate:
         assert word_error_rate(hypotheses=['a B c'], references=['a b c']) == 1.0 / 3.0
 
     @pytest.mark.unit
-    def test_wer_metric_simple(self):
-        wer = WER(vocabulary=self.vocabulary, batch_dim_index=0, use_cer=False, ctc_decode=True)
+    @pytest.mark.parametrize("batch_dim_index", [0, 1])
+    def test_wer_metric_simple(self, batch_dim_index):
+        wer = WER(vocabulary=self.vocabulary, batch_dim_index=batch_dim_index, use_cer=False, ctc_decode=True)
 
         assert self.get_wer(wer, 'cat', 'cot') == 1.0
         assert self.get_wer(wer, 'gpu', 'g p u') == 1.0
@@ -147,10 +149,13 @@ class TestWordErrorRate:
         assert str_decoded == 'cat'
 
     @pytest.mark.unit
-    def test_wer_metric_return_hypothesis(self):
-        wer = WER(vocabulary=self.vocabulary, batch_dim_index=0, use_cer=False, ctc_decode=True)
+    @pytest.mark.parametrize("batch_dim_index", [0, 1])
+    def test_wer_metric_return_hypothesis(self, batch_dim_index):
+        wer = WER(vocabulary=self.vocabulary, batch_dim_index=batch_dim_index, use_cer=False, ctc_decode=True)
 
         tensor = self.__string_to_ctc_tensor('cat').int()
+        if batch_dim_index > 0:
+            tensor.transpose_(0, 1)
 
         # pass batchsize 1 tensor, get back list of length 1 Hypothesis
         hyp = wer.ctc_decoder_predictions_tensor(tensor, return_hypotheses=True)
@@ -163,7 +168,7 @@ class TestWordErrorRate:
         assert hyp.alignments == [3, 1, 20]
         assert hyp.length == 0
 
-        length = torch.tensor([tensor.shape[-1]], dtype=torch.long)
+        length = torch.tensor([tensor.shape[1 - batch_dim_index]], dtype=torch.long)
 
         # pass batchsize 1 tensor, get back list of length 1 Hypothesis [add length info]
         hyp = wer.ctc_decoder_predictions_tensor(tensor, predictions_len=length, return_hypotheses=True)

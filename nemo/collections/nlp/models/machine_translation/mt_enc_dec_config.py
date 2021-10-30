@@ -67,6 +67,7 @@ class MTEncDecModelConfig(EncDecNLPModelConfig):
     validate_input_ids: Optional[bool] = True
     filter_beam_ids: bool = True
     increase_l2_fetch_granularity: bool = False
+    tgt_character_vocabulary: Optional[str] = None
 
     # network architecture configuration
     encoder_tokenizer: Any = MISSING

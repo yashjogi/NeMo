@@ -29,6 +29,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.utilities import rank_zero_only
 from sacrebleu import corpus_bleu
 
+from nemo.collections.asr.metrics.wer import WER
 from nemo.collections.common.data import ConcatDataset
 from nemo.collections.common.losses import NLLLoss, SmoothedCrossEntropyLoss
 from nemo.collections.common.metrics import GlobalAverageLossMetric
@@ -59,6 +60,33 @@ def increase_l2_fetch_granularity():
     _libcudart.cudaDeviceSetLimit(ctypes.c_int(0x05), ctypes.c_int(128))
     _libcudart.cudaDeviceGetLimit(pValue, ctypes.c_int(0x05))
     assert pValue.contents.value == 128
+
+
+def string_to_ctc_tensor(txt: str, vocabulary: List[str]) -> torch.Tensor:
+    # This function emulates how CTC output could like for txt
+    blank_id = len(vocabulary)
+    char_to_ind = dict([(vocabulary[i], i) for i in range(len(vocabulary))])
+    string_in_id_form = [char_to_ind[c] for c in txt]
+    ctc_list = []
+    prev_id = -1
+    for c in string_in_id_form:
+        # when character is repeated we need to insert CTC blank symbol
+        if c != prev_id:
+            ctc_list.append(c)
+        else:
+            ctc_list.append(blank_id)
+            ctc_list.append(c)
+        prev_id = c
+    return torch.Tensor(ctc_list).unsqueeze(0)
+
+
+def load_character_vocabulary(path: str) -> List[str]:
+    path = Path(path).expanduser()
+    vocabulary = []
+    with path.open() as f:
+        for line in f:
+            vocabulary.append(eval(line.strip()))
+    return vocabulary
 
 
 class MTEncDecModel(EncDecNLPModel):
@@ -237,6 +265,10 @@ class MTEncDecModel(EncDecNLPModel):
             "test_ds", {}
         ).get("add_src_num_words_to_batch", False)
         self.filter_beam_ids = cfg.get("filter_beam_ids", True)
+        if cfg.tgt_character_vocabulary is None:
+            self.tgt_character_vocabulary = None
+        else:
+            self.tgt_character_vocabulary = load_character_vocabulary(cfg.tgt_character_vocabulary)
 
     def _validate_encoder_decoder_hidden_size(self):
         """
@@ -528,14 +560,18 @@ class MTEncDecModel(EncDecNLPModel):
         if self._validation_dl is not None:
             for dataloader_idx in range(len(self._validation_dl)):
                 if dataloader_idx == 0:
-                    setattr(
-                        self, f'val_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
-                    )
+                    setattr(self, 'val_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True))
+                    setattr(self, 'CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
                 else:
                     setattr(
                         self,
                         f'val_loss_{dataloader_idx}',
                         GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
+                    )
+                    setattr(
+                        self,
+                        f'CER_{dataloader_idx}',
+                        WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
                     )
 
     def setup_test_data(self, test_data_config: Optional[DictConfig]):
