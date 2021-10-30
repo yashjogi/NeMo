@@ -28,6 +28,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from pytorch_lightning import Trainer
 from pytorch_lightning.utilities import rank_zero_only
 from sacrebleu import corpus_bleu
+from torch.nn.utils.rnn import pad_sequence
 
 from nemo.collections.asr.metrics.wer import WER
 from nemo.collections.common.data import ConcatDataset
@@ -84,7 +85,9 @@ def load_character_vocabulary(path: str) -> List[str]:
     path = Path(path).expanduser()
     vocabulary = []
     with path.open() as f:
-        for line in f:
+        for i, line in enumerate(f):
+            if i == 0 and line.startswith('{'):
+                continue
             vocabulary.append(eval(line.strip()))
     return vocabulary
 
@@ -336,6 +339,11 @@ class MTEncDecModel(EncDecNLPModel):
 
         return {'loss': train_loss, 'log': tensorboard_logs}
 
+    def encode_ctc(self, sentences):
+        encoded = [string_to_ctc_tensor(s, self.tgt_character_vocabulary) for s in sentences]
+        lengths = torch.tensor([s.shape[0] for s in encoded])
+        return pad_sequence(encoded), lengths
+
     def eval_step(self, batch, batch_idx, mode, dataloader_idx=0):
         for i in range(len(batch)):
             batch[i] = batch[i].squeeze(dim=0)
@@ -359,16 +367,20 @@ class MTEncDecModel(EncDecNLPModel):
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
         _, translations = self.batch_translate(src=src_ids, src_mask=src_mask, num_tgt_words=num_src_words)
-        if dataloader_idx == 0:
-            getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
-        else:
-            getattr(self, f'{mode}_loss_{dataloader_idx}')(
-                loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1]
-            )
         np_tgt = tgt_ids.detach().cpu().numpy()
         ground_truths = [self.decoder_tokenizer.ids_to_text(tgt) for tgt in np_tgt]
         ground_truths = [self.target_processor.detokenize(tgt.split(' ')) for tgt in ground_truths]
         num_non_pad_tokens = np.not_equal(np_tgt, self.decoder_tokenizer.pad_id).sum().item()
+        tr_ctc, tr_lengths = self.encode_ctc(translations)
+        gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
+        if dataloader_idx == 0:
+            getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
+            getattr(self, f'{mode}_CER')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
+        else:
+            getattr(self, f'{mode}_loss_{dataloader_idx}')(
+                loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1]
+            )
+            getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
         return {
             'translations': translations,
             'ground_truths': ground_truths,
@@ -406,8 +418,10 @@ class MTEncDecModel(EncDecNLPModel):
         for dataloader_idx, output in enumerate(outputs):
             if dataloader_idx == 0:
                 eval_loss = getattr(self, f'{mode}_loss').compute()
+                eval_cer = getattr(self, f'{mode}_CER').compute()
             else:
                 eval_loss = getattr(self, f'{mode}_loss_{dataloader_idx}').compute()
+                eval_cer = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
 
             translations = list(itertools.chain(*[x['translations'] for x in output]))
             ground_truths = list(itertools.chain(*[x['ground_truths'] for x in output]))
@@ -463,10 +477,14 @@ class MTEncDecModel(EncDecNLPModel):
                 self.log(f"{mode}_loss", eval_loss, sync_dist=True)
                 self.log(f"{mode}_sacreBLEU", sb_score, sync_dist=True)
                 getattr(self, f'{mode}_loss').reset()
+                self.log(f"{mode}_CER", eval_cer, sync_dist=True)
+                getattr(self, f'{mode}_CER').reset()
             else:
                 self.log(f"{mode}_loss_dl_index_{dataloader_idx}", eval_loss, sync_dist=True)
                 self.log(f"{mode}_sacreBLEU_dl_index_{dataloader_idx}", sb_score, sync_dist=True)
                 getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
+                self.log(f"{mode}_CER_{dataloader_idx}", eval_cer, sync_dist=True)
+                getattr(self, f'{mode}_CER_{dataloader_idx}').reset()
 
         if len(loss_list) > 1:
             self.log(f"{mode}_loss_avg", np.mean(loss_list), sync_dist=True)
@@ -561,7 +579,7 @@ class MTEncDecModel(EncDecNLPModel):
             for dataloader_idx in range(len(self._validation_dl)):
                 if dataloader_idx == 0:
                     setattr(self, 'val_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True))
-                    setattr(self, 'CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
+                    setattr(self, 'val_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
                 else:
                     setattr(
                         self,
@@ -570,7 +588,7 @@ class MTEncDecModel(EncDecNLPModel):
                     )
                     setattr(
                         self,
-                        f'CER_{dataloader_idx}',
+                        f'val_CER_{dataloader_idx}',
                         WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
                     )
 
@@ -583,11 +601,17 @@ class MTEncDecModel(EncDecNLPModel):
                     setattr(
                         self, f'test_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
                     )
+                    setattr(self, 'test_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
                 else:
                     setattr(
                         self,
                         f'test_loss_{dataloader_idx}',
                         GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
+                    )
+                    setattr(
+                        self,
+                        f'test_CER_{dataloader_idx}',
+                        WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
                     )
 
     def _setup_dataloader_from_config(self, cfg: DictConfig):
