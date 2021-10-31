@@ -421,11 +421,11 @@ class MTEncDecModel(EncDecNLPModel):
             if dataloader_idx == 0:
                 eval_loss = getattr(self, f'{mode}_loss').compute()
                 if self.tgt_character_vocabulary is not None:
-                    cer_numerator, cer_denominator = getattr(self, f'{mode}_CER').compute()
+                    cer, _, _ = getattr(self, f'{mode}_CER').compute()
             else:
                 eval_loss = getattr(self, f'{mode}_loss_{dataloader_idx}').compute()
                 if self.tgt_character_vocabulary is not None:
-                    cer_numerator, cer_denominator = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
+                    cer, _, _ = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
 
             translations = list(itertools.chain(*[x['translations'] for x in output]))
             ground_truths = list(itertools.chain(*[x['ground_truths'] for x in output]))
@@ -482,14 +482,14 @@ class MTEncDecModel(EncDecNLPModel):
                 self.log(f"{mode}_sacreBLEU", sb_score, sync_dist=True)
                 if self.tgt_character_vocabulary is not None:
                     getattr(self, f'{mode}_loss').reset()
-                    self.log(f"{mode}_CER", cer_numerator / cer_denominator, sync_dist=True)
+                    self.log(f"{mode}_CER", cer, sync_dist=True)
                     getattr(self, f'{mode}_CER').reset()
             else:
                 self.log(f"{mode}_loss_dl_index_{dataloader_idx}", eval_loss, sync_dist=True)
                 self.log(f"{mode}_sacreBLEU_dl_index_{dataloader_idx}", sb_score, sync_dist=True)
                 if self.tgt_character_vocabulary is not None:
                     getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
-                    self.log(f"{mode}_CER_{dataloader_idx}", cer_numerator / cer_denominator, sync_dist=True)
+                    self.log(f"{mode}_CER_{dataloader_idx}", cer, sync_dist=True)
                     getattr(self, f'{mode}_CER_{dataloader_idx}').reset()
 
         if len(loss_list) > 1:
