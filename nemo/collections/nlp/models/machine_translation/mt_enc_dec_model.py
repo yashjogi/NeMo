@@ -375,12 +375,14 @@ class MTEncDecModel(EncDecNLPModel):
         gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
-            getattr(self, f'{mode}_CER')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
+            if self.tgt_character_vocabulary is not None:
+                getattr(self, f'{mode}_CER')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
         else:
             getattr(self, f'{mode}_loss_{dataloader_idx}')(
                 loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1]
             )
-            getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
+            if self.tgt_character_vocabulary is not None:
+                getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
         return {
             'translations': translations,
             'ground_truths': ground_truths,
@@ -418,10 +420,12 @@ class MTEncDecModel(EncDecNLPModel):
         for dataloader_idx, output in enumerate(outputs):
             if dataloader_idx == 0:
                 eval_loss = getattr(self, f'{mode}_loss').compute()
-                eval_cer = getattr(self, f'{mode}_CER').compute()
+                if self.tgt_character_vocabulary is not None:
+                    eval_cer = getattr(self, f'{mode}_CER').compute()
             else:
                 eval_loss = getattr(self, f'{mode}_loss_{dataloader_idx}').compute()
-                eval_cer = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
+                if self.tgt_character_vocabulary is not None:
+                    eval_cer = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
 
             translations = list(itertools.chain(*[x['translations'] for x in output]))
             ground_truths = list(itertools.chain(*[x['ground_truths'] for x in output]))
@@ -476,15 +480,17 @@ class MTEncDecModel(EncDecNLPModel):
             if dataloader_idx == 0:
                 self.log(f"{mode}_loss", eval_loss, sync_dist=True)
                 self.log(f"{mode}_sacreBLEU", sb_score, sync_dist=True)
-                getattr(self, f'{mode}_loss').reset()
-                self.log(f"{mode}_CER", eval_cer, sync_dist=True)
-                getattr(self, f'{mode}_CER').reset()
+                if self.tgt_character_vocabulary is not None:
+                    getattr(self, f'{mode}_loss').reset()
+                    self.log(f"{mode}_CER", eval_cer, sync_dist=True)
+                    getattr(self, f'{mode}_CER').reset()
             else:
                 self.log(f"{mode}_loss_dl_index_{dataloader_idx}", eval_loss, sync_dist=True)
                 self.log(f"{mode}_sacreBLEU_dl_index_{dataloader_idx}", sb_score, sync_dist=True)
-                getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
-                self.log(f"{mode}_CER_{dataloader_idx}", eval_cer, sync_dist=True)
-                getattr(self, f'{mode}_CER_{dataloader_idx}').reset()
+                if self.tgt_character_vocabulary is not None:
+                    getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
+                    self.log(f"{mode}_CER_{dataloader_idx}", eval_cer, sync_dist=True)
+                    getattr(self, f'{mode}_CER_{dataloader_idx}').reset()
 
         if len(loss_list) > 1:
             self.log(f"{mode}_loss_avg", np.mean(loss_list), sync_dist=True)
@@ -579,18 +585,22 @@ class MTEncDecModel(EncDecNLPModel):
             for dataloader_idx in range(len(self._validation_dl)):
                 if dataloader_idx == 0:
                     setattr(self, 'val_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True))
-                    setattr(self, 'val_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
+                    if self.tgt_character_vocabulary is not None:
+                        setattr(
+                            self, 'val_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                        )
                 else:
                     setattr(
                         self,
                         f'val_loss_{dataloader_idx}',
                         GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
                     )
-                    setattr(
-                        self,
-                        f'val_CER_{dataloader_idx}',
-                        WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
-                    )
+                    if self.tgt_character_vocabulary is not None:
+                        setattr(
+                            self,
+                            f'val_CER_{dataloader_idx}',
+                            WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                        )
 
     def setup_test_data(self, test_data_config: Optional[DictConfig]):
         self._test_dl = self._setup_eval_dataloader_from_config(cfg=test_data_config)
@@ -601,18 +611,22 @@ class MTEncDecModel(EncDecNLPModel):
                     setattr(
                         self, f'test_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
                     )
-                    setattr(self, 'test_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False))
+                    if self.tgt_character_vocabulary is not None:
+                        setattr(
+                            self, 'test_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                        )
                 else:
                     setattr(
                         self,
                         f'test_loss_{dataloader_idx}',
                         GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True),
                     )
-                    setattr(
-                        self,
-                        f'test_CER_{dataloader_idx}',
-                        WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
-                    )
+                    if self.tgt_character_vocabulary is not None:
+                        setattr(
+                            self,
+                            f'test_CER_{dataloader_idx}',
+                            WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                        )
 
     def _setup_dataloader_from_config(self, cfg: DictConfig):
         if cfg.get("use_tarred_dataset", False):
