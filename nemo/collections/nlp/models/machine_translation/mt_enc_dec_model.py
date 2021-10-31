@@ -343,7 +343,7 @@ class MTEncDecModel(EncDecNLPModel):
     def encode_ctc(self, sentences):
         encoded = [string_to_ctc_tensor(s, self.tgt_character_vocabulary) for s in sentences]
         lengths = torch.tensor([s.shape[0] for s in encoded])
-        encoded = pad_sequence(encoded)
+        encoded = pad_sequence(encoded, batch_first=True)
         print("encoded.shape:", encoded.shape)
         print("lengths:", lengths)
         return encoded, lengths
