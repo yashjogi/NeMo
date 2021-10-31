@@ -78,7 +78,7 @@ def string_to_ctc_tensor(txt: str, vocabulary: List[str]) -> torch.Tensor:
             ctc_list.append(blank_id)
             ctc_list.append(c)
         prev_id = c
-    return torch.Tensor(ctc_list).unsqueeze(0)
+    return torch.Tensor(ctc_list)
 
 
 def load_character_vocabulary(path: str) -> List[str]:
