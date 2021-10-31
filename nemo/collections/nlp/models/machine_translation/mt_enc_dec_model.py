@@ -178,6 +178,7 @@ class MTEncDecModel(EncDecNLPModel):
             self.tgt_character_vocabulary = None
         else:
             self.tgt_character_vocabulary = load_character_vocabulary(cfg.tgt_character_vocabulary)
+            print("self.tgt_character_vocabulary:", self.tgt_character_vocabulary)
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
@@ -342,7 +343,10 @@ class MTEncDecModel(EncDecNLPModel):
     def encode_ctc(self, sentences):
         encoded = [string_to_ctc_tensor(s, self.tgt_character_vocabulary) for s in sentences]
         lengths = torch.tensor([s.shape[0] for s in encoded])
-        return pad_sequence(encoded), lengths
+        encoded = pad_sequence(encoded)
+        print("encoded.shape:", encoded.shape)
+        print("lengths:", lengths)
+        return encoded, lengths
 
     def eval_step(self, batch, batch_idx, mode, dataloader_idx=0):
         for i in range(len(batch)):
