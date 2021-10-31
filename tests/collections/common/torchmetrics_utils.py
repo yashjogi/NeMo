@@ -67,10 +67,11 @@ def _class_test(
     metric_class: Metric,
     sk_metric: Callable,
     dist_sync_on_step: bool,
-    metric_args: dict = {},
+    metric_args: dict = None,
     check_dist_sync_on_step: bool = True,
     check_batch: bool = True,
     atol: float = 1e-8,
+    reshape_into_2d_tensor_before_passing_to_metric: bool = False,
 ):
     """ Utility function doing the actual comparison between lightning class metric
         and reference metric.
@@ -88,8 +89,13 @@ def _class_test(
                 calculated per batch per device (and not just at the end)
             check_batch: bool, if true will check if the metric is also correctly
                 calculated across devices for each batch (and not just at the end)
+            atol: float, the absolute tolerance parameter. See more
+                https://numpy.org/doc/stable/reference/generated/numpy.isclose.html
+            reshape_into_2d_tensor_before_passing_to_metric: bool, if true stacked metric inputs are reshaped into
+                2D. Used if metrics takes only 2D targets and predictions.
     """
-    # Instanciate lightning metric
+    if metric_args is None:
+        metric_args = {}
     metric = metric_class(compute_on_step=True, dist_sync_on_step=dist_sync_on_step, **metric_args)
 
     # verify metrics work after being loaded from pickled state
@@ -103,6 +109,9 @@ def _class_test(
             if rank == 0:
                 ddp_preds = torch.stack([preds[i + r] for r in range(worldsize)])
                 ddp_target = torch.stack([target[i + r] for r in range(worldsize)])
+                if reshape_into_2d_tensor_before_passing_to_metric:
+                    ddp_preds = ddp_preds.reshape([-1, ddp_preds.shape[-1]])
+                    ddp_target = ddp_target.reshape([-1, ddp_target.shape[-1]])
                 sk_batch_result = sk_metric(ddp_preds, ddp_target)
                 # assert for dist_sync_on_step
                 if check_dist_sync_on_step:
@@ -119,6 +128,9 @@ def _class_test(
 
     total_preds = torch.stack([preds[i] for i in range(NUM_BATCHES)])
     total_target = torch.stack([target[i] for i in range(NUM_BATCHES)])
+    if reshape_into_2d_tensor_before_passing_to_metric:
+        total_preds = total_preds.reshape([-1, total_preds.shape[-1]])
+        total_target = total_target.reshape([-1, total_target.shape[-1]])
     sk_result = sk_metric(total_preds, total_target)
 
     # assert after aggregation
@@ -153,7 +165,7 @@ def _functional_test(
 
 
 class MetricTester:
-    """ Class used for efficiently run alot of parametrized tests in ddp mode.
+    """ Class used for efficiently run a lot of parametrized tests in ddp mode.
         Makes sure that ddp is only setup once and that pool of processes are
         used for all tests.
         All tests should subclass from this and implement a new method called
@@ -188,14 +200,15 @@ class MetricTester:
         sk_metric: Callable,
         metric_args: dict = {},
     ):
-        """ Main method that should be used for testing functions. Call this inside
-            testing method
-            Args:
-                preds: torch tensor with predictions
-                target: torch tensor with targets
-                metric_functional: lightning metric class that should be tested
-                sk_metric: callable function that is used for comparison
-                metric_args: dict with additional arguments used for class initialization
+        """
+        Main method that should be used for testing functions. Call this inside testing method
+
+        Args:
+            preds: torch tensor with predictions
+            target: torch tensor with targets
+            metric_functional: lightning metric class that should be tested
+            sk_metric: callable function that is used for comparison
+            metric_args: dict with additional arguments used for class initialization
         """
         _functional_test(
             preds=preds,
@@ -217,22 +230,26 @@ class MetricTester:
         metric_args: dict = {},
         check_dist_sync_on_step: bool = True,
         check_batch: bool = True,
+        reshape_into_2d_tensor_before_passing_to_metric: bool = False,
     ):
-        """ Main method that should be used for testing class. Call this inside testing
-            methods.
-            Args:
-                ddp: bool, if running in ddp mode or not
-                preds: torch tensor with predictions
-                target: torch tensor with targets
-                metric_class: lightning metric class that should be tested
-                sk_metric: callable function that is used for comparison
-                dist_sync_on_step: bool, if true will synchronize metric state across
-                    processes at each ``forward()``
-                metric_args: dict with additional arguments used for class initialization
-                check_dist_sync_on_step: bool, if true will check if the metric is also correctly
-                    calculated per batch per device (and not just at the end)
-                check_batch: bool, if true will check if the metric is also correctly
-                    calculated across devices for each batch (and not just at the end)
+        """
+        Main method that should be used for testing class. Call this inside testing methods.
+
+        Args:
+            ddp: bool, if running in ddp mode or not
+            preds: torch tensor with predictions
+            target: torch tensor with targets
+            metric_class: lightning metric class that should be tested
+            sk_metric: callable function that is used for comparison
+            dist_sync_on_step: bool, if true will synchronize metric state across
+                processes at each ``forward()``
+            metric_args: dict with additional arguments used for class initialization
+            check_dist_sync_on_step: bool, if true will check if the metric is also correctly
+                calculated per batch per device (and not just at the end)
+            check_batch: bool, if true will check if the metric is also correctly
+                calculated across devices for each batch (and not just at the end)
+            reshape_into_2d_tensor_before_passing_to_metric: bool, if true stacked metric inputs are reshaped into
+                2D. Used if metrics takes only 2D targets and predictions.
         """
         if ddp:
             if sys.platform == "win32":
@@ -250,6 +267,7 @@ class MetricTester:
                     check_dist_sync_on_step=check_dist_sync_on_step,
                     check_batch=check_batch,
                     atol=self.atol,
+                    reshape_into_2d_tensor_before_passing_to_metric=reshape_into_2d_tensor_before_passing_to_metric,
                 ),
                 [(rank, self.poolSize) for rank in range(self.poolSize)],
             )
@@ -266,6 +284,7 @@ class MetricTester:
                 check_dist_sync_on_step=check_dist_sync_on_step,
                 check_batch=check_batch,
                 atol=self.atol,
+                reshape_into_2d_tensor_before_passing_to_metric=reshape_into_2d_tensor_before_passing_to_metric,
             )
 
 

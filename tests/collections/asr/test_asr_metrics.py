@@ -20,6 +20,7 @@ import torch
 
 from nemo.collections.asr.metrics.wer import WER, word_error_rate
 from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis
+from ..common.torchmetrics_utils import MetricTester
 
 
 class TestWordErrorRate:
@@ -170,3 +171,18 @@ class TestWordErrorRate:
         hyp = hyp[0]
         assert isinstance(hyp, Hypothesis)
         assert hyp.length == 3
+
+
+class TestWERs(MetricTester):
+    @pytest.mark.parametrize("ddp", [False, True])
+    @pytest.mark.parametrize("dist_sync_on_step", [False, True])
+    def test_wer_class(self, ddp, dist_sync_on_step, preds, target):
+        self.run_class_metric_test(
+            ddp=ddp,
+            preds=preds,
+            target=target,
+            metric_class=WER,
+            sk_metric=partial(_sk_accuracy, subset_accuracy=subset_accuracy),
+            dist_sync_on_step=dist_sync_on_step,
+            metric_args={"threshold": THRESHOLD, "subset_accuracy": subset_accuracy},
+        )
