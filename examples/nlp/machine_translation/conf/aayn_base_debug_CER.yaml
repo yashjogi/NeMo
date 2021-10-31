@@ -141,7 +141,7 @@ model:
     use_transformer_init: true
 
 trainer:
-  gpus: 4
+  gpus: 1
   num_nodes: 1
   max_epochs: 2000
   amp_level: O2 # O1/O2 for mixed precision
