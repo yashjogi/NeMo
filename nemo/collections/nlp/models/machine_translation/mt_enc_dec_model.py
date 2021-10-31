@@ -375,6 +375,7 @@ class MTEncDecModel(EncDecNLPModel):
         ground_truths = [self.decoder_tokenizer.ids_to_text(tgt) for tgt in np_tgt]
         ground_truths = [self.target_processor.detokenize(tgt.split(' ')) for tgt in ground_truths]
         num_non_pad_tokens = np.not_equal(np_tgt, self.decoder_tokenizer.pad_id).sum().item()
+        print("len(translations):", len(translations))
         tr_ctc, tr_lengths = self.encode_ctc(translations)
         gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
         if dataloader_idx == 0:
