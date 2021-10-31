@@ -238,6 +238,8 @@ class WER(Metric):
             # iterate over batch
             for ind in range(targets_cpu_tensor.shape[0]):
                 tgt_len = tgt_lenths_cpu_tensor[ind].item()
+                if tgt_len == 0:
+                    print("zero tgt_len:", ind)
                 target = targets_cpu_tensor[ind][:tgt_len].numpy().tolist()
                 if len(target) == 0:
                     print("target of zero length:", ind)
