@@ -21,7 +21,7 @@ from torchmetrics import Metric
 from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis
 from nemo.utils import logging
 
-__all__ = ['word_error_rate', 'WER']
+__all__ = ['word_error_rate', 'WER', 'move_dimension_to_the_front']
 
 
 def word_error_rate(hypotheses: List[str], references: List[str], use_cer=False) -> float:
@@ -60,15 +60,20 @@ def word_error_rate(hypotheses: List[str], references: List[str], use_cer=False)
     return wer
 
 
+def move_dimension_to_the_front(tensor, dim_index):
+    all_dims = list(range(tensor.ndim))
+    return tensor.permute(*([dim_index] + all_dims[:dim_index] + all_dims[dim_index + 1 :]))
+
+
 class WER(Metric):
     """
-    This metric computes numerator and denominator for Overall Word Error Rate (WER) between prediction and reference texts.
-    When doing distributed training/evaluation the result of res=WER(predictions, targets, target_lengths) calls
-    will be all-reduced between all workers using SUM operations.
-    Here contains two numbers res=[wer_numerator, wer_denominator]. WER=wer_numerator/wer_denominator.
+    This metric computes numerator and denominator for Overall Word Error Rate (WER) between prediction and reference
+    texts. When doing distributed training/evaluation the result of ``res=WER(predictions, targets, target_lengths)``
+    calls will be all-reduced between all workers using SUM operations. Here ``res`` contains three numbers
+    ``res=[wer, total_levenstein_distance, total_number_of_words]``.
 
-    If used with PytorchLightning LightningModule, include wer_numerator and wer_denominators inside validation_step results.
-    Then aggregate (sum) then at the end of validation epoch to correctly compute validation WER.
+    If used with PytorchLightning LightningModule, include wer_numerator and wer_denominators inside validation_step
+    results. Then aggregate (sum) then at the end of validation epoch to correctly compute validation WER.
 
     Example:
         def validation_step(self, batch, batch_idx):
@@ -92,8 +97,8 @@ class WER(Metric):
         log_prediction: Whether to log a single decoded sample per call.
 
     Returns:
-        res: a torch.Tensor object with two elements: [wer_numerator, wer_denominator]. To correctly compute average
-        text word error rate, compute wer=wer_numerator/wer_denominator
+        res: a tuple of 3 zero dimensional float32 ``torch.Tensor` objects: a WER score, a sum of Levenstein's
+            distances for all prediction - reference pairs, total number of words in all references.
     """
 
     def __init__(
@@ -140,7 +145,7 @@ class WER(Metric):
         """
         hypotheses = []
         # Drop predictions to CPU
-        predictions = self.move_dimension_to_the_front(predictions, self.batch_dim_index)
+        predictions = move_dimension_to_the_front(predictions, self.batch_dim_index)
         prediction_cpu_tensor = predictions.long().cpu()
         # iterate over batch
         for ind in range(prediction_cpu_tensor.shape[0]):
@@ -198,11 +203,6 @@ class WER(Metric):
         token_list = [self.labels_map[c] for c in tokens if c != self.blank_id]
         return token_list
 
-    @staticmethod
-    def move_dimension_to_the_front(tensor, dim_index):
-        all_dims = list(range(tensor.ndim))
-        return tensor.permute(*([dim_index] + all_dims[:dim_index] + all_dims[dim_index + 1 :]))
-
     def update(
         self,
         predictions: torch.Tensor,
@@ -220,19 +220,13 @@ class WER(Metric):
             target_lengths: an integer torch.Tensor of shape ``[Batch]``
             predictions_lengths: an integer torch.Tensor of shape ``[Batch]``
         """
-        if self.batch_dim_index >= targets.ndim or self.batch_dim_index >= predictions.ndim:
-            raise ValueError(
-                f"Attribute `self.batch_dim_index` has to be less than number of dimensions in parameters "
-                f"`targets` and `predictions`. self.batch_dim_index={self.batch_dim_index}, "
-                f"targets.ndim={targets.ndim}, predictions.dim={predictions.dim}"
-            )
         words = 0.0
         scores = 0.0
         references = []
         with torch.no_grad():
             # prediction_cpu_tensor = tensors[0].long().cpu()
             targets_cpu_tensor = targets.long().cpu()
-            targets_cpu_tensor = self.move_dimension_to_the_front(targets_cpu_tensor, self.batch_dim_index)
+            targets_cpu_tensor = move_dimension_to_the_front(targets_cpu_tensor, self.batch_dim_index)
             tgt_lenths_cpu_tensor = target_lengths.long().cpu()
 
             # iterate over batch
