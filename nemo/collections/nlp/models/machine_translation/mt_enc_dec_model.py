@@ -378,13 +378,13 @@ class MTEncDecModel(EncDecNLPModel):
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
             if self.tgt_character_vocabulary is not None:
-                getattr(self, f'{mode}_CER')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
+                getattr(self, f'{mode}_CER')(tr_ctc, gt_ctc, gt_lengths, tr_lengths)
         else:
             getattr(self, f'{mode}_loss_{dataloader_idx}')(
                 loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1]
             )
             if self.tgt_character_vocabulary is not None:
-                getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, tr_lengths, gt_lengths)
+                getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, gt_lengths, tr_lengths)
         return {
             'translations': translations,
             'ground_truths': ground_truths,
