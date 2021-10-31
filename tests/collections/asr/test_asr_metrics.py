@@ -16,6 +16,7 @@ import io
 import random
 import string
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import List
 from unittest.mock import Mock, patch
 
@@ -253,6 +254,23 @@ class TestWordErrorRate:
                     )
                     < 1e-6
                 )
+
+
+@dataclass(frozen=True)
+class WERInput:
+    """
+    Prediction - target pairs for testing ``nemo.collections.asr.metrics.wer.WER`` and ``nemo.collections.asr.
+
+    Args:
+        loss_sum_or_avg: a one dimensional float tensor which contains losses for averaging. Each element is either a
+            sum or mean of several losses depending on the parameter ``take_avg_loss`` of the
+            ``nemo.collections.common.metrics.GlobalAverageLossMetric`` class.
+        num_measurements: a one dimensional integer tensor which contains number of measurements which sums or average
+            values are in ``loss_sum_or_avg``.
+    """
+
+    predictions: List[str]
+    targets: List[str]
 
 
 class TestWERs(MetricTester):
