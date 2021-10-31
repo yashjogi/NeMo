@@ -12,7 +12,7 @@ model:
   preproc_out_dir: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_all_punctuation/preprocessed_test_data/ # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
-  tgt_character_vocabulary: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/punct_prepared_datasets/prepared_punctuation_data_all_punctuation/autoregressive_char_vocabulary.txt
+  tgt_character_vocabulary: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_all_punctuation/autoregressive_char_vocabulary.txt
 
   train_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_all_punctuation/dev/input.txt
