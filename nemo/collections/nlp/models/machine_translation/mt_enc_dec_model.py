@@ -178,7 +178,6 @@ class MTEncDecModel(EncDecNLPModel):
             self.tgt_character_vocabulary = None
         else:
             self.tgt_character_vocabulary = load_character_vocabulary(cfg.tgt_character_vocabulary)
-            print("self.tgt_character_vocabulary:", self.tgt_character_vocabulary)
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
@@ -344,8 +343,6 @@ class MTEncDecModel(EncDecNLPModel):
         encoded = [string_to_ctc_tensor(s, self.tgt_character_vocabulary) for s in sentences]
         lengths = torch.tensor([s.shape[0] for s in encoded])
         encoded = pad_sequence(encoded, batch_first=True)
-        print("encoded.shape:", encoded.shape)
-        print("lengths:", lengths)
         return encoded, lengths
 
     def eval_step(self, batch, batch_idx, mode, dataloader_idx=0):
@@ -375,9 +372,9 @@ class MTEncDecModel(EncDecNLPModel):
         ground_truths = [self.decoder_tokenizer.ids_to_text(tgt) for tgt in np_tgt]
         ground_truths = [self.target_processor.detokenize(tgt.split(' ')) for tgt in ground_truths]
         num_non_pad_tokens = np.not_equal(np_tgt, self.decoder_tokenizer.pad_id).sum().item()
-        print("len(translations):", len(translations))
         tr_ctc, tr_lengths = self.encode_ctc(translations)
         gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
+        print("gt_lengths:", gt_lengths)
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
             if self.tgt_character_vocabulary is not None:
@@ -592,7 +589,12 @@ class MTEncDecModel(EncDecNLPModel):
                     setattr(self, 'val_loss', GlobalAverageLossMetric(dist_sync_on_step=False, take_avg_loss=True))
                     if self.tgt_character_vocabulary is not None:
                         setattr(
-                            self, 'val_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                            self, 'val_CER', WER(
+                                self.tgt_character_vocabulary,
+                                use_cer=True,
+                                dist_sync_on_step=False,
+                                log_prediction=False,
+                            )
                         )
                 else:
                     setattr(
@@ -604,7 +606,12 @@ class MTEncDecModel(EncDecNLPModel):
                         setattr(
                             self,
                             f'val_CER_{dataloader_idx}',
-                            WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                            WER(
+                                self.tgt_character_vocabulary,
+                                use_cer=True,
+                                dist_sync_on_step=False,
+                                log_prediction=False,
+                            )
                         )
 
     def setup_test_data(self, test_data_config: Optional[DictConfig]):
@@ -618,7 +625,12 @@ class MTEncDecModel(EncDecNLPModel):
                     )
                     if self.tgt_character_vocabulary is not None:
                         setattr(
-                            self, 'test_CER', WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                            self, 'test_CER', WER(
+                                self.tgt_character_vocabulary,
+                                use_cer=True,
+                                dist_sync_on_step=False,
+                                log_prediction=False,
+                            )
                         )
                 else:
                     setattr(
@@ -630,7 +642,12 @@ class MTEncDecModel(EncDecNLPModel):
                         setattr(
                             self,
                             f'test_CER_{dataloader_idx}',
-                            WER(self.tgt_character_vocabulary, use_cer=True, dist_sync_on_step=False)
+                            WER(
+                                self.tgt_character_vocabulary,
+                                use_cer=True,
+                                dist_sync_on_step=False,
+                                log_prediction=False,
+                            )
                         )
 
     def _setup_dataloader_from_config(self, cfg: DictConfig):
