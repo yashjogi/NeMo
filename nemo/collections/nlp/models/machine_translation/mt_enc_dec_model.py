@@ -374,7 +374,6 @@ class MTEncDecModel(EncDecNLPModel):
         num_non_pad_tokens = np.not_equal(np_tgt, self.decoder_tokenizer.pad_id).sum().item()
         tr_ctc, tr_lengths = self.encode_ctc(translations)
         gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
-        print("gt_lengths is zero:", torch.nonzero(gt_lengths.eq(0)))
         if dataloader_idx == 0:
             getattr(self, f'{mode}_loss')(loss=eval_loss, num_measurements=log_probs.shape[0] * log_probs.shape[1])
             if self.tgt_character_vocabulary is not None:

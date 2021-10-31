@@ -238,21 +238,14 @@ class WER(Metric):
             # iterate over batch
             for ind in range(targets_cpu_tensor.shape[0]):
                 tgt_len = tgt_lenths_cpu_tensor[ind].item()
-                if tgt_len == 0:
-                    print("zero tgt_len:", ind)
                 target = targets_cpu_tensor[ind][:tgt_len].numpy().tolist()
-                if len(target) == 0:
-                    print("target of zero length:", ind)
                 reference = self.decode_tokens_to_str(target)
-                if len(reference) == 0:
-                    print("reference of zero length:", ind)
                 references.append(reference)
             if self.ctc_decode:
                 hypotheses = self.ctc_decoder_predictions_tensor(predictions, predictions_lengths)
             else:
                 raise NotImplementedError("Implement me if you need non-CTC decode on predictions")
 
-        print("Number of zero length references:", len(list(filter(lambda x: len(x) == 0, references))))
         if self.log_prediction:
             logging.info(f"\n")
             logging.info(f"reference:{references[0]}")
