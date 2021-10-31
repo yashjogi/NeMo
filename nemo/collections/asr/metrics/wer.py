@@ -246,6 +246,7 @@ class WER(Metric):
             else:
                 raise NotImplementedError("Implement me if you need non-CTC decode on predictions")
 
+        print("Number of nonzero references:", len(list(filter(lambda x: len(x) == 0, references))))
         if self.log_prediction:
             logging.info(f"\n")
             logging.info(f"reference:{references[0]}")
