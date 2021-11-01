@@ -12,7 +12,7 @@ model:
   preproc_out_dir: /result/preprocessed_data # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
-  detach_decoder_tips: true
+  use_decoder_tips: true
   tgt_character_vocabulary: /data/autoregressive_char_vocab.txt
 
   train_ds:
