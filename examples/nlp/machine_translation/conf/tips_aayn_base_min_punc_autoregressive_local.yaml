@@ -13,6 +13,8 @@ model:
   src_language: 'en'
   tgt_language: 'en'
   use_decoder_tips: true
+  sum_replacement_with_original_embeddings: true
+  detach_decoder_tips: true
 
   train_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/input.txt
@@ -37,8 +39,6 @@ model:
     pin_memory: false
     num_workers: 8
     add_src_num_words_to_batch: true
-    sum_replacement_with_original_embeddings: true
-    detach_decoder_tips: true
 
   test_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
