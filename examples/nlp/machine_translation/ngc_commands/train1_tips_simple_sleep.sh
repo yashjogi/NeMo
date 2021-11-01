@@ -7,6 +7,7 @@ cd NeMo
 git checkout decoder_with_tips
 git pull
 bash reinstall.sh
+pip install pytorch-lightning==1.5.0rc1
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
 sleep 200000
@@ -18,5 +19,5 @@ ngc batch run \
   --name "ml-model.aayn tips_simple" \
   --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
-  --datasetid 90462:/data \
+  --datasetid 90546:/data \
   --commandline "${command}"
