@@ -168,13 +168,13 @@ def main():
     if args.vad_model:
         if args.vad_model.endswith('.nemo'):
             logging.info(f"Using local ASR model from {args.vad_model}")
-            vad_model = nemo_asr.models.EncDecCTCModelBPE.restore_from(restore_path=args.vad_model)
+            vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(restore_path=args.vad_model)
         elif args.vad_model.endswith('.ckpt'):
             logging.info(f"Using local ASR model from {args.vad_model}")
-            vad_model = nemo_asr.models.EncDecCTCModelBPE.load_from_checkpoint(args.vad_model)
+            vad_model = nemo_asr.models.EncDecClassificationModel.load_from_checkpoint(args.vad_model)
         else:
             logging.info(f"Using NGC cloud ASR model {args.vad_model}")
-            vad_model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained(model_name=args.vad_model)
+            vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained(model_name=args.vad_model)
 
     cfg = copy.deepcopy(asr_model._cfg)
     OmegaConf.set_struct(cfg.preprocessor, False)
