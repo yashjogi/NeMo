@@ -369,6 +369,8 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
     def get_replacements(
         self, prefixes, num_generated_words, ground_truth_tgt_replacement_mask, ground_truth_tgt_replacements
     ):
+        if ground_truth_tgt_replacement_mask is None:
+            return None, None
         num_generated_words = num_generated_words.detach().clone()
         replacement_mask = is_in(prefixes, self.decoder_word_ids)
         num_generated_words[~replacement_mask.squeeze(1)] = 0

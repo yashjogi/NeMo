@@ -387,6 +387,7 @@ class MTEncDecModel(EncDecNLPModel):
                 src_ids, src_mask, tgt_ids, tgt_mask, labels = batch
                 num_src_words = None
             forward_args = (src_ids, src_mask, tgt_ids, tgt_mask)
+            tgt_word_mask, tgt_replacements = None, None
         log_probs = self(*forward_args)
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
