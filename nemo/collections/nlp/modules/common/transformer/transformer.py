@@ -179,6 +179,8 @@ class TransformerDecoderNM(DecoderModule, Exportable):
         pre_ln: bool = False,
         pre_ln_final_layer_norm: bool = True,
         replacement_token_embedding: Optional[torch.nn.Embedding] = None,
+        detach_replacements=False,
+        sum_replacement_with_original_embeddings=False,
     ):
         super().__init__()
 
@@ -198,6 +200,8 @@ class TransformerDecoderNM(DecoderModule, Exportable):
             embedding_dropout=embedding_dropout,
             learn_positional_encodings=learn_positional_encodings,
             replacement_embedding=replacement_token_embedding,
+            detach_replacements=detach_replacements,
+            sum_replacement_with_original_embeddings=sum_replacement_with_original_embeddings,
         )
 
         self._decoder = TransformerDecoder(

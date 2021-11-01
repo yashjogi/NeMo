@@ -78,10 +78,14 @@ class TransformerEmbedding(nn.Module):
         num_token_types=2,
         embedding_dropout=0.0,
         learn_positional_encodings=False,
-        replacement_embedding=None
+        replacement_embedding=None,
+        detach_replacements=False,
+        sum_replacement_with_original_embeddings=False
     ):
         super().__init__()
         self.replacement_embedding = replacement_embedding
+        self.detach_replacements = detach_replacements
+        self.sum_replacement_with_original_embeddings = sum_replacement_with_original_embeddings
         self.max_sequence_length = max_sequence_length
         self.token_embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
         if learn_positional_encodings:
@@ -111,7 +115,15 @@ class TransformerEmbedding(nn.Module):
                 raise ValueError(
                     "Parameters `replacements` and `replacement_mask` have to be either both `None` or both not `None`"
                 )
-            token_embeddings[replacement_mask] = self.replacement_embedding(replacements[replacement_mask])
+            repl = self.replacement_embedding(replacements[replacement_mask])
+            if self.detach_replacements:
+                print("detaching")
+                repl = repl.detach()
+            if self.sum_replacement_with_original_embeddings:
+                print("replacing with sum")
+                token_embeddings[replacement_mask] = (repl + token_embeddings[replacement_mask]) * 2 ** -0.5
+            else:
+                token_embeddings[replacement_mask] = repl
         position_embeddings = self.position_embedding(position_ids)
         embeddings = token_embeddings + position_embeddings
 

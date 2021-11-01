@@ -37,6 +37,8 @@ model:
     pin_memory: false
     num_workers: 8
     add_src_num_words_to_batch: true
+    sum_replacement_with_original_embeddings: true
+    detach_decoder_tips: true
 
   test_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
@@ -145,6 +147,6 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: debug_decoder_tips
+    name: debug_decoder_tips_all_new_features
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
