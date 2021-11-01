@@ -44,8 +44,8 @@ model:
     add_src_num_words_to_batch: true
 
   test_ds:
-    src_file_name: /data/dev/input.txt
-    tgt_file_name: /data/dev/autoregressive_labels.txt
+    src_file_name: /data/test/input.txt
+    tgt_file_name: /data/test/autoregressive_labels.txt
     tokens_in_batch: 1024
     clean: false
     max_seq_length: 512
