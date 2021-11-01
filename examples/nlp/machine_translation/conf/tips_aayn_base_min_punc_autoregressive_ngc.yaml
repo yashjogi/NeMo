@@ -27,8 +27,12 @@ model:
     num_workers: 8
 
   validation_ds:
-    src_file_name: /data/dev/input.txt
-    tgt_file_name: /data/dev/autoregressive_labels.txt
+    src_file_name:
+      - /data/IWSLT_tst2019/input.txt
+      - /data/wiki_dev/input.txt
+    tgt_file_name:
+      - /data/IWSLT_tst2019/autoregressive_labels.txt
+      - /data/wiki_dev/autoregressive_labels.txt
     tokens_in_batch: 1024
     clean: false
     max_seq_length: 512
