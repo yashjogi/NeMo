@@ -1,6 +1,6 @@
 import sys
 
-sys.path = ["/home/lab/NeMo"] + sys.path
+sys.path = ["/home/apeganov/NeMo"] + sys.path
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 

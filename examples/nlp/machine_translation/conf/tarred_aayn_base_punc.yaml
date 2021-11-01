@@ -9,7 +9,7 @@ model:
   max_generation_delta: 5
   label_smoothing: 0.0
   shared_tokenizer: False # train tokenizer model across src and tgt train data
-  preproc_out_dir: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
+  preproc_out_dir: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/preprocessed_test_data/ # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
 
@@ -18,7 +18,7 @@ model:
     tgt_file_name: null
     use_tarred_dataset: True # if true tar_file_name and meta_file_name will be used (or created automatically)
     # config for preprocessing training data and creating a tarred datset automatically
-    metadata_file: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/tarred_dev_b16000_dp0.1/metadata.tokens.16000.json
+    metadata_file: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/tarred_dev_b16000_dp0.1/metadata.tokens.16000.json
     tar_file_prefix: parallel # prefix for tar file names
     shuffle: true
     drop_last: false
@@ -27,8 +27,8 @@ model:
     persistent_workers: true
 
   validation_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
     tokens_in_batch: 50000
     clean: false
     max_seq_length: 512
@@ -40,8 +40,8 @@ model:
     persistent_workers: true
 
   test_ds:
-    src_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
-    tgt_file_name: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/dev/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/dev/autoregressive_labels.txt
     tokens_in_batch: 50000
     clean: false
     max_seq_length: 512
@@ -67,13 +67,13 @@ model:
 
   encoder_tokenizer:
     library: yttm
-    tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
+    tokenizer_model: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/input.BPE.8192.model
     bpe_dropout: 0.0
     r2l: false
 
   decoder_tokenizer:
     library: yttm
-    tokenizer_model: /home/lab/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
+    tokenizer_model: /home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data/autoregressive_labels.BPE.18.model
     bpe_dropout: 0.0
     r2l: false
 
