@@ -15,6 +15,7 @@ model:
   use_decoder_tips: true
   sum_replacement_with_original_embeddings: true
   detach_decoder_tips: true
+  tgt_character_vocabulary: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/autoregressive_char_vocab.txt
 
   train_ds:
     src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/input.txt
