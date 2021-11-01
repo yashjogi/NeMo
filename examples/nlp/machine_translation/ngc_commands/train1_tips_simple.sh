@@ -4,8 +4,8 @@ read -r -d '' command << EOF
 set -e -x
 mkdir /result/nemo_experiments
 cd NeMo
-git checkout decoder_with_tips
 git pull
+git checkout decoder_with_tips
 bash reinstall.sh
 pip install pytorch-lightning==1.5.0rc1
 cd examples/nlp/machine_translation
