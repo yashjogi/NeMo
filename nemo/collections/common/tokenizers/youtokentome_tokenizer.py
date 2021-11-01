@@ -27,6 +27,7 @@ class YouTokenToMeTokenizer(TokenizerSpec):
         self.tokenizer = yttm.BPE(model=str(model_path))
         self.vocab_size = len(self.tokenizer.vocab())
         self.special_tokens = self.tokens_to_ids(["<PAD>", "<UNK>", "<BOS>", "<EOS>"])
+        self.special_tokens_without_unk = self.tokens_to_ids(["<PAD>", "<BOS>", "<EOS>"])
         self.bpe_dropout = bpe_dropout
         self.legacy = legacy
         self.r2l = r2l
@@ -45,7 +46,7 @@ class YouTokenToMeTokenizer(TokenizerSpec):
         return [
             id_ in self.start_word_ids
             or id_ != self.separator_id
-            and id_ not in {'<PAD>', '<BOS>', '<EOS>'}
+            and id_ not in self.special_tokens_without_unk
             and (i == 0 or ids[i - 1] == self.separator_id)
             for i, id_ in enumerate(ids)
         ]
