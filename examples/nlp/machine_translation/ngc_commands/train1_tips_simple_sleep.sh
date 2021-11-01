@@ -4,6 +4,7 @@ read -r -d '' command << EOF
 set -e -x
 mkdir /result/nemo_experiments
 cd NeMo
+git checkout decoder_with_tips
 git pull
 bash reinstall.sh
 cd examples/nlp/machine_translation
