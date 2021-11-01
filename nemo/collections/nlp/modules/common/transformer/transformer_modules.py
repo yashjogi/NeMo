@@ -117,10 +117,8 @@ class TransformerEmbedding(nn.Module):
                 )
             repl = self.replacement_embedding(replacements[replacement_mask])
             if self.detach_replacements:
-                print("detaching")
                 repl = repl.detach()
             if self.sum_replacement_with_original_embeddings:
-                print("replacing with sum")
                 token_embeddings[replacement_mask] = (repl + token_embeddings[replacement_mask]) * 2 ** -0.5
             else:
                 token_embeddings[replacement_mask] = repl
