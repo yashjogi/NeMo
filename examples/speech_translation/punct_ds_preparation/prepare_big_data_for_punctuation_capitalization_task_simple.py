@@ -714,7 +714,7 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
         text = '\n'.join([doc[1]['text'] for doc in text])
         text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
 
-        if num_to_cut_by_files is None:
+        if num_to_cut_by_files[f_i] is None:
             with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
                 cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
         else:
@@ -789,16 +789,20 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
 
 def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
-    if size is None:
-        num_to_cut_by_files = [None] * len(files)
-    else:
-        num_to_cut_by_files = get_how_many_segments_to_cut_by_files(files, size)
     num_jobs = min(num_jobs, len(files))
     num_files_per_job = len(files) // num_jobs
     distributed_files = (
         [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
         + [files[(num_jobs - 1) * num_files_per_job:]]
     )
+    if size is None:
+        num_to_cut_by_files = [[None] * len(df) for df in distributed_files]
+    else:
+        num_to_cut_by_files = get_how_many_segments_to_cut_by_files(files, size)
+        num_to_cut_by_files = (
+            [num_to_cut_by_files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
+            + [num_to_cut_by_files[(num_jobs - 1) * num_files_per_job:]]
+        )
     manager = mp.Manager()
     progress_queue = manager.Queue()
     size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs) if size is None else size
