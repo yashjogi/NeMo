@@ -727,7 +727,7 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
 
 
 def get_how_many_segments_to_cut_by_files(files, size):
-    stats = [f.stat.st_size for f in files]
+    stats = [f.stat().st_size for f in files]
     total_size = sum(stats)
     fracs = [s / total_size for s in stats]
     sizes = [round(f * size) for f in fracs[:-1]]
