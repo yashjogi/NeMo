@@ -619,7 +619,7 @@ def join_sentence_len(di_ss_se, sentence_len_by_docs):
 
 
 def main():
-    args = get_args(big.SUPPORTED_CORPUS_TYPES, add_resume_argument=True)
+    args = get_args(SUPPORTED_CORPUS_TYPES, add_resume_argument=True)
     document_dir = args.output_dir / Path("documents")
     if args.resume_from is None:
         tokenizer = get_tokenizer(args.tokenizer)
