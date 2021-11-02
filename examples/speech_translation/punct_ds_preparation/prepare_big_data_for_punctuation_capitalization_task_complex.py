@@ -111,15 +111,17 @@ NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
-    f'^[^{WC}"]|http:/|www.\\w|[,.;:–—-] ?[,!;:?]|-–—— ?[!:?]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
-    f'[=*^\\\\~<>|{{}}]|[^?!.\u2026)"]$|[^{WC} \n`ː!@#$%&*()+\\\\{{}}\u2026"\'/?:§;‘„“‚”»«’><.,'
+    f'^[^{WC}"]|http:/|www.\\w|[,;:–‑—-] ?[,!;:?]|-–‑—— ?[!:?]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
+    f'[=*^\\\\~<>|{{}}]|[^{WC} \n`ː!@#$%&*()+\\\\{{}}\u2026"\'/?:§;‘„“‚”»«’><.,'
     f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]–—-]|'
     f'\\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\\)',
     flags=re.MULTILINE
 )
+SUSPICIOUS_LINE_ENDING = re.compile('[^?!.\u2026)"]$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 LONG_HYPHEN = re.compile(r'—')
-NOT_USUAL_HYPHENS = re.compile(r'[–—]')
+NOT_USUAL_HYPHENS = re.compile(r'[–‑—]')
+NOT_USUAL_APOSTROPHE = re.compile(f'({WC})’({WC})')
 SPACE_DUP = re.compile(' {2,}')
 OPENING_PARENTHESES_WITH_SPACE = re.compile(r'\( +')
 NO_SPACE_OPENING_PARENTHESES = re.compile(r'\b\(')
@@ -313,11 +315,14 @@ def normalize_quotes(text, skip_if_odd_number_of_quotes):
     return result + text[already_checked:]
 
 
-def remove_suspicious_lines_and_rearrange_quotes_and_spaces(original_text, normalize_and_check_quotes_and_parentheses):
+def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
+    original_text, normalize_and_check_quotes_and_parentheses, check_suspicious_endings
+):
     text = UNICODE_APOSTROPHE.sub(r"\1'\2", original_text)
     text = text.replace('`', "'")
     text = text.replace('‘', "'")
     text = text.replace('‚', "'")
+    text = NOT_USUAL_APOSTROPHE.sub(r"\1'\2", text)
     text = text.replace('’', '"')
     text = text.replace("''", '"')
     text = text.replace('„', '"')
@@ -336,22 +341,27 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(original_text, norma
         )
         if not text:
             return text, original_text.count('\n') + (original_text[-1] != '\n')
-    result = ""
-    i = 0
-    num_removed_lines = original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n')
-    for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
-        if m.span()[0] >= i:
-            right = text.rfind('\n', i, m.span()[0])
-            if right > 0:
-                result += text[i: right]
-                num_removed_lines += 1
-            cand = text.find('\n', m.span()[1])
-            i = cand if cand > 0 else len(text)
-            if right > 0:
-                with open('suspicious_lines.txt', 'a') as f:
-                    f.write(text[right: i] + '\n')
-    result += text[i:]
-    return result, num_removed_lines
+    suspicious_regexps = [SUSPICIOUS_LINE]
+    if check_suspicious_endings:
+        suspicious_regexps.append(SUSPICIOUS_LINE_ENDING)
+    for suspicious_regexp in suspicious_regexps:
+        result = ""
+        i = 0
+        num_removed_lines = original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n')
+        for m in suspicious_regexp.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
+            if m.span()[0] >= i:
+                right = text.rfind('\n', i, m.span()[0])
+                if right > 0:
+                    result += text[i: right]
+                    num_removed_lines += 1
+                cand = text.find('\n', m.span()[1])
+                i = cand if cand > 0 else len(text)
+                if right > 0:
+                    with open('suspicious_lines.txt', 'a') as f:
+                        f.write(text[right: i] + '\n')
+        result += text[i:]
+        text = result
+    return text, num_removed_lines
 
 
 def normalize_punctuation(text, lang):
@@ -475,7 +485,7 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal, _ = remove_suspicious_lines_and_rearrange_quotes_and_spaces(
-        text, normalize_and_check_quotes_and_parentheses=True
+        text, normalize_and_check_quotes_and_parentheses=True, check_suspicious_endings=True
     )
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)

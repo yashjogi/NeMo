@@ -368,7 +368,8 @@ def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type, normalize
         not_empty = bool(docs[doc_id]['text'])
         after_suspicious_removal, num_rem_lines = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(
             docs[doc_id]['text'],
-            normalize_and_check_quotes_and_parentheses=normalize_and_check_quotes_and_parentheses
+            normalize_and_check_quotes_and_parentheses=normalize_and_check_quotes_and_parentheses,
+            check_suspicious_endings=False,
         )
         number_of_removed_suspicious_lines += num_rem_lines
         if not docs[doc_id]['text'] and not_empty:
@@ -577,7 +578,7 @@ def preprocess_news_commentary(
                 if line and small.MORE_THAN_10_HYPHENS.search(line) is None:
                     discussion_lines.append(line)
             elif line_idx > 1 and small.check_news_commentary_line(line):
-                discussion_lines.append(line)
+                discussion_lines.append(line.lstrip('·* '))
             line_idx += 1
         else:
             if discussion_lines:
@@ -768,7 +769,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     manager = mp.Manager()
     progress_queue = manager.Queue()
     progress_process = mp.Process(
-        target=big.show_prog, args=(progress_queue, count_total_number_of_characters(files), "File")
+        target=big.show_prog, args=(progress_queue, count_total_number_of_characters(files), "char")
     )
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
