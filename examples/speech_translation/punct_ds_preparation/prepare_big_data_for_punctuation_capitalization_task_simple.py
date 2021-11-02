@@ -461,16 +461,16 @@ def preprocess_ted(
             if small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line.strip()) is not None
         ]
         if lines:
-            find_str = f'<doc docid="{doc_id}"'
+            find_str = f'<doc docid="{doc["docid"]}"'
             start_pos = text.find(find_str, end_pos)
             assert start_pos >= 0, \
                 f"Could not find string '{find_str}' in TED file {file_path} while processing document number " \
-                f"{doc_id}. Starting to search from {end_pos}."
+                f"{doc['docid']}. Starting to search from position {end_pos} (character number)."
             start_line = end_line + text[start_pos: end_pos].count('\n')
             end_pos = text.find('</doc>', start_pos)
             assert end_pos >= 0, \
                 f"Could not find ending of document {doc_id} in TED file {file_path}. " \
-                f"Starting to search from position {start_pos}."
+                f"Starting to search from position {start_pos} (character number)."
             end_line = start_line + text[start_pos: end_pos].count('\n')
             docs[doc_id] = {
                 'text': '\n'.join(lines) + '\n',
