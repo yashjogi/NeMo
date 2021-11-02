@@ -365,9 +365,6 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
                     num_removed_lines += 1
                 cand = text.find('\n', m.span()[1])
                 i = cand if cand > 0 else len(text)
-                if right > 0:
-                    with open('suspicious_lines.txt', 'a') as f:
-                        f.write(text[right: i] + '\n')
         result += text[i:]
         text = result
     return text, num_removed_lines
