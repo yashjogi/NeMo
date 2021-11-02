@@ -137,7 +137,7 @@ BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
     f'\\( *[^{WC}"][^)(]*\\)|'
     f'\\( *…? *\\)|'
     f'\\([^)]*(?:www\\.|https?:)[^)]*\\)|'
-    f'\\([^)]{0,3}\\)'
+    f'\\([^)]{{,6}}\\)'
 )
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES = re.compile(' *' + ALL_PARENTHESES.pattern + f" *(?![{WC}'])")
