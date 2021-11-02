@@ -11,6 +11,7 @@ from subprocess import run
 from time import sleep
 
 import numpy as np
+from bs4 import BeautifulSoup, NavigableString
 from tqdm import tqdm
 
 from nemo.collections.common.tokenizers import TokenizerSpec
@@ -25,7 +26,7 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 random.seed(42)
 
 
-SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl"]
+SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl", "TED"]
 
 
 FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(f'^[^{WC}]+')
@@ -366,6 +367,35 @@ def preprocess_wikipedia(
     return doc_id_to_file_i
 
 
+def clean_small_dataset(docs, tokenizer, lang, file_path):
+    tok_chars = None
+    untok_chars = None
+    deleted_after_untokenizable_removal = 0
+    deleted_after_suspicious_removal = 0
+    for doc_id in list(docs.keys()):
+        docs[doc_id]['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+            docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
+        )
+        if not docs[doc_id]['text']:
+            deleted_after_untokenizable_removal += 1
+        docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
+        docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
+        not_empty = bool(docs[doc_id]['text'])
+        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
+        if not docs[doc_id]['text'] and not_empty:
+            deleted_after_suspicious_removal += 1
+        docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
+        docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
+        if not docs[doc_id]['text']:
+            del docs[doc_id]
+    logging.info(
+        f"Number of documents from europarl file {file_path} which became empty after untokenizable removal: "
+        f"{deleted_after_untokenizable_removal}, "
+        f"after suspicious removal: {deleted_after_suspicious_removal}"
+    )
+    return docs
+
+
 def preprocess_europarl(
     file_path: Path,
     document_dir: Path,
@@ -404,36 +434,54 @@ def preprocess_europarl(
     logging.info(f"Number of documents before final cleaning of europarl file {file_path}: {len(docs)}")
     if docs:
         docs[doc_id]['end_line'] = i + 1
-    tok_chars = None
-    untok_chars = None
-    deleted_after_untokenizable_removal = 0
-    deleted_after_suspicious_removal = 0
-    for doc_id in list(docs.keys()):
-        docs[doc_id]['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
-            docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
-        )
-        if not docs[doc_id]['text']:
-            deleted_after_untokenizable_removal += 1
-        docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
-        docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
-        not_empty = bool(docs[doc_id]['text'])
-        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
-        if not docs[doc_id]['text'] and not_empty:
-            deleted_after_suspicious_removal += 1
-        docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
-        docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
-        if not docs[doc_id]['text']:
-            del docs[doc_id]
-    logging.info(
-        f"Number of documents from europarl file {file_path} which became empty after untokenizable removal: "
-        f"{deleted_after_untokenizable_removal}, "
-        f"after suspicious removal: {deleted_after_suspicious_removal}"
-    )
+    docs = clean_small_dataset(docs, tokenizer, lang, file_path)
     if docs:
         logging.info(f"Number of documents after final cleaning of europarl file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     else:
         logging.warning(f"Europarl file {file_path} gave no documents.")
+    return {doc_id: start_file_id for doc_id in docs.keys()}
+
+
+def preprocess_ted(
+    file_path: Path, document_dir: Path, lang: str, start_doc_id: int, start_file_id: int, tokenizer: TokenizerSpec
+):
+    with file_path.open() as f:
+        text = f.read()
+    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
+    soup = BeautifulSoup(text)
+    docs = {}
+    end_pos = 0
+    end_line = 0
+    for doc_id, doc in enumerate(soup.findAll("doc"), start=start_doc_id):
+        title = "TED_" + doc["docid"] + "._" + doc.find("title").text
+        text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
+        lines = [
+            line.strip() for line in text.split('\n')
+            if small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line.strip()) is not None
+        ]
+        if lines:
+            start_pos = text.find(f'<doc docid="{doc_id}"', end_pos)
+            assert start_pos >= 0
+            start_line = end_line + text[start_pos: end_pos].count('\n')
+            end_pos = text.find('</doc>', start_pos)
+            assert end_pos >= 0
+            end_line = start_line + text[start_pos: end_pos].count('\n')
+            docs[doc_id] = {
+                'text': '\n'.join(lines) + '\n',
+                'title': title,
+                'source': file_path,
+                'start_line': start_line,
+                'end_line': end_line,
+            }
+        else:
+            logging.warning(f"Found empty document {doc_id} in TED dataset")
+    docs = clean_small_dataset(docs, tokenizer, lang, file_path)
+    if docs:
+        logging.info(f"Number of documents after final cleaning of TED file {file_path}: {len(docs)}")
+        big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    else:
+        logging.warning(f"TED file {file_path} gave no documents.")
     return {doc_id: start_file_id for doc_id in docs.keys()}
 
 
@@ -659,12 +707,11 @@ def main():
                 )
             elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:  # europarl
                 corpus_doc_id_to_file_i = preprocess_europarl(
-                    file_path,
-                    document_dir,
-                    args.input_language,
-                    start_doc_id,
-                    start_file_id,
-                    tokenizer,
+                    file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
+                )
+            elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:  # TED
+                corpus_doc_id_to_file_i = preprocess_ted(
+                    file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
                 )
             else:
                 raise ValueError(

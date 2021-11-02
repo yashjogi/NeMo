@@ -318,7 +318,6 @@ def remove_untokenizable_characters_from_text(
     untok_chars = set() if untok_chars is None else untok_chars.copy()
     all_chars = set(text)
     detected_untok_chars = list(all_chars & untok_chars)
-    print("detected_untok_chars:", detected_untok_chars)
     candidates_for_untok_chars = all_chars - tok_chars - untok_chars
     if not detected_untok_chars and not candidates_for_untok_chars:
         return text, tok_chars, untok_chars
