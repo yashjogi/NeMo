@@ -401,7 +401,7 @@ def preprocess_europarl(
             else:
                 docs[doc_id]['text'] += text.strip() + '\n'
             last_title = title
-    print("Number of documents before final cleaning:", len(docs))
+    logging.info(f"Number of documents before final cleaning of europarl file {file_path}: {len(docs)}")
     if docs:
         docs[doc_id]['end_line'] = i + 1
     tok_chars = set()
@@ -416,15 +416,21 @@ def preprocess_europarl(
             deleted_after_untokenizable_removal += 1
         docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
         docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
+        not_empty = bool(docs[doc_id]['text'])
         after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
-        if not docs[doc_id]['text']:
+        if not docs[doc_id]['text'] and not_empty:
             deleted_after_suspicious_removal += 1
         docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
         docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
         if not docs[doc_id]['text']:
             del docs[doc_id]
-    print("after untokenizable, after suspicious:", deleted_after_untokenizable_removal, deleted_after_suspicious_removal)
+    logging.info(
+        f"Number of documents from europarl file {file_path} which became empty after untokenizable removal: "
+        f"{deleted_after_untokenizable_removal}, "
+        f"after suspicious removal: {deleted_after_suspicious_removal}"
+    )
     if docs:
+        logging.info(f"Number of documents after final cleaning of europarl file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     else:
         logging.warning(f"Europarl file {file_path} gave no documents.")
