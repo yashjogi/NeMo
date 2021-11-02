@@ -367,7 +367,7 @@ def preprocess_wikipedia(
     return doc_id_to_file_i
 
 
-def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type):
+def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type, normalize_and_check_quotes_and_parentheses):
     tok_chars = None
     untok_chars = None
     deleted_after_untokenizable_removal = 0
@@ -385,7 +385,8 @@ def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type):
         docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
         not_empty = bool(docs[doc_id]['text'])
         after_suspicious_removal, num_rem_lines = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(
-            docs[doc_id]['text']
+            docs[doc_id]['text'],
+            normalize_and_check_quotes_and_parentheses=normalize_and_check_quotes_and_parentheses
         )
         number_of_removed_suspicious_lines += num_rem_lines
         if not docs[doc_id]['text'] and not_empty:
@@ -446,7 +447,9 @@ def preprocess_europarl(
     logging.info(f"Number of documents before final cleaning of europarl file {file_path}: {len(docs)}")
     if docs:
         docs[doc_id]['end_line'] = i + 1
-    docs = clean_small_dataset(docs, tokenizer, lang, file_path, 'europarl')
+    docs = clean_small_dataset(
+        docs, tokenizer, lang, file_path, 'europarl', normalize_and_check_quotes_and_parentheses=False
+    )
     if docs:
         logging.info(f"Number of documents after final cleaning of europarl file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
@@ -494,7 +497,8 @@ def preprocess_ted(
             }
         else:
             logging.warning(f"Found empty document {doc_id} in TED dataset")
-    docs = clean_small_dataset(docs, tokenizer, lang, file_path, 'TED')
+    docs = clean_small_dataset(
+        docs, tokenizer, lang, file_path, 'TED', normalize_and_check_quotes_and_parentheses=False)
     if docs:
         logging.info(f"Number of documents after final cleaning of TED file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))

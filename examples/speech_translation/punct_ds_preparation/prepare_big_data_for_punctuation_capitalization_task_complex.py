@@ -113,7 +113,7 @@ SUSPICIOUS_LINE = re.compile(
     f'^[^{WC}"]|http:/|www.\\w|[,.;:-] ?[,!;:]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
     f'[=*^\\\\~<>|{{}}]|[^?!.\u2026)"]$|[^{WC} \n`ː!@#$%&*()+\\\\{{}}\u2026"\'/?:§;‘„“‚”»«’><.,'
     f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]-]|'
-    f'\\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\\)' + "| '",
+    f'\\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\\)',
     flags=re.MULTILINE
 )
 PARENTHESES = re.compile('[)(]')
@@ -136,6 +136,7 @@ ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n ?')
 EMPTY_LINE = re.compile('^[() .,!;?|&#%^@$"\'<>{}/\\\\*~\\][]*$', flags=re.MULTILINE)
+REPEATED_HYPHENS = re.compile('(-- )+')
 
 
 MAX_NUM_CHARACTERS_IN_1_FILE = 10 ** 9
@@ -306,8 +307,8 @@ def normalize_quotes(line):
     return line_result + line[already_checked:]
 
 
-def remove_suspicious_lines_and_rearrange_quotes_and_spaces(text):
-    text = UNICODE_APOSTROPHE.sub(r"\1'\2", text)
+def remove_suspicious_lines_and_rearrange_quotes_and_spaces(original_text, normalize_and_check_quotes_and_parentheses):
+    text = UNICODE_APOSTROPHE.sub(r"\1'\2", original_text)
     text = text.replace('`', "'")
     text = text.replace('‘', "'")
     text = text.replace('‚', "'")
@@ -319,15 +320,19 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(text):
     text = text.replace('«', '"')
     text = text.replace('»', '"')
     if not text:
-        return ""
-    text = '\n'.join(
-        [normalize_quotes(line) for line in text.split('\n') if check_quotes_and_parentheses(line) and '""' not in line]
-    )
-    if not text:
-        return text
+        return "", 0
+    if normalize_and_check_quotes_and_parentheses:
+        text = '\n'.join(
+            [
+                normalize_quotes(line) for line in text.split('\n')
+                if check_quotes_and_parentheses(line) and '""' not in line
+            ]
+        )
+        if not text:
+            return text, original_text.count('\n') + (original_text[-1] != '\n')
     result = ""
     i = 0
-    num_removed_lines = 0
+    num_removed_lines = original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n')
     for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
         if m.span()[0] >= i:
             right = text.rfind('\n', i, m.span()[0])
@@ -344,7 +349,7 @@ def normalize_punctuation(text, lang):
     text = LONG_HYPHEN.sub(' - ', text)
     text = SPACE_DUP.sub(' ', text)
     text = NOT_USUAL_HYPHENS.sub('-', text)
-    text = text.replace('--', '-')
+    text = REPEATED_HYPHENS.sub('- ', text)
     text = OPENING_PARENTHESES_WITH_SPACE.sub('(', text)
     text = NO_SPACE_OPENING_PARENTHESES.sub(' (', text)
     text = SPACE_CLOSING_PARENTHESES.sub(')', text)
@@ -460,7 +465,9 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
         )
     text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
-    after_suspicious_removal, _ = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
+    after_suspicious_removal, _ = remove_suspicious_lines_and_rearrange_quotes_and_spaces(
+        text, normalize_and_check_quotes_and_parentheses=True
+    )
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)
     if nltk_tokenization:
