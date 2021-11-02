@@ -356,7 +356,7 @@ def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type, normalize
     deleted_after_suspicious_removal = 0
     number_of_removed_lines_because_of_untokenizable_characters = 0
     number_of_removed_suspicious_lines = 0
-    for doc_id in list(docs.keys()):
+    for doc_id in tqdm(list(docs.keys()), total=len(docs), unit="doc", desc=f"Cleaning and normalizing {corpus_type}"):
         docs[doc_id]['text'], tok_chars, untok_chars, num_rem_lines = small.remove_untokenizable_characters_from_text(
             docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, remove_entire_lines=True
         )
