@@ -456,7 +456,7 @@ def preprocess_ted(
     end_line = 0
     for doc_id, doc in enumerate(soup.findAll("doc"), start=start_doc_id):
         title = "TED_" + doc["docid"] + "._" + doc.find("title").text
-        title.replace('"', "'")
+        title = title.replace('"', "'")
         doc_text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
         lines = [
             line.strip() for line in doc_text.split('\n')
