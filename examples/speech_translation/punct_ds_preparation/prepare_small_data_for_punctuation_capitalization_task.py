@@ -84,6 +84,7 @@ BRACKETS_AND_CONTENT = re.compile(r'\(.*\)')
 SPACING_CHARACTERS_TO_REPLACE = re.compile(
     '[\t\v\r' + r'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff' + ''.join([chr(i) for i in range(0x2000, 0x200c)]) + ']+'
 )
+EUROPARL_LSTRIP = re.compile(r'^[. –-]*\([A-Z]{2}\) *', flags=re.MULTILINE)
 
 
 def get_args(

@@ -416,6 +416,7 @@ def preprocess_europarl(
             and not small.too_many_digits(text)
             and small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(text) is not None
         ):
+            text = small.EUROPARL_LSTRIP.sub('', text)
             title = "europarl_" + m.group(2).strip()
             title = title.replace('"', "'")
             if last_title is not None and last_title != title:
