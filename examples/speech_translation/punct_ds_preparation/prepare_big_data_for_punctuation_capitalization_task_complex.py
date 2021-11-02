@@ -121,7 +121,6 @@ SUSPICIOUS_LINE_ENDING = re.compile('[^?!.\u2026)"]$', flags=re.MULTILINE)
 PARENTHESES = re.compile('[)(]')
 LONG_HYPHEN = re.compile(r'—')
 NOT_USUAL_HYPHENS = re.compile(r'[–‑—]')
-NOT_USUAL_APOSTROPHE = re.compile(f'({WC})’({WC})')
 SPACE_DUP = re.compile(' {2,}')
 OPENING_PARENTHESES_WITH_SPACE = re.compile(r'\( +')
 NO_SPACE_OPENING_PARENTHESES = re.compile(r'\b\(')
@@ -132,7 +131,7 @@ PUNCTUATION_MARK_OPENING_PARENTHESES = re.compile(r'([.!:?;,…])\(')
 SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
 ELLIPSIS_WITHOUT_SPACE = re.compile(rf'\.\.([{WC}(])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
-UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
+UNICODE_APOSTROPHE = re.compile(f'({WC})[‘’]({WC})')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)')
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES = re.compile(' *' + ALL_PARENTHESES.pattern + f" *(?![{WC}'])")
@@ -322,7 +321,6 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
     text = text.replace('`', "'")
     text = text.replace('‘', "'")
     text = text.replace('‚', "'")
-    text = NOT_USUAL_APOSTROPHE.sub(r"\1'\2", text)
     text = text.replace('’', '"')
     text = text.replace("''", '"')
     text = text.replace('„', '"')
@@ -344,10 +342,12 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
     suspicious_regexps = [SUSPICIOUS_LINE]
     if check_suspicious_endings:
         suspicious_regexps.append(SUSPICIOUS_LINE_ENDING)
+    num_removed_lines = (
+            original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n') + (text[-1] == '\n')
+    )
     for suspicious_regexp in suspicious_regexps:
         result = ""
         i = 0
-        num_removed_lines = original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n')
         for m in suspicious_regexp.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
             if m.span()[0] >= i:
                 right = text.rfind('\n', i, m.span()[0])

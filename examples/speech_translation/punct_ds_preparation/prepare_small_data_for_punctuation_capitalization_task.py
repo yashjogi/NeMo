@@ -25,7 +25,7 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 random.seed(42)
 
 WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua838\ufdfc\ufe69\uff04\uffe0\uffe1' \
-    '\uffe5\uffe6' \
+    '\uffe5\uffe6°' \
     + ''.join(
         [
             chr(i) for i in chain(
@@ -46,7 +46,7 @@ WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
     f"([^{WC}]*[ \n\"()](?=[+-]\\d)|[^{WC}]*)"
 )
 PUNCTUATION = re.compile(f"[^{WC}]+")
-NOT_WORD_CHARACTERS = re.compile(f"[^{WC}%/@#°]")
+NOT_WORD_CHARACTERS = re.compile(f"[^{WC}%/@#]")
 WORD_CHARACTER = re.compile(f"[{WC}]")
 SPACE_DUP = re.compile(r" {2,}")
 STRIP_START = re.compile(f"^[^{WC}]+")
