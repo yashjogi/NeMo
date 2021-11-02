@@ -113,7 +113,7 @@ GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
     f'^[^{WC}"]|http:/|www.\\w|[,;:–‑—-] ?[,!;:?]|-–‑—— ?[!:?]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
     f'[=*^\\\\~<>|{{}}]|[^{WC} \n`ː!@#$%&*()+\\\\{{}}\u2026"\'/?:§;‘„“‚”»«’><.,'
-    f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]–—-]|'
+    f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]‑–—-]|'
     f'\\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\\)',
     flags=re.MULTILINE
 )
@@ -132,7 +132,10 @@ SPACE_PUNCTUATION_MARK = re.compile(r' +([.!?:,;…])')
 ELLIPSIS_WITHOUT_SPACE = re.compile(rf'\.\.([{WC}(])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(f'([{WC}])[‘’]([{WC}])')
-BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)')
+BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
+    f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)|\\([^)]*(?:www\\.|https?:)[^)]*\\)|'
+    f'\\([^)]{0,3}\\)'
+)
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
 ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES = re.compile(' *' + ALL_PARENTHESES.pattern + f" *(?![{WC}'])")
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
