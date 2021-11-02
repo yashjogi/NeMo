@@ -618,13 +618,12 @@ def show_prog(q, total_num_lines, name):
         try:
             to_add = q.get(timeout=1)
             if to_add < 0:
+                prog.close()
                 return
             prog.n += to_add
             prog.update(0)
             if prog.n >= total_num_lines:
                 break
-        except mp.TimeoutError:
-            continue
         except Empty:
             continue
     prog.close()

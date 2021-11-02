@@ -150,25 +150,6 @@ def get_borders_with_documents_intact(file_path, num_parts):
     return byte_borders, num_characters_in_part
 
 
-def show_prog(q, total_num_lines, name):
-    prog = tqdm(total=total_num_lines, desc="Total", unit=name, unit_scale=True)
-    while True:
-        try:
-            to_add = q.get(timeout=1)
-            if to_add < 0:
-                prog.close()
-                return
-            prog.n += to_add
-            prog.update(0)
-            if prog.n >= total_num_lines:
-                break
-        except mp.TimeoutError:
-            continue
-        except Empty:
-            continue
-    prog.close()
-
-
 def preprocess_wikipedia_parallel(
     num_jobs,
     file_path,
@@ -206,7 +187,7 @@ def preprocess_wikipedia_parallel(
     manager = mp.Manager()
     progress_queue = manager.Queue()
     logging.info("Creating progress process...")
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, count_lines_in_file(file_path), "Lines"))
+    progress_process = mp.Process(target=big.show_prog, args=(progress_queue, count_lines_in_file(file_path), "Lines"))
     logging.info("Starting progress process...")
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
@@ -553,7 +534,7 @@ def remove_parentheses_parallel(document_dir, output_dir, num_jobs):
     manager = mp.Manager()
     progress_queue = manager.Queue()
     progress_process = mp.Process(
-        target=show_prog, args=(progress_queue, count_total_number_of_characters(files), "char")
+        target=big.show_prog, args=(progress_queue, count_total_number_of_characters(files), "char")
     )
     progress_process.start()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -665,7 +646,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     manager = mp.Manager()
     progress_queue = manager.Queue()
     progress_process = mp.Process(
-        target=show_prog, args=(progress_queue, count_total_number_of_characters(files), "File")
+        target=big.show_prog, args=(progress_queue, count_total_number_of_characters(files), "File")
     )
     progress_process.start()
     with mp.Pool(num_jobs) as pool:
@@ -696,7 +677,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     manager = mp.Manager()
     progress_queue = manager.Queue()
     size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs) if size is None else size
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "segment"))
+    progress_process = mp.Process(target=big.show_prog, args=(progress_queue, size, "segment"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
     output_dir.mkdir(parents=True, exist_ok=True)
