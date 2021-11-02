@@ -67,15 +67,15 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
                 total_duration_to_asr = 0
                 for i in range(len(speech_segments)): 
                     asr.reset()
-                    speech_segment = speech_segments[i] 
-                    offset = speech_segment[0] - frame_len * 4
+                    offset = speech_segments[i][0] - frame_len * 4
 
-                    if row['duration'] and speech_segment[1] > row['duration']:
+                    if row['duration'] and speech_segments[i][1] > row['duration']:
                         end = row['duration']
+                        speech_segments[i][1] = end
                     else:
-                        end = speech_segment[1]
+                        end = speech_segments[i][1]
 
-                    duration = end - speech_segment[0] + frame_len * 4
+                    duration = end - speech_segments[i][0] + frame_len * 4
                     
                     asr.read_audio_file(row['audio_filepath'], offset, duration, delay, model_stride_in_secs)
                     hyp = asr.transcribe(tokens_per_chunk, delay) + " "
@@ -85,7 +85,6 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
 
                 final_hyp = final_hyp[1:-1]
                 # print(final_hyp)
-
                 hyps.append(final_hyp)
                 refs.append(row['text'])
                 total_durations_to_asr.append(total_duration_to_asr)
