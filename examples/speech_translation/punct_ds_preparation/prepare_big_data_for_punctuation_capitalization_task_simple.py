@@ -475,7 +475,7 @@ def preprocess_ted(
                 f"Starting to search from position {start_pos} (character number)."
             end_line = start_line + original_text[start_pos: end_pos].count('\n')
             docs[doc_id] = {
-                'text': big.DOUBLE_BRACES_WITH_CONTENT.sub('\n'.join(lines) + '\n', ' '),
+                'text': big.DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub('\n'.join(lines) + '\n', ' '),
                 'title': title,
                 'source': file_path,
                 'start_line': start_line,
