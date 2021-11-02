@@ -26,7 +26,7 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 random.seed(42)
 
 
-SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl", "TED", "rapid"]
+SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl", "TED", "rapid", "news-commentary"]
 
 
 FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(f'^[^{WC}]+')
@@ -401,11 +401,11 @@ def preprocess_europarl(
     with file_path.open() as f:
         text = f.read()
     text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
-    f = io.StringIO(text)
+    text_lines = text.splitlines()
     docs = {}
     doc_id = start_doc_id
     last_title = None
-    for i, line in enumerate(f):
+    for i, line in tqdm(enumerate(text_lines), total=len(text_lines), unit="line", desc="Processing europarl"):
         m = small.EUROPARL_LINE.match(line)
         if m is None:
             raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
@@ -449,7 +449,10 @@ def preprocess_ted(
     docs = {}
     end_pos = 0
     end_line = 0
-    for doc_id, doc in enumerate(soup.findAll("doc"), start=start_doc_id):
+    ted_docs = list(soup.findAll("doc"))
+    for doc_id, doc in tqdm(
+        enumerate(soup.findAll("doc"), start=start_doc_id), total=len(ted_docs), unit="doc", desc="Processing TED"
+    ):
         title = "TED_" + doc["docid"] + "._" + doc.find("title").text
         title = title.replace('"', "'")
         doc_text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
@@ -498,7 +501,10 @@ def preprocess_rapid(
     docs = {}
     end_pos = 0
     end_line = 0
-    for doc_id, file in enumerate(soup.findAll("file"), start=start_doc_id):
+    rapid_files = list(soup.findAll("file"))
+    for doc_id, file in tqdm(
+        enumerate(rapid_files, start=start_doc_id), total=len(rapid_files), unit='doc', desc="Processing RAPID"
+    ):
         title = "rapid_file_" + file["id"]
         lines = []
         for unit in file.findAll("unit"):
@@ -543,6 +549,65 @@ def preprocess_rapid(
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     else:
         logging.warning(f"TED file {file_path} gave no documents.")
+    return {doc_id: start_file_id for doc_id in docs.keys()}
+
+
+def preprocess_news_commentary(
+    file_path: Path, document_dir: Path, lang: str, start_doc_id: int, start_file_id: int, tokenizer: TokenizerSpec
+):
+    with file_path.open() as f:
+        original_text = f.read()
+    docs = {}
+    discussion_lines = []
+    discussion_count = 0
+    line_idx = 0
+    text_lines = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', original_text).splitlines(False)
+    current_doc_id = start_doc_id
+    start_line = 0
+    for line_i, line in tqdm(
+        enumerate(text_lines), total=len(text_lines), desc="Processing news-commentary", unit="line"
+    ):
+        line = line.strip()
+        if line:
+            if line_idx == 1:
+                location_string = small.NEWS_COMMENTARY_LOCATION_LINE.match(line)
+                if location_string is not None:
+                    line = line[location_string.span()[1] :]
+                line = line.strip()
+                if line and small.MORE_THAN_10_HYPHENS.search(line) is None:
+                    discussion_lines.append(line)
+            elif line_idx > 1 and small.check_news_commentary_line(line):
+                discussion_lines.append(line)
+            line_idx += 1
+        else:
+            if discussion_lines:
+                docs[current_doc_id] = {
+                    "text": '\n'.join(discussion_lines) + '\n',
+                    "start_line": start_line,
+                    "end_line": line_i,
+                    "source": file_path,
+                    "title": f"news-commentary_discussion{discussion_count}",
+                }
+                start_line = line_i
+                discussion_count += 1
+                current_doc_id += 1
+            discussion_lines = []
+            line_idx = 0
+    if discussion_lines:
+        docs[current_doc_id] = {
+            "text": '\n'.join(discussion_lines) + '\n',
+            "start_line": start_line,
+            "end_line": line_i,
+            "source": file_path,
+            "title": f"news-commentary_discussion{discussion_count}",
+        }
+    docs = clean_small_dataset(
+        docs, tokenizer, lang, file_path, 'news-commentary', normalize_and_check_quotes_and_parentheses=False)
+    if docs:
+        logging.info(f"Number of documents after final cleaning of news-commentary file {file_path}: {len(docs)}")
+        big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    else:
+        logging.warning(f"News-commentary file {file_path} gave no documents.")
     return {doc_id: start_file_id for doc_id in docs.keys()}
 
 
@@ -800,6 +865,10 @@ def main():
                 )
             elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:  # rapid
                 corpus_doc_id_to_file_i = preprocess_rapid(
+                    file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
+                )
+            elif corpus_type == SUPPORTED_CORPUS_TYPES[4]:  # news-commentary
+                corpus_doc_id_to_file_i = preprocess_news_commentary(
                     file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
                 )
             else:
