@@ -133,7 +133,10 @@ ELLIPSIS_WITHOUT_SPACE = re.compile(rf'\.\.([{WC}(])')
 DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(f'([{WC}])[‘’]([{WC}])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(
-    f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)|\\([^)]*(?:www\\.|https?:)[^)]*\\)|'
+    f'\\([^)(]*[^{WC}!?."\'] *\\)|'
+    f'\\( *[^{WC}"][^)(]*\\)|'
+    f'\\( *…? *\\)|'
+    f'\\([^)]*(?:www\\.|https?:)[^)]*\\)|'
     f'\\([^)]{0,3}\\)'
 )
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
