@@ -14,14 +14,13 @@ python enc_dec_nmt.py \
   --config-path=conf \
   --config-name tips_aayn_base_min_punc_autoregressive_ngc \
   trainer.gpus=1 \
-  model.use_decoder_tips=false \
-  exp_manager.wandb_logger_kwargs.name=decoder_no_tips_simple_ds90546_bs32768
+  +model.detach_decoder_tips=true
 set +e +x
 EOF
 
 ngc batch run \
   --instance dgx1v.16g.1.norm \
-  --name "ml-model.aayn without_tips" \
+  --name "ml-model.aayn tips_detach" \
   --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
   --datasetid 90546:/data \
