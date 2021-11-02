@@ -401,6 +401,7 @@ def preprocess_europarl(
             else:
                 docs[doc_id]['text'] += text + '\n'
             last_title = title
+    print("Number of documents before final cleaning:", len(docs))
     if docs:
         docs[doc_id]['end_line'] = i + 1
     tok_chars = set()
@@ -416,7 +417,10 @@ def preprocess_europarl(
         docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
         if not docs[doc_id]['text']:
             del docs[doc_id]
-    big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    if docs:
+        big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    else:
+        logging.warning(f"Europarl file {file_path} gave no documents.")
     return {doc_id: start_file_id for doc_id in docs.keys()}
 
 
