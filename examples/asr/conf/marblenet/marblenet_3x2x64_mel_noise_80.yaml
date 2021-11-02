@@ -63,7 +63,7 @@ model:
     stft_conv: false
     nb_augmentation_prob: 0.5
     nb_max_freq: 4000
-    
+  
   encoder:
     _target_: nemo.collections.asr.modules.ConvASREncoder
     feat_in: *n_mels
@@ -170,7 +170,9 @@ exp_manager:
   create_tensorboard_logger: False
   create_checkpoint_callback: True
   checkpoint_callback_params: 
-    save_best_model: False
+    monitor: "val_epoch_top@1"
+    mode: "max"
+    save_best_model: True
     always_save_nemo: True
   create_wandb_logger: True
   wandb_logger_kwargs:
