@@ -320,7 +320,7 @@ def remove_untokenizable_characters_from_text(
     detected_untok_chars = list(all_chars & untok_chars)
     candidates_for_untok_chars = all_chars - tok_chars - untok_chars
     if not detected_untok_chars and not candidates_for_untok_chars:
-        return text, tok_chars, untok_chars
+        return text, tok_chars, untok_chars, 0
     for c in candidates_for_untok_chars:
         if tokenizer.text_to_ids(c):
             tok_chars.add(c)
@@ -328,7 +328,7 @@ def remove_untokenizable_characters_from_text(
             untok_chars.add(c)
             detected_untok_chars.append(c)
     if not detected_untok_chars:
-        return text, tok_chars, untok_chars
+        return text, tok_chars, untok_chars, 0
     if '\\' in detected_untok_chars:
         detected_untok_chars.remove('\\')
         detected_untok_chars = ['\\\\'] + detected_untok_chars
