@@ -980,6 +980,7 @@ def get_args(
     parser.add_argument(
         "--size",
         "-S",
+        type=int,
         help="Number of sequences in the created dataset. This number includes sequences in train, dev, and test "
         "datasets. By default it is equal to the total number of sentences in the input data.",
     )
