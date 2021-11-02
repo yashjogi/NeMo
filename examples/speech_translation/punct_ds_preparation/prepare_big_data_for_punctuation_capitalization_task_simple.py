@@ -26,7 +26,7 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 random.seed(42)
 
 
-SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl", "TED"]
+SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl", "TED", "rapid"]
 
 
 FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(f'^[^{WC}]+')
@@ -358,7 +358,7 @@ def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type, normalize
     number_of_removed_suspicious_lines = 0
     for doc_id in list(docs.keys()):
         docs[doc_id]['text'], tok_chars, untok_chars, num_rem_lines = small.remove_untokenizable_characters_from_text(
-            docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
+            docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, remove_entire_lines=True
         )
         number_of_removed_lines_because_of_untokenizable_characters += num_rem_lines
         if not docs[doc_id]['text']:
@@ -413,7 +413,6 @@ def preprocess_europarl(
         if (
             text
             and not small.too_many_digits(text)
-            and text[-1] in small.SENTENCE_ENDINGS
             and small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(text) is not None
         ):
             title = "europarl_" + m.group(2).strip()
@@ -483,6 +482,64 @@ def preprocess_ted(
         docs, tokenizer, lang, file_path, 'TED', normalize_and_check_quotes_and_parentheses=False)
     if docs:
         logging.info(f"Number of documents after final cleaning of TED file {file_path}: {len(docs)}")
+        big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    else:
+        logging.warning(f"TED file {file_path} gave no documents.")
+    return {doc_id: start_file_id for doc_id in docs.keys()}
+
+
+def preprocess_rapid(
+    file_path: Path, document_dir: Path, lang: str, start_doc_id: int, start_file_id: int, tokenizer: TokenizerSpec
+):
+    with file_path.open() as f:
+        original_text = f.read()
+    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', original_text)
+    soup = BeautifulSoup(text)
+    docs = {}
+    end_pos = 0
+    end_line = 0
+    for doc_id, file in enumerate(soup.findAll("file"), start=start_doc_id):
+        title = "rapid_file_" + file["id"]
+        lines = []
+        for unit in file.findAll("unit"):
+            unit_id = unit["id"]
+            segment = unit.find("segment")
+            source = segment.find("source")
+            target = segment.find("target")
+            if source['xml:lang'] == "en":
+                text = source.text
+            elif target["xml:lang"] == "en":
+                text = target.text
+            else:
+                raise ValueError(
+                    f"No utterance in English was found in file {file['id']} in unit {unit_id}. "
+                    f"Source language: {source['lang']}. Target language: {target['lang']}"
+                )
+            if small.check_rapid_line(text):
+                lines.append(small.SPACE_DUP.sub(' ', text.replace(chr(61623), ' ')).strip())
+        if lines:
+            find_str = f'<file id="{file["id"]}"'
+            start_pos = original_text.find(find_str, end_pos)
+            assert start_pos >= 0, \
+                f"Could not find string '{find_str}' in TED file {file_path} while processing document number " \
+                f"{file['id']}. Starting to search from position {end_pos} (character number)."
+            start_line = end_line + original_text[start_pos: end_pos].count('\n')
+            end_pos = original_text.find('</file>', start_pos)
+            assert end_pos >= 0, \
+                f"Could not find ending of document {doc_id} in TED file {file_path}. " \
+                f"Starting to search from position {start_pos} (character number)."
+            end_line = start_line + original_text[start_pos: end_pos].count('\n')
+            docs[doc_id] = {
+                'text': big.DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(' ', '\n'.join(lines) + '\n'),
+                'title': title,
+                'source': file_path,
+                'start_line': start_line,
+                'end_line': end_line,
+            }
+    docs = clean_small_dataset(
+        docs, tokenizer, lang, file_path, 'RAPID', normalize_and_check_quotes_and_parentheses=False)
+    if docs:
+        logging.info(f"Number of documents after final cleaning of RAPID file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     else:
         logging.warning(f"TED file {file_path} gave no documents.")
@@ -739,6 +796,10 @@ def main():
                 )
             elif corpus_type == SUPPORTED_CORPUS_TYPES[2]:  # TED
                 corpus_doc_id_to_file_i = preprocess_ted(
+                    file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
+                )
+            elif corpus_type == SUPPORTED_CORPUS_TYPES[3]:  # rapid
+                corpus_doc_id_to_file_i = preprocess_rapid(
                     file_path, document_dir, args.input_language, start_doc_id, start_file_id, tokenizer,
                 )
             else:

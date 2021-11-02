@@ -312,7 +312,7 @@ def too_many_uppercase(text):
 
 
 def remove_untokenizable_characters_from_text(
-    text, tokenizer, tok_chars=None, untok_chars=None, remove_all_lines=False
+    text, tokenizer, tok_chars=None, untok_chars=None, remove_entire_lines=False
 ):
     tok_chars = {' ', '\n'} if tok_chars is None else tok_chars.copy()
     untok_chars = set() if untok_chars is None else untok_chars.copy()
@@ -343,7 +343,7 @@ def remove_untokenizable_characters_from_text(
         detected_untok_chars.append('-')
     uc = re.compile('[' + ''.join(detected_untok_chars) + ']', re.I)
     number_of_removed_lines = 0
-    if remove_all_lines:
+    if remove_entire_lines:
         result = ""
         i = 0
         for m in uc.finditer(text):
