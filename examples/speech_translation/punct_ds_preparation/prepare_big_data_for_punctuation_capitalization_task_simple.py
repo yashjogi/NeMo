@@ -370,6 +370,7 @@ def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type, normalize
             docs[doc_id]['text'],
             normalize_and_check_quotes_and_parentheses=normalize_and_check_quotes_and_parentheses,
             check_suspicious_endings=False,
+            check_suspicious_parentheses=False,
         )
         number_of_removed_suspicious_lines += num_rem_lines
         if not docs[doc_id]['text'] and not_empty:

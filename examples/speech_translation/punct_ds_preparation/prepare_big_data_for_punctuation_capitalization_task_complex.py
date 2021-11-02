@@ -118,6 +118,7 @@ SUSPICIOUS_LINE = re.compile(
     flags=re.MULTILINE
 )
 SUSPICIOUS_LINE_ENDING = re.compile('[^?!.\u2026)"]$', flags=re.MULTILINE)
+SUSPICIOUS_PARENTHESES = re.compile(fr'\)[{WC}]|[{WC}]\(')
 PARENTHESES = re.compile('[)(]')
 LONG_HYPHEN = re.compile(r'—')
 NOT_USUAL_HYPHENS = re.compile(r'[–‑—]')
@@ -321,7 +322,7 @@ def normalize_quotes(text, skip_if_odd_number_of_quotes):
 
 
 def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
-    original_text, normalize_and_check_quotes_and_parentheses, check_suspicious_endings
+    original_text, normalize_and_check_quotes_and_parentheses, check_suspicious_endings, check_suspicious_parentheses
 ):
     text = UNICODE_APOSTROPHE.sub(r"\1'\2", original_text)
     text = text.replace('`', "'")
@@ -348,6 +349,8 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(
     suspicious_regexps = [SUSPICIOUS_LINE]
     if check_suspicious_endings:
         suspicious_regexps.append(SUSPICIOUS_LINE_ENDING)
+    if check_suspicious_parentheses:
+        suspicious_regexps.append(SUSPICIOUS_PARENTHESES)
     num_removed_lines = (
             original_text.count('\n') - (original_text[-1] == '\n') - text.count('\n') + (text[-1] == '\n')
     )
@@ -491,7 +494,10 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
     after_suspicious_removal, _ = remove_suspicious_lines_and_rearrange_quotes_and_spaces(
-        text, normalize_and_check_quotes_and_parentheses=True, check_suspicious_endings=True
+        text,
+        normalize_and_check_quotes_and_parentheses=True,
+        check_suspicious_endings=True,
+        check_suspicious_parentheses=True,
     )
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)
