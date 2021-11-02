@@ -1271,8 +1271,8 @@ def doc_to_str(docid, source, title, start_line, end_line, text):
     return res + DOC_END + '\n'
 
 
-def write_docs_to_file(docs, file_path):
-    with file_path.open('w') as f:
+def write_docs_to_file(docs, file_path, append=False):
+    with file_path.open('a' if append else 'w') as f:
         for k, v in docs.items():
             f.write(doc_to_str(k, v['source'], v["title"], v["start_line"], v["end_line"], v["text"]))
 

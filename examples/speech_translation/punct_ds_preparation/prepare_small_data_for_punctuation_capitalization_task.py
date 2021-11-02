@@ -361,7 +361,7 @@ def remove_untokenizable_characters(docs, tokenizer):
     names = list(docs.keys())
     doc_texts = remove_untokenizable_characters_from_text(
         '\n\n\n'.join(['\n'.join(doc) for doc in docs.values()]), tokenizer
-    ).split('\n\n\n')
+    )[0].split('\n\n\n')
     assert len(doc_texts) == len(names)
     for i, name in enumerate(names):
         docs[name] = doc_texts[i].split('\n')

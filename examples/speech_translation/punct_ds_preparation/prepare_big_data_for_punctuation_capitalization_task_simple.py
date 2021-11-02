@@ -1,4 +1,5 @@
 import argparse
+import io
 import logging
 import multiprocessing as mp
 import random
@@ -12,6 +13,7 @@ from time import sleep
 import numpy as np
 from tqdm import tqdm
 
+from nemo.collections.common.tokenizers import TokenizerSpec
 from nemo.collections.nlp.modules import get_tokenizer
 
 import prepare_big_data_for_punctuation_capitalization_task_complex as big
@@ -21,6 +23,9 @@ from prepare_small_data_for_punctuation_capitalization_task import WC
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
 random.seed(42)
+
+
+SUPPORTED_CORPUS_TYPES = ["wikipedia", "europarl"]
 
 
 FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT = re.compile(f'^[^{WC}]+')
@@ -317,7 +322,7 @@ def preprocess_wikipedia(
                                 untok_chars,
                                 pos_info,
                                 nltk_tokenization,
-                                False,
+                                remove_parentheses=False,
                             )
                             if text:
                                 file_text += big.doc_to_str(
@@ -359,6 +364,58 @@ def preprocess_wikipedia(
         with current_file_path.open('w') as out_f:
             out_f.write(file_text)
     return doc_id_to_file_i
+
+
+def preprocess_europarl(
+    file_path: Path,
+    document_dir: Path,
+    lang: str,
+    start_doc_id: int,
+    start_file_id: int,
+    tokenizer: TokenizerSpec,
+):
+    with file_path.open() as f:
+        text = f.read()
+    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
+    f = io.StringIO(text)
+    docs = {}
+    doc_id = start_doc_id
+    last_title = None
+    for i, line in enumerate(f):
+        m = small.EUROPARL_LINE.match(line)
+        if m is None:
+            raise ValueError(f"Could not match {i} EUROPARL line {repr(line)}")
+        text = m.group(1).strip()
+        if (
+            text
+            and not small.too_many_digits(text)
+            and text[-1] in small.SENTENCE_ENDINGS
+            and small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(text) is not None
+        ):
+            title = "europarl_" + m.group(2).strip()
+            if last_title is not None and last_title != title:
+                docs[doc_id]['last_line'] = i
+                doc_id += 1
+            if doc_id not in docs:
+                docs[doc_id] = {"text": text + '\n', "title": title, "source": file_path, "start_line": i}
+            else:
+                docs[doc_id]['text'] += text + '\n'
+            last_title = title
+    if docs:
+        docs[doc_id]['last_line'] = i + 1
+    tok_chars = set()
+    untok_chars = set()
+    for doc in docs.values():
+        doc['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+            doc['text'], tokenizer, tok_chars, untok_chars, True
+        )
+        doc['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', doc['text'])
+        doc['text'] = big.SPACE_DUP.sub(' ', doc['text'])
+        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(doc['text'])
+        doc['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
+        doc['text'] = big.NEW_LINE_DUP.sub('\n', doc['text'])
+    big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
+    return {doc_id: start_file_id for doc_id in docs.keys()}
 
 
 def is_int(s):
@@ -569,7 +626,7 @@ def main():
         doc_id_to_file_i = {}
         start_doc_id, start_file_id = 0, 0
         for corpus_type, file_path in zip(args.corpus_types, args.input_files):
-            if corpus_type == big.SUPPORTED_CORPUS_TYPES[0]:
+            if corpus_type == SUPPORTED_CORPUS_TYPES[0]:  # wikipedia
                 logging.info(f"Preprocessing wikipedia file {file_path}...")
                 corpus_doc_id_to_file_i = preprocess_wikipedia_parallel(
                     args.num_jobs,
@@ -581,13 +638,22 @@ def main():
                     start_file_id,
                     args.nltk_tokenization,
                 )
-                doc_id_to_file_i.update(corpus_doc_id_to_file_i)
-                start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1
-                start_file_id = max(corpus_doc_id_to_file_i.values()) + 1
+            elif corpus_type == SUPPORTED_CORPUS_TYPES[1]:  # europarl
+                corpus_doc_id_to_file_i = preprocess_europarl(
+                    file_path,
+                    document_dir,
+                    args.input_language,
+                    start_doc_id,
+                    start_file_id,
+                    tokenizer,
+                )
             else:
                 raise ValueError(
                     f"Unsupported corpus type '{corpus_type}. Supported corpus types are {big.SUPPORTED_CORPUS_TYPES}"
                 )
+            doc_id_to_file_i.update(corpus_doc_id_to_file_i)
+            start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1
+            start_file_id = max(corpus_doc_id_to_file_i.values()) + 1
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting"]:
         rp = '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
