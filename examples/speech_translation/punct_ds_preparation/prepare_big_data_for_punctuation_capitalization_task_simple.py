@@ -405,15 +405,17 @@ def preprocess_europarl(
         docs[doc_id]['end_line'] = i + 1
     tok_chars = set()
     untok_chars = set()
-    for doc in docs.values():
-        doc['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
-            doc['text'], tokenizer, tok_chars, untok_chars, True
+    for doc_id in list(docs.keys()):
+        docs[doc_id]['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+            docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
         )
-        doc['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', doc['text'])
-        doc['text'] = big.SPACE_DUP.sub(' ', doc['text'])
-        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(doc['text'])
-        doc['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
-        doc['text'] = big.NEW_LINE_DUP.sub('\n', doc['text'])
+        docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
+        docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
+        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
+        docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
+        docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
+        if not docs[doc_id]['text']:
+            del docs[doc_id]
     big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     return {doc_id: start_file_id for doc_id in docs.keys()}
 
