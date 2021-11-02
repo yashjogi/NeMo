@@ -156,6 +156,7 @@ def show_prog(q, total_num_lines, name):
         try:
             to_add = q.get(timeout=1)
             if to_add < 0:
+                prog.close()
                 return
             prog.n += to_add
             prog.update(0)
@@ -532,6 +533,40 @@ def strip_segment(segment):
     return FORBIDDEN_PUNCTUATION_IN_THE_START_OF_SEGMENT.sub('', segment)
 
 
+def remove_parentheses(rank, progress_queue, files, output_dir):
+    for file in files:
+        with file.open('w') as f:
+            docs, num_raw_characters_by_docs = big.read_docs_from_file(f)
+            for doc, num_raw_characters in zip(docs.values(), num_raw_characters_by_docs):
+                doc['text'] = big.ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES.sub('', doc['text'])
+                progress_queue.put(num_raw_characters)
+        big.write_docs_to_file(docs, output_dir / file.name)
+
+
+def remove_parentheses_parallel(document_dir, output_dir, num_jobs):
+    files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
+    num_jobs = min(num_jobs, len(files))
+    num_files_per_job = len(files) // num_jobs
+    distributed_files = (
+        [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
+        + [files[(num_jobs - 1) * num_files_per_job:]]
+    )
+    manager = mp.Manager()
+    progress_queue = manager.Queue()
+    progress_process = mp.Process(
+        target=show_prog, args=(progress_queue, count_total_number_of_characters(files), "char")
+    )
+    progress_process.start()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with mp.Pool(num_jobs) as pool:
+        pool.starmap(
+            remove_parentheses,
+            list(zip(range(num_jobs), [progress_queue] * num_jobs, distributed_files, [output_dir] * num_jobs)),
+        )
+    progress_queue.put(-1)
+    progress_process.join()
+
+
 def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, max_num_segments):
     permutation = random.sample(num_words_in_segments, len(num_words_in_segments))
     # print("permutation:", permutation)
@@ -565,21 +600,13 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
     return num_cut_segments
 
 
-def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range, remove_parentheses):
+def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range):
     num_words_in_segments = list(range(sequence_range[0], sequence_range[1]))
     for f_i, f in enumerate(files):
         out_file = output_dir / (f.stem + '.txt')
-        text = list(big.read_docs_from_file(f).items())
+        text = list(big.read_docs_from_file(f)[0].items())
         random.shuffle(text)
         text = '\n'.join([doc[1]['text'] for doc in text])
-        if remove_parentheses:
-            text = big.ALL_PARENTHESES.sub(' ', text)
-            text = small.SPACE_DUP.sub(' ', text)
-            text = big.SPACE_NEW_LINE.sub('\n', text)
-            text = '\n'.join(
-                [big.normalize_quotes(line) for line in text.split('\n') if big.EMPTY_LINE.match(line) is None]
-            )
-            text = big.SPACE_PUNCTUATION_MARK.sub(r'\1', text)
         text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
 
         if num_to_cut_by_files is None:
@@ -608,7 +635,9 @@ def estimate_number_of_segments(rank, progress_queue, files, sequence_length_ran
     for file_path in files:
         with file_path.open() as f:
             text = f.read()
-            num_words += len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(text))
+            num_words += len(
+                small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(big.DOC_MARK_UP_LINES.sub('', text))
+            )
             progress_queue.put(len(text))
     return (
         num_words
@@ -654,8 +683,6 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
 
 
 def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs, remove_parentheses):
-    # TODO: remove parentheses in separate function before cutting because in `cut_and_save_parallel` number of
-    #     segments is estimated incorrectly.
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     if size is None:
         num_to_cut_by_files = [None] * len(files)
@@ -670,7 +697,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
     manager = mp.Manager()
     progress_queue = manager.Queue()
     size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs) if size is None else size
-    progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "File"))
+    progress_process = mp.Process(target=show_prog, args=(progress_queue, size, "segment"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -744,8 +771,15 @@ def main():
             start_file_id = max(corpus_doc_id_to_file_i.values()) + 1
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting"]:
-        rp = '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation,
-        cut_and_save_parallel(document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs, rp)
+        rp = '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation
+        if rp:
+            rp_dir = document_dir.parent / 'documents_without_parentheses'
+            remove_parentheses_parallel(document_dir, rp_dir, args.num_jobs)
+        else:
+            rp_dir = None
+        cut_and_save_parallel(
+            rp_dir if rp else document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs, rp
+        )
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
         logging.info("shuffling segments...")

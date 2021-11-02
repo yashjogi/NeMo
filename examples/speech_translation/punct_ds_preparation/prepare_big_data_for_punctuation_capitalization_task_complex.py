@@ -72,6 +72,7 @@ DOC_HEAD = re.compile(
 )
 DOC_HEAD_TMPL = '<doc docid="{}" source="{}" title="{}" start_line="{}" end_line="{}">'
 DOC_END = '</doc>'
+DOC_MARK_UP_LINES = re.compile('^</?doc.+\n', flags=re.MULTILINE)
 DROP_TAGS = re.compile(
     r"</?(?:div|su[pb]|span|blockquote|em|big|small|s|br|nowiki|abbr|center|poem|i|u|font|kbd|mapframe|a|section|"
     r"onlyinclude|time|cite)(?: [^>]*>|/?>)|'{3}"
@@ -132,6 +133,7 @@ DIGIT_SPACE_PERCENT = re.compile(r'(\d) % *')
 UNICODE_APOSTROPHE = re.compile(r'([a-zA-Z])[‘’]([a-zA-Z])')
 BROKEN_PARENTHESES_WITH_CONTENT = re.compile(f'\\([^)(]*[^{WC}!?."\'] *\\)|\\( *[^{WC}"][^)(]*\\)|\\( *…? *\\)')
 ALL_PARENTHESES = re.compile(r'\([^()]*\)')
+ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES = re.compile(' *' + ALL_PARENTHESES.pattern + f" *(?![{WC}'])")
 # QUOTE_THEN_COMMA_OR_PERIOD = re.compile('"([,.])([^.])')
 # COMMA_OR_PERIOD_THEN_QUOTE = re.compile('([^.])([,.])"')
 SPACE_NEW_LINE = re.compile(' \n ?')
@@ -281,30 +283,34 @@ def check_quotes_and_parentheses(line, do_no_allow_nested=True):
     return opened == 0 and line.count('"') % 2 == 0
 
 
-def normalize_quotes(line):
-    line_result = ""
+def normalize_quotes(text, skip_if_odd_number_of_quotes):
+    if skip_if_odd_number_of_quotes:
+        if text.count('"') % 2 == 1:
+            return text
+    else:
+        if text.count('"') % 2 == 1:
+            raise ValueError("Odd number of quotes")
+    result = ""
     already_checked = 0
-    i = line.find('"')
+    i = text.find('"')
     quote_count = 0
     while i >= 0:
         if quote_count % 2 == 0:
-            assert i < len(line) - 1, \
-                "Opening quote at the end of line. All input lines have to have even number of quotes"
             if i == 0:
-                line_result = '"'
+                result = '"'
             else:
-                line_result += line[already_checked: i - (line[i - 1] == ' ')] + ' ' + '"'
-            already_checked = i + 1 + (line[i + 1] == ' ')
+                result += text[already_checked: i - (text[i - 1] == ' ')] + ' ' + '"'
+            already_checked = i + 1 + (text[i + 1] == ' ')
         else:
-            line_result += line[already_checked: i - (line[i - 1] == ' ')] + '"'
-            if i < len(line) - 1:
-                line_result += ' '
-                already_checked = i + 1 + (line[i + 1] == ' ')
+            result += text[already_checked: i - (text[i - 1] == ' ')] + '"'
+            if i < len(text) - 1:
+                result += ' '
+                already_checked = i + 1 + (text[i + 1] == ' ')
             else:
-                already_checked = len(line)
-        i = line.find('"', already_checked)
+                already_checked = len(text)
+        i = text.find('"', already_checked)
         quote_count += 1
-    return line_result + line[already_checked:]
+    return result + text[already_checked:]
 
 
 def remove_suspicious_lines_and_rearrange_quotes_and_spaces(original_text, normalize_and_check_quotes_and_parentheses):
@@ -324,7 +330,7 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(original_text, norma
     if normalize_and_check_quotes_and_parentheses:
         text = '\n'.join(
             [
-                normalize_quotes(line) for line in text.split('\n')
+                normalize_quotes(line, skip_if_odd_number_of_quotes=False) for line in text.split('\n')
                 if check_quotes_and_parentheses(line) and '""' not in line
             ]
         )
@@ -1243,6 +1249,7 @@ def read_docs_from_file(file_path):
     current_doc = ""
     curr_doc_id = None
     docs = {}
+    num_raw_characters_by_doc = []
     with file_path.open(buffering=BUFFER_SIZE) as f:
         for i, line in enumerate(f):
             start = DOC_HEAD.match(line)
@@ -1252,6 +1259,7 @@ def read_docs_from_file(file_path):
                         f"Encountered start of document number {start.group(1)} on line {i} in file {file_path} while "
                         f"document number {curr_doc_id} is still in progress."
                     )
+                num_raw_characters_by_doc.append(0)
                 curr_source, curr_title = start.group(2), start.group(3)
                 curr_doc_id, curr_start_line, curr_end_line = [int(start.group(i)) for i in [1, 4, 5]]
             if line.startswith("</doc>"):
@@ -1271,7 +1279,8 @@ def read_docs_from_file(file_path):
                 curr_doc_id = None
             if curr_doc_id is not None and start is None:
                 current_doc += line
-    return docs
+                num_raw_characters_by_doc[-1] += len(line)
+    return docs, num_raw_characters_by_doc
 
 
 def doc_to_str(docid, source, title, start_line, end_line, text):
@@ -1302,7 +1311,7 @@ def collect_info_about_preprocessed_data(args):
     for p in files:
         if is_int(p.stem) and p.suffixes == ['.xml']:
             file_i = int(p.stem)
-            docs = read_docs_from_file(p)
+            docs, _ = read_docs_from_file(p)
             for doc_id, doc in docs.items():
                 doc_id_to_file_i[doc_id] = file_i
                 arrangement, line_num_words = small.arrange_sentences_by_number_of_words_in_1_doc(
