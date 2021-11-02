@@ -111,9 +111,9 @@ NEXT_LINE_TAG = re.compile(' *\n *<([a-zA-Z]+)(?: [^>\n]+)?>')
 LIST_ELEMENT_START = re.compile('\n *(</?li(?: [^>]*>|/?>|>)|\\*|#|\\|)', flags=re.I)
 GOOD_LINE_START = re.compile(f'[{WC}"]')
 SUSPICIOUS_LINE = re.compile(
-    f'^[^{WC}"]|http:/|www.\\w|[,.;:-] ?[,!;:?]|- ?[!:?]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
+    f'^[^{WC}"]|http:/|www.\\w|[,.;:-–——] ?[,!;:?]|-–—— ?[!:?]|[{WC}]"[{WC}]|\\)[{WC}]|[{WC}]\\(|'
     f'[=*^\\\\~<>|{{}}]|[^?!.\u2026)"]$|[^{WC} \n`ː!@#$%&*()+\\\\{{}}\u2026"\'/?:§;‘„“‚”»«’><.,'
-    f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]-]|'
+    f'\u00a0\u1680\u1803\u202f\u205f\u3000\ufeff№[\\]—–—-]|'
     f'\\([^"()]*"[^"()]*("[^"()]*"[^"()]*)*\\)',
     flags=re.MULTILINE
 )
