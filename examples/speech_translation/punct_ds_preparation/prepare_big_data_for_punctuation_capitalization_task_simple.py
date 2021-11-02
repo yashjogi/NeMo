@@ -404,8 +404,8 @@ def preprocess_europarl(
     logging.info(f"Number of documents before final cleaning of europarl file {file_path}: {len(docs)}")
     if docs:
         docs[doc_id]['end_line'] = i + 1
-    tok_chars = set()
-    untok_chars = set()
+    tok_chars = None
+    untok_chars = None
     deleted_after_untokenizable_removal = 0
     deleted_after_suspicious_removal = 0
     for doc_id in list(docs.keys()):
