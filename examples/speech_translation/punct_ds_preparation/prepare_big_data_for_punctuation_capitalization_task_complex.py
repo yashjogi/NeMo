@@ -327,15 +327,17 @@ def remove_suspicious_lines_and_rearrange_quotes_and_spaces(text):
         return text
     result = ""
     i = 0
+    num_removed_lines = 0
     for m in SUSPICIOUS_LINE.finditer(text, pos=text[0] == '\n', endpos=len(text) - (text[-1] == '\n')):
         if m.span()[0] >= i:
             right = text.rfind('\n', i, m.span()[0])
             if right > 0:
                 result += text[i: right]
+                num_removed_lines += 1
             cand = text.find('\n', m.span()[1])
             i = cand if cand > 0 else len(text)
     result += text[i:]
-    return result
+    return result, num_removed_lines
 
 
 def normalize_punctuation(text, lang):
@@ -453,12 +455,12 @@ def get_wiki_text_lines(text, lang, tokenizer, tok_chars, untok_chars, pos_info,
     if text and text[-1] != '\n':
         text += '\n'
     if tokenizer is not None:
-        text, tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+        text, tok_chars, untok_chars, _ = small.remove_untokenizable_characters_from_text(
             text, tokenizer, tok_chars, untok_chars, True
         )
     text = ALL_PARENTHESES.sub(' ', text) if remove_parentheses else BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', text)
     text = SPACE_DUP.sub(' ', text)
-    after_suspicious_removal = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
+    after_suspicious_removal, _ = remove_suspicious_lines_and_rearrange_quotes_and_spaces(text)
     text = normalize_punctuation(after_suspicious_removal, lang)
     text = NEW_LINE_DUP.sub('\n', text)
     if nltk_tokenization:

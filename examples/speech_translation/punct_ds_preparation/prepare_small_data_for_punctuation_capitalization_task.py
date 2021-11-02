@@ -342,6 +342,7 @@ def remove_untokenizable_characters_from_text(
         detected_untok_chars.remove('-')
         detected_untok_chars.append('-')
     uc = re.compile('[' + ''.join(detected_untok_chars) + ']', re.I)
+    number_of_removed_lines = 0
     if remove_all_lines:
         result = ""
         i = 0
@@ -349,12 +350,13 @@ def remove_untokenizable_characters_from_text(
             right = text.rfind('\n', i, m.span()[0])
             if right > 0:
                 result += text[i : right]
+                number_of_removed_lines += 1
             cand = text.find('\n', m.span()[1])
             i = cand if cand > 0 else len(text)
         result += text[i:]
     else:
         result = uc.sub('', uc.sub('\n' + uc.pattern + '\n', '\n', text))
-    return result, tok_chars, untok_chars
+    return result, tok_chars, untok_chars, number_of_removed_lines
 
 
 def remove_untokenizable_characters(docs, tokenizer):

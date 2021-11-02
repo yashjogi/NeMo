@@ -367,21 +367,27 @@ def preprocess_wikipedia(
     return doc_id_to_file_i
 
 
-def clean_small_dataset(docs, tokenizer, lang, file_path):
+def clean_small_dataset(docs, tokenizer, lang, file_path, corpus_type):
     tok_chars = None
     untok_chars = None
     deleted_after_untokenizable_removal = 0
     deleted_after_suspicious_removal = 0
+    number_of_removed_lines_because_of_untokenizable_characters = 0
+    number_of_removed_suspicious_lines = 0
     for doc_id in list(docs.keys()):
-        docs[doc_id]['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
+        docs[doc_id]['text'], tok_chars, untok_chars, num_rem_lines = small.remove_untokenizable_characters_from_text(
             docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
         )
+        number_of_removed_lines_because_of_untokenizable_characters += num_rem_lines
         if not docs[doc_id]['text']:
             deleted_after_untokenizable_removal += 1
         docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
         docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
         not_empty = bool(docs[doc_id]['text'])
-        after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
+        after_suspicious_removal, num_rem_lines = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(
+            docs[doc_id]['text']
+        )
+        number_of_removed_suspicious_lines += num_rem_lines
         if not docs[doc_id]['text'] and not_empty:
             deleted_after_suspicious_removal += 1
         docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
@@ -389,9 +395,14 @@ def clean_small_dataset(docs, tokenizer, lang, file_path):
         if not docs[doc_id]['text']:
             del docs[doc_id]
     logging.info(
-        f"Number of documents from europarl file {file_path} which became empty after untokenizable removal: "
+        f"Number of documents from {corpus_type} file {file_path} which became empty after untokenizable removal: "
         f"{deleted_after_untokenizable_removal}, "
         f"after suspicious removal: {deleted_after_suspicious_removal}"
+    )
+    logging.info(
+        f"Number of removed lines from {corpus_type} file {file_path} because of untokenizable characters: "
+        f"{number_of_removed_lines_because_of_untokenizable_characters}. Number of removed suspicious lines: "
+        f"{number_of_removed_suspicious_lines}."
     )
     return docs
 
@@ -435,7 +446,7 @@ def preprocess_europarl(
     logging.info(f"Number of documents before final cleaning of europarl file {file_path}: {len(docs)}")
     if docs:
         docs[doc_id]['end_line'] = i + 1
-    docs = clean_small_dataset(docs, tokenizer, lang, file_path)
+    docs = clean_small_dataset(docs, tokenizer, lang, file_path, 'europarl')
     if docs:
         logging.info(f"Number of documents after final cleaning of europarl file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
@@ -483,7 +494,7 @@ def preprocess_ted(
             }
         else:
             logging.warning(f"Found empty document {doc_id} in TED dataset")
-    docs = clean_small_dataset(docs, tokenizer, lang, file_path)
+    docs = clean_small_dataset(docs, tokenizer, lang, file_path, 'TED')
     if docs:
         logging.info(f"Number of documents after final cleaning of TED file {file_path}: {len(docs)}")
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
