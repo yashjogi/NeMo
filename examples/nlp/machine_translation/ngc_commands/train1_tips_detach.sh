@@ -14,7 +14,8 @@ python enc_dec_nmt.py \
   --config-path=conf \
   --config-name tips_aayn_base_min_punc_autoregressive_ngc \
   trainer.gpus=1 \
-  +model.detach_decoder_tips=true
+  +model.detach_decoder_tips=true \
+  exp_manager.wandb_logger_kwargs.name=decoder_detach_tips_ds90546_bs32768
 set +e +x
 EOF
 
