@@ -681,7 +681,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     return sum(res)
 
 
-def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs, remove_parentheses):
+def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     if size is None:
         num_to_cut_by_files = [None] * len(files)
@@ -711,7 +711,6 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
                     num_to_cut_by_files,
                     [output_dir] * num_jobs,
                     [sequence_length_range] * num_jobs,
-                    [remove_parentheses] * num_jobs,
                 )
             )
         )
@@ -777,7 +776,7 @@ def main():
         else:
             rp_dir = None
         cut_and_save_parallel(
-            rp_dir if rp else document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs, rp
+            rp_dir if rp else document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs
         )
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
