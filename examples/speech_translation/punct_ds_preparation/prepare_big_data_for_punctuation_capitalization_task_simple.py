@@ -447,31 +447,31 @@ def preprocess_ted(
     file_path: Path, document_dir: Path, lang: str, start_doc_id: int, start_file_id: int, tokenizer: TokenizerSpec
 ):
     with file_path.open() as f:
-        text = f.read()
-    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', text)
+        original_text = f.read()
+    text = small.SPACING_CHARACTERS_TO_REPLACE.sub(' ', original_text)
     soup = BeautifulSoup(text)
     docs = {}
     end_pos = 0
     end_line = 0
     for doc_id, doc in enumerate(soup.findAll("doc"), start=start_doc_id):
         title = "TED_" + doc["docid"] + "._" + doc.find("title").text
-        text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
+        doc_text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
         lines = [
-            line.strip() for line in text.split('\n')
+            line.strip() for line in doc_text.split('\n')
             if small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(line.strip()) is not None
         ]
         if lines:
             find_str = f'<doc docid="{doc["docid"]}"'
-            start_pos = text.find(find_str, end_pos)
+            start_pos = original_text.find(find_str, end_pos)
             assert start_pos >= 0, \
                 f"Could not find string '{find_str}' in TED file {file_path} while processing document number " \
                 f"{doc['docid']}. Starting to search from position {end_pos} (character number)."
-            start_line = end_line + text[start_pos: end_pos].count('\n')
-            end_pos = text.find('</doc>', start_pos)
+            start_line = end_line + original_text[start_pos: end_pos].count('\n')
+            end_pos = original_text.find('</doc>', start_pos)
             assert end_pos >= 0, \
                 f"Could not find ending of document {doc_id} in TED file {file_path}. " \
                 f"Starting to search from position {start_pos} (character number)."
-            end_line = start_line + text[start_pos: end_pos].count('\n')
+            end_line = start_line + original_text[start_pos: end_pos].count('\n')
             docs[doc_id] = {
                 'text': '\n'.join(lines) + '\n',
                 'title': title,
