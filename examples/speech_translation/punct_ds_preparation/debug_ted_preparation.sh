@@ -1,6 +1,6 @@
 python prepare_big_data_for_punctuation_capitalization_task_simple.py \
-  --output_dir /media/apeganov/DATA/debug_europarl_preparation \
-  --corpus_types europarl \
+  --output_dir /media/apeganov/DATA/debug_ted_preparation \
+  --corpus_types TED \
   --create_model_input \
   --bert_labels \
   --autoregressive_labels \
