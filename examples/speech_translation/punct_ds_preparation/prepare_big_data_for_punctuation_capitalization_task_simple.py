@@ -475,13 +475,12 @@ def preprocess_ted(
                 f"Starting to search from position {start_pos} (character number)."
             end_line = start_line + original_text[start_pos: end_pos].count('\n')
             docs[doc_id] = {
-                'text': big.DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub('\n'.join(lines) + '\n', ' '),
+                'text': big.DOUBLE_SQUARE_BRACKETS_WITH_CONTENT.sub(' ', '\n'.join(lines) + '\n'),
                 'title': title,
                 'source': file_path,
                 'start_line': start_line,
                 'end_line': end_line,
             }
-            print(len('\n'.join(lines) + '\n'), len(docs[doc_id]['text']))
         else:
             logging.warning(f"Found empty document {doc_id} in TED dataset")
     docs = clean_small_dataset(docs, tokenizer, lang, file_path)
