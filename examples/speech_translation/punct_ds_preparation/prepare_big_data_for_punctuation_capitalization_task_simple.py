@@ -423,6 +423,7 @@ def preprocess_europarl(
             and small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.search(text) is not None
         ):
             title = "europarl_" + m.group(2).strip()
+            title = title.replace('"', "'")
             if last_title is not None and last_title != title:
                 docs[doc_id]['end_line'] = i
                 doc_id += 1
@@ -455,6 +456,7 @@ def preprocess_ted(
     end_line = 0
     for doc_id, doc in enumerate(soup.findAll("doc"), start=start_doc_id):
         title = "TED_" + doc["docid"] + "._" + doc.find("title").text
+        title.replace('"', "'")
         doc_text = ''.join([e for e in doc if isinstance(e, NavigableString)]).strip()
         lines = [
             line.strip() for line in doc_text.split('\n')
@@ -473,7 +475,7 @@ def preprocess_ted(
                 f"Starting to search from position {start_pos} (character number)."
             end_line = start_line + original_text[start_pos: end_pos].count('\n')
             docs[doc_id] = {
-                'text': '\n'.join(lines) + '\n',
+                'text': big.DOUBLE_BRACES_WITH_CONTENT.sub('\n'.join(lines) + '\n', ' '),
                 'title': title,
                 'source': file_path,
                 'start_line': start_line,

@@ -342,6 +342,7 @@ def normalize_punctuation(text, lang):
     text = LONG_HYPHEN.sub(' - ', text)
     text = SPACE_DUP.sub(' ', text)
     text = NOT_USUAL_HYPHENS.sub('-', text)
+    text = text.replace('--', '-')
     text = OPENING_PARENTHESES_WITH_SPACE.sub('(', text)
     text = NO_SPACE_OPENING_PARENTHESES.sub(' (', text)
     text = SPACE_CLOSING_PARENTHESES.sub(')', text)
