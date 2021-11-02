@@ -394,7 +394,7 @@ def preprocess_europarl(
         ):
             title = "europarl_" + m.group(2).strip()
             if last_title is not None and last_title != title:
-                docs[doc_id]['last_line'] = i
+                docs[doc_id]['end_line'] = i
                 doc_id += 1
             if doc_id not in docs:
                 docs[doc_id] = {"text": text + '\n', "title": title, "source": file_path, "start_line": i}
@@ -402,7 +402,7 @@ def preprocess_europarl(
                 docs[doc_id]['text'] += text + '\n'
             last_title = title
     if docs:
-        docs[doc_id]['last_line'] = i + 1
+        docs[doc_id]['end_line'] = i + 1
     tok_chars = set()
     untok_chars = set()
     for doc in docs.values():
