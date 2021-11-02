@@ -465,7 +465,7 @@ def preprocess_ted(
             start_pos = text.find(find_str, end_pos)
             assert start_pos >= 0, \
                 f"Could not find string '{find_str}' in TED file {file_path} while processing document number " \
-                f"{doc_id}. Starting to search from {start_pos}."
+                f"{doc_id}. Starting to search from {end_pos}."
             start_line = end_line + text[start_pos: end_pos].count('\n')
             end_pos = text.find('</doc>', start_pos)
             assert end_pos >= 0, \
