@@ -481,6 +481,7 @@ def preprocess_ted(
                 'start_line': start_line,
                 'end_line': end_line,
             }
+            print(len('\n'.join(lines) + '\n'), len(docs[doc_id]['text']))
         else:
             logging.warning(f"Found empty document {doc_id} in TED dataset")
     docs = clean_small_dataset(docs, tokenizer, lang, file_path)
