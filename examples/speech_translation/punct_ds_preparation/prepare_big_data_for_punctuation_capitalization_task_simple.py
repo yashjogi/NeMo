@@ -535,11 +535,10 @@ def strip_segment(segment):
 
 def remove_parentheses(rank, progress_queue, files, output_dir):
     for file in files:
-        with file.open('w') as f:
-            docs, num_raw_characters_by_docs = big.read_docs_from_file(f)
-            for doc, num_raw_characters in zip(docs.values(), num_raw_characters_by_docs):
-                doc['text'] = big.ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES.sub('', doc['text'])
-                progress_queue.put(num_raw_characters)
+        docs, num_raw_characters_by_docs = big.read_docs_from_file(file)
+        for doc, num_raw_characters in zip(docs.values(), num_raw_characters_by_docs):
+            doc['text'] = big.ALL_PARENTHESES_WITH_PRECEDING_AND_FOLLOWING_SPACES.sub('', doc['text'])
+            progress_queue.put(num_raw_characters)
         big.write_docs_to_file(docs, output_dir / file.name)
 
 
