@@ -397,26 +397,33 @@ def preprocess_europarl(
                 docs[doc_id]['end_line'] = i
                 doc_id += 1
             if doc_id not in docs:
-                docs[doc_id] = {"text": text + '\n', "title": title, "source": file_path, "start_line": i}
+                docs[doc_id] = {"text": text.strip() + '\n', "title": title, "source": file_path, "start_line": i}
             else:
-                docs[doc_id]['text'] += text + '\n'
+                docs[doc_id]['text'] += text.strip() + '\n'
             last_title = title
     print("Number of documents before final cleaning:", len(docs))
     if docs:
         docs[doc_id]['end_line'] = i + 1
     tok_chars = set()
     untok_chars = set()
+    deleted_after_untokenizable_removal = 0
+    deleted_after_suspicious_removal = 0
     for doc_id in list(docs.keys()):
         docs[doc_id]['text'], tok_chars, untok_chars = small.remove_untokenizable_characters_from_text(
             docs[doc_id]['text'], tokenizer, tok_chars, untok_chars, True
         )
+        if not docs[doc_id]['text']:
+            deleted_after_untokenizable_removal += 1
         docs[doc_id]['text'] = big.BROKEN_PARENTHESES_WITH_CONTENT.sub(' ', docs[doc_id]['text'])
         docs[doc_id]['text'] = big.SPACE_DUP.sub(' ', docs[doc_id]['text'])
         after_suspicious_removal = big.remove_suspicious_lines_and_rearrange_quotes_and_spaces(docs[doc_id]['text'])
+        if not docs[doc_id]['text']:
+            deleted_after_suspicious_removal += 1
         docs[doc_id]['text'] = big.normalize_punctuation(after_suspicious_removal, lang)
         docs[doc_id]['text'] = big.NEW_LINE_DUP.sub('\n', docs[doc_id]['text'])
         if not docs[doc_id]['text']:
             del docs[doc_id]
+    print("after untokenizable, after suspicious:", deleted_after_untokenizable_removal, deleted_after_suspicious_removal)
     if docs:
         big.write_docs_to_file(docs, document_dir / (str(start_file_id) + '.xml'))
     else:
