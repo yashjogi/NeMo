@@ -405,12 +405,14 @@ class MTEncDecModel(EncDecNLPModel):
             tgt_replacement_mask=tgt_word_mask,
             tgt_replacements=tgt_replacements,
         )
-        with open('debug_translations.txt', 'a') as f:
-            for tr in translations:
-                f.write(tr + '\n')
         np_tgt = tgt_ids.detach().cpu().numpy()
         ground_truths = [self.decoder_tokenizer.ids_to_text(tgt) for tgt in np_tgt]
         ground_truths = [self.target_processor.detokenize(tgt.split(' ')) for tgt in ground_truths]
+        with open('debug_translations.txt', 'a') as f, open('debug_references.txt', 'a'):
+            for tr in translations:
+                f.write(tr + '\n')
+            for gt in ground_truths:
+                f.write(gt + '\n')
         num_non_pad_tokens = np.not_equal(np_tgt, self.decoder_tokenizer.pad_id).sum().item()
         tr_ctc, tr_lengths = self.encode_ctc(translations)
         gt_ctc, gt_lengths = self.encode_ctc(ground_truths)
