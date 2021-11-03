@@ -57,7 +57,7 @@ from nemo.collections.nlp.models import DuplexTaggerModel
 
 
 def main():
-    model = DuplexTaggerModel.restore_from('/home/yzhang/data/checkpoints/tuan/english_tn/tagger_model.nemo')
+    model = DuplexTaggerModel.restore_from('/home/yzhang/code/NeMo/examples/nlp/duplex_text_normalization/checkpoints_tagger_fixsame_albert_2372207/tagger/tagger_training/2021-10-28_00-24-25/checkpoints/tagger_training.nemo')
     model.export('tagger.onnx')
 
 if __name__ == '__main__':
