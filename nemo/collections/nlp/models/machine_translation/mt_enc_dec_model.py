@@ -971,6 +971,7 @@ class MTEncDecModel(EncDecNLPModel):
             translations: a list strings containing detokenized translations
             inputs: a list of string containing detokenized inputs
         """
+        print("save_debug:", save_debug)
         mode = self.training
         timer = cache.get("timer", None)
         try:
