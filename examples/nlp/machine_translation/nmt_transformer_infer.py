@@ -128,7 +128,7 @@ def main():
     parser.add_argument(
         "--max_delta_length",
         type=int,
-        default=5,
+        default=512,
         help="Stop generating if target sequence length exceeds source length by this number.",
     )
     parser.add_argument(

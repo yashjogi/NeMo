@@ -340,7 +340,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # Ready to finish generation. Finish generation if word token is encountered.
         not_pad_mask = ~pad_mask
         not_enough_words = num_generated_words.lt(tgt_num_words)
-        print("not_enough_words[28:32], num_generated_words[28:32], tgt_num_words[28:32]:", not_enough_words[28:32], num_generated_words[28:32], tgt_num_words[28:32])
         enough_words = ~not_enough_words
         assert torch.all(
             not_pad_mask[not_enough_words]
