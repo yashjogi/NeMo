@@ -99,6 +99,7 @@ class MTEncDecConfig(NemoConfig):
     name: Optional[str] = 'MTEncDec'
     do_training: bool = True
     do_testing: bool = False
+    nemo_file: Optional[str] = None
     model: MTEncDecModelConfig = MTEncDecModelConfig()
     trainer: Optional[TrainerConfig] = TrainerConfig()
     exp_manager: Optional[ExpManagerConfig] = ExpManagerConfig(name='MTEncDec', files_to_copy=[])
@@ -127,7 +128,10 @@ def main(cfg: MTEncDecConfig) -> None:
     exp_manager(trainer, cfg.exp_manager)
 
     # everything needed to train translation models is encapsulated in the NeMo MTEncdDecModel
-    mt_model = MTEncDecModel(cfg.model, trainer=trainer)
+    if cfg.nemo_file is None:
+        mt_model = MTEncDecModel(cfg.model, trainer=trainer)
+    else:
+        mt_model = MTEncDecModel.restore_from(cfg.nemo_file, trainer=trainer)
 
     logging.info("\n\n************** Model parameters and their sizes ***********")
     for name, param in mt_model.named_parameters():
