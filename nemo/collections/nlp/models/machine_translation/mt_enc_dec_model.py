@@ -1068,6 +1068,8 @@ class MTEncDecModel(EncDecNLPModel):
         # __TODO__: This will reset both source and target processors even if you want to reset just one.
         if source_lang is not None or target_lang is not None:
             self.setup_pre_and_post_processing_utils(source_lang, target_lang)
+        if target_lang is None:
+            self.target_processor = None
         print("target_lang, source_lang:", target_lang, source_lang)
         print("self.target_processor:", self.target_processor)
         mode = self.training
