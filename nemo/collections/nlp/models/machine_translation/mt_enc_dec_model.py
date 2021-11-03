@@ -405,6 +405,9 @@ class MTEncDecModel(EncDecNLPModel):
             tgt_replacement_mask=tgt_word_mask,
             tgt_replacements=tgt_replacements,
         )
+        with open('debug_translations.txt', 'a') as f:
+            for tr in translations:
+                f.write(tr + '\n')
         np_tgt = tgt_ids.detach().cpu().numpy()
         ground_truths = [self.decoder_tokenizer.ids_to_text(tgt) for tgt in np_tgt]
         ground_truths = [self.target_processor.detokenize(tgt.split(' ')) for tgt in ground_truths]
