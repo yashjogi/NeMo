@@ -995,10 +995,16 @@ class MTEncDecModel(EncDecNLPModel):
                     self.target_processor,
                     filter_beam_ids=self.filter_beam_ids,
                 )
+            with open(f'translations_before_processing_processor_{self.target_processor}.txt', 'a') as f:
+                for tr in best_translations:
+                    f.write(tr + '\n')
 
             best_translations = self.ids_to_postprocessed_text(
                 best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=self.filter_beam_ids
             )
+            with open(f'translations_after_processing_processor_{self.target_processor}.txt', 'a') as f:
+                for tr in best_translations:
+                    f.write(tr + '\n')
             inputs = self.ids_to_postprocessed_text(
                 src, self.encoder_tokenizer, self.source_processor, filter_beam_ids=False
             )
@@ -1081,6 +1087,9 @@ class MTEncDecModel(EncDecNLPModel):
 
         try:
             self.eval()
+            with open(f'input_text_target_lang_{target_lang}.txt', 'a') as f:
+                for line in text:
+                    f.write(line.strip() + '\n')
             src, src_mask, num_src_words = self.prepare_inference_batch(
                 text, prepend_ids, add_src_num_words_to_batch=add_src_num_words_to_batch
             )
