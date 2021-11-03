@@ -943,6 +943,11 @@ class MTEncDecModel(EncDecNLPModel):
             beam_ids = self.filter_predicted_ids(beam_ids)
         translations = [tokenizer.ids_to_text(tr) for tr in beam_ids.cpu().numpy()]
         if processor is not None:
+            for tr in translations:
+                if processor.detokenize(tr.split(' ')) != tr:
+                    print(repr(tr))
+                    print(repr(processor.detokenize(tr.split(' '))))
+                    print()
             translations = [processor.detokenize(translation.split(' ')) for translation in translations]
         return translations
 
