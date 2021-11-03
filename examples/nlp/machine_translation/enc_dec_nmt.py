@@ -133,6 +133,10 @@ def main(cfg: MTEncDecConfig) -> None:
     else:
         mt_model = MTEncDecModel.restore_from(cfg.nemo_file, trainer=trainer)
         mt_model.pre_super(cfg.model, trainer)
+        if cfg.do_testing:
+            mt_model.setup_test_data(cfg.model.test_ds)
+        if cfg.do_training:
+            mt_model.setup_training_data(cfg.model.train_ds)
 
     logging.info("\n\n************** Model parameters and their sizes ***********")
     for name, param in mt_model.named_parameters():
