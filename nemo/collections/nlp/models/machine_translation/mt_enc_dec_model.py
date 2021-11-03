@@ -942,7 +942,7 @@ class MTEncDecModel(EncDecNLPModel):
         if filter_beam_ids:
             beam_ids = self.filter_predicted_ids(beam_ids)
         translations = [tokenizer.ids_to_text(tr) for tr in beam_ids.cpu().numpy()]
-        with open(f'translations_before_processing_processor_{self.target_processor}.txt', 'a') as f:
+        with open(f'translations_before_processing_processor_{type(self.target_processor)}.txt', 'a') as f:
             for tr in translations:
                 f.write(tr + '\n')
         if processor is not None:
@@ -1002,7 +1002,7 @@ class MTEncDecModel(EncDecNLPModel):
             best_translations = self.ids_to_postprocessed_text(
                 best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=self.filter_beam_ids
             )
-            with open(f'translations_after_processing_processor_{self.target_processor}.txt', 'a') as f:
+            with open(f'translations_after_processing_processor_{type(self.target_processor)}.txt', 'a') as f:
                 for tr in best_translations:
                     f.write(tr + '\n')
             inputs = self.ids_to_postprocessed_text(
