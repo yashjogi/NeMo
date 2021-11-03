@@ -49,6 +49,7 @@ def translate_text(
     all_timing,
     ensemble_generator,
     add_src_num_words_to_batch,
+    save_debug=False,
 ):
     if len(models) > 1:
         src_ids, src_mask, num_src_words = models[0].prepare_inference_batch(
@@ -81,6 +82,7 @@ def translate_text(
             return_beam_scores=args.write_scores,
             log_timing=args.write_timing,
             add_src_num_words_to_batch=add_src_num_words_to_batch,
+            save_debug=save_debug
         )
 
         if args.write_timing:
@@ -267,6 +269,7 @@ def main():
                         all_timing=[],
                         ensemble_generator=ensemble_generator,
                         add_src_num_words_to_batch=args.add_src_num_words_to_batch,
+                        save_debug=False,
                     )
                 translate_text(
                     models=models,
@@ -279,6 +282,7 @@ def main():
                     all_timing=all_timing,
                     ensemble_generator=ensemble_generator,
                     add_src_num_words_to_batch=args.add_src_num_words_to_batch,
+                    save_debug=True,
                 )
                 src_text = []
 
@@ -294,6 +298,7 @@ def main():
                 all_timing=all_timing,
                 ensemble_generator=ensemble_generator,
                 add_src_num_words_to_batch=args.add_src_num_words_to_batch,
+                save_debug=True
             )
 
     with open(args.tgtout, 'w') as tgt_f:

@@ -938,13 +938,14 @@ class MTEncDecModel(EncDecNLPModel):
 
         return self.source_processor, self.target_processor
 
-    def ids_to_postprocessed_text(self, beam_ids, tokenizer, processor, filter_beam_ids=True):
+    def ids_to_postprocessed_text(self, beam_ids, tokenizer, processor, filter_beam_ids=True, save_debug=False):
         if filter_beam_ids:
             beam_ids = self.filter_predicted_ids(beam_ids)
         translations = [tokenizer.ids_to_text(tr) for tr in beam_ids.cpu().numpy()]
-        with open(f'translations_before_processing_processor_{type(self.target_processor)}.txt', 'a') as f:
-            for tr in translations:
-                f.write(tr + '\n')
+        if save_debug:
+            with open(f'translations_before_processing_processor_{self.target_processor is not None}.txt', 'a') as f:
+                for tr in translations:
+                    f.write(tr + '\n')
         if processor is not None:
             translations = [processor.detokenize(translation.split(' ')) for translation in translations]
         return translations
@@ -959,6 +960,7 @@ class MTEncDecModel(EncDecNLPModel):
         num_tgt_words: Optional[List[int]] = None,
         tgt_replacement_mask=None,
         tgt_replacements=None,
+        save_debug=False,
     ):
         """
         Translates a minibatch of inputs from source language to target language.
@@ -1000,13 +1002,14 @@ class MTEncDecModel(EncDecNLPModel):
                 )
 
             best_translations = self.ids_to_postprocessed_text(
-                best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=self.filter_beam_ids
+                best_translations, self.decoder_tokenizer, self.target_processor, filter_beam_ids=self.filter_beam_ids, save_debug=True and save_debug
             )
-            with open(f'translations_after_processing_processor_{type(self.target_processor)}.txt', 'a') as f:
-                for tr in best_translations:
-                    f.write(tr + '\n')
+            if save_debug:
+                with open(f'translations_after_processing_processor_{self.target_processor is not None}.txt', 'a') as f:
+                    for tr in best_translations:
+                        f.write(tr + '\n')
             inputs = self.ids_to_postprocessed_text(
-                src, self.encoder_tokenizer, self.source_processor, filter_beam_ids=False
+                src, self.encoder_tokenizer, self.source_processor, filter_beam_ids=False, save_debug=False
             )
 
         finally:
@@ -1049,6 +1052,7 @@ class MTEncDecModel(EncDecNLPModel):
         return_beam_scores: bool = False,
         add_src_num_words_to_batch=False,
         log_timing: bool = False,
+        save_debug: bool = False,
     ) -> List[str]:
         """
         Translates list of sentences from source language to target language.
@@ -1100,7 +1104,7 @@ class MTEncDecModel(EncDecNLPModel):
                 return_val = all_translations, scores, best_translations
             else:
                 _, best_translations = self.batch_translate(
-                    src, src_mask, return_beam_scores=False, cache=cache, num_tgt_words=num_src_words
+                    src, src_mask, return_beam_scores=False, cache=cache, num_tgt_words=num_src_words, save_debug=save_debug
                 )
                 return_val = best_translations
         finally:
