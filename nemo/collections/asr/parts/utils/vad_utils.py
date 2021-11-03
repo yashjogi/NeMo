@@ -20,6 +20,7 @@ from multiprocessing import Pool
 
 import IPython.display as ipd
 import librosa
+import librosa.display
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -89,7 +90,6 @@ def write_vad_infer_manifest(file, args_func):
     filepath = file['audio_filepath']
     in_duration = file['duration']
     in_offset = file['offset'] if 'offset' in file else 0
-    print(in_offset)
 
     try:
         sr = 16000
@@ -721,6 +721,7 @@ def plot(
     per_args=None,
     FRAME_LEN=0.01,
     return_audio=True,
+    plot_melspectrogram=False,
 ):
     """
     Plot VAD outputs for demonstration in tutorial
@@ -740,7 +741,7 @@ def plot(
     else:
         frame = vad_pred
         
-    plt.figure(figsize=[20, 2])
+    plt.figure(figsize=[20, 5])
 
     audio, sample_rate = librosa.load(path=path2audio_file, sr=16000, mono=True, offset=offset, duration=duration)
     dur = librosa.get_duration(audio, sr=sample_rate)
@@ -749,7 +750,7 @@ def plot(
     frame = frame[int(offset / FRAME_LEN) : int((offset + dur) / FRAME_LEN)]
 
     len_pred = len(frame)
-    ax1 = plt.subplot()
+    ax1 = plt.subplot(211)
     ax1.plot(np.arange(audio.size) / sample_rate, audio, 'gray')
     ax1.set_xlim([0, int(dur) + 1])
     ax1.tick_params(axis='y', labelcolor='b')
@@ -777,10 +778,23 @@ def plot(
 
     ax2.plot(np.arange(len_pred) * FRAME_LEN, pred, 'b', label='pred')
     ax2.plot(np.arange(len_pred) * FRAME_LEN, prob, 'g--', label='speech prob')
+    
     ax2.tick_params(axis='y', labelcolor='r')
     ax2.legend(loc='lower right', shadow=True)
     ax2.set_ylabel('Preds and Probas')
     ax2.set_ylim([-0.1, 1.1])
+
+    if plot_melspectrogram:
+        # need to change and use feature extractor with param from config files
+        S = librosa.feature.melspectrogram(
+            y=audio, sr=16000, n_fft=512, win_length=int(0.025*16000), window='hann', n_mels=80)
+
+        ax3 = plt.subplot(212)
+        ax3.sharex(ax1)
+        S_dB = librosa.power_to_db(S, ref=np.max)
+        img = librosa.display.specshow(S_dB, x_axis='time',
+                                y_axis='mel', sr=16000, ax=ax3,)
+
     return ipd.Audio(audio, rate=16000)
 
 
