@@ -139,6 +139,11 @@ def main():
         args.evelina_data_format or args.reference_evelina_data_format,
         False,
     )
+    with open('debug_cer_hyp.txt', 'w') as hf, open('debug_cer_ref.txt', 'w') as rf:
+        for line in hyp_lines:
+            hf.write(line + '\n')
+        for line in ref_lines:
+            rf.write(line + '\n')
     cer = word_error_rate(hyp_lines, ref_lines, use_cer=True)
     if args.punctuation_file is None:
         punctuation_counter = Counter(itertools.chain(*ref_punctuation))

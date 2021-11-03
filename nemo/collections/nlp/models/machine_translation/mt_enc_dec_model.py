@@ -178,7 +178,11 @@ class MTEncDecModel(EncDecNLPModel):
         if cfg.tgt_character_vocabulary is None:
             self.tgt_character_vocabulary = None
         else:
-            self.tgt_character_vocabulary = load_character_vocabulary(cfg.tgt_character_vocabulary)
+            self.tgt_character_vocabulary = load_character_vocabulary(
+                self.register_artifact(
+                    "tgt_character_vocabulary", cfg.tgt_character_vocabulary, verify_src_exists=False
+                )
+            )
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
