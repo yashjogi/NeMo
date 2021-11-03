@@ -42,8 +42,8 @@ model:
     add_src_num_words_to_batch: true
 
   test_ds:
-    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
-    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/for_ngc/test/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/for_ngc/test/autoregressive_labels.txt
     tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
