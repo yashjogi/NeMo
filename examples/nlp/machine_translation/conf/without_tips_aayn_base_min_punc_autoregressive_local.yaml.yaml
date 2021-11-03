@@ -13,12 +13,14 @@ model:
   src_language: 'en'
   tgt_language: 'en'
   use_decoder_tips: true
-  tgt_character_vocabulary: /data/autoregressive_char_vocab.txt
+  sum_replacement_with_original_embeddings: true
+  detach_decoder_tips: false
+  tgt_character_vocabulary: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/autoregressive_char_vocab.txt
 
   train_ds:
-    src_file_name: /data/train/input.txt
-    tgt_file_name: /data/train/autoregressive_labels.txt
-    tokens_in_batch: 32768
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/train/autoregressive_labels.txt
+    tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
     shuffle: true
@@ -27,13 +29,9 @@ model:
     num_workers: 8
 
   validation_ds:
-    src_file_name:
-      - /data/IWSLT_tst2019/input.txt
-      - /data/wiki_dev/input.txt
-    tgt_file_name:
-      - /data/IWSLT_tst2019/autoregressive_labels.txt
-      - /data/wiki_dev/autoregressive_labels.txt
-    tokens_in_batch: 1024
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
+    tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -44,9 +42,9 @@ model:
     add_src_num_words_to_batch: true
 
   test_ds:
-    src_file_name: /data/test/input.txt
-    tgt_file_name: /data/test/autoregressive_labels.txt
-    tokens_in_batch: 1024
+    src_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/input.txt
+    tgt_file_name: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/dev/autoregressive_labels.txt
+    tokens_in_batch: 16384
     clean: false
     max_seq_length: 512
     shuffle: false
@@ -71,13 +69,13 @@ model:
 
   encoder_tokenizer:
     library: yttm
-    tokenizer_model: /data/input.BPE.8192.model
+    tokenizer_model: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/input.BPE.8192.model
     bpe_dropout: 0.0
     r2l: false
 
   decoder_tokenizer:
     library: yttm
-    tokenizer_model: /data/autoregressive_labels.BPE.10.model
+    tokenizer_model: /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/autoregressive_labels.BPE.10.model
     bpe_dropout: 0.0
     r2l: false
     word_tokens:
@@ -145,11 +143,11 @@ trainer:
   progress_bar_refresh_rate: 0
 
 exp_manager:
-  exp_dir: /result/nemo_experiments
+  exp_dir: nemo_experiments
   name: AAYNBase
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: decoder_with_tips_simple_ds90546_bs32768
+    name: debug_decoder_tips_all_new_features
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
