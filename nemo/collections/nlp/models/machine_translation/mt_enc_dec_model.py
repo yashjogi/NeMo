@@ -97,7 +97,7 @@ class MTEncDecModel(EncDecNLPModel):
     Encoder-decoder machine translation model.
     """
 
-    def __init__(self, cfg: MTEncDecModelConfig, trainer: Trainer = None):
+    def pre_super(self, cfg, trainer):
         cfg = model_utils.convert_model_config_to_dict_config(cfg)
         # Get global rank and total number of GPU workers for IterableDataset partitioning, if applicable
         # Global_rank and local_rank is set by LightningModule in Lightning 1.2.0
@@ -183,6 +183,9 @@ class MTEncDecModel(EncDecNLPModel):
                     "tgt_character_vocabulary", cfg.tgt_character_vocabulary, verify_src_exists=False
                 )
             )
+
+    def __init__(self, cfg: MTEncDecModelConfig, trainer: Trainer = None):
+        self.pre_super(cfg, trainer)
 
         # TODO: Why is this base constructor call so late in the game?
         super().__init__(cfg=cfg, trainer=trainer)
