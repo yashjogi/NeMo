@@ -340,6 +340,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         # Ready to finish generation. Finish generation if word token is encountered.
         not_pad_mask = ~pad_mask
         not_enough_words = num_generated_words.lt(tgt_num_words)
+        print("not_enough_words[28:32], num_generated_words[28:32], tgt_num_words[28:32]:", not_enough_words[28:32], num_generated_words[28:32], tgt_num_words[28:32])
         enough_words = ~not_enough_words
         assert torch.all(
             not_pad_mask[not_enough_words]
@@ -357,7 +358,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         not_enough_words_scores = scores[not_enough_words, :]
         not_enough_words_prefixes = prefixes[not_enough_words, :]
         wrong_eos_pad_mask = not_enough_words_prefixes.eq(self.eos) | not_enough_words_prefixes.eq(self.pad)
-        not_enough_words_scores[wrong_eos_pad_mask] = NEG_INF
+        not_enough_words_scores[wrong_eos_pad_mask] = torch.tensor(-float('inf'))
         resorted_scores, indices = torch.topk(not_enough_words_scores, self.beam_size, dim=-1)
         result_scores[not_enough_words, :] = resorted_scores
         result_prefixes[not_enough_words, :] = prefixes[not_enough_words, :].gather(1, indices)
