@@ -971,7 +971,6 @@ class MTEncDecModel(EncDecNLPModel):
             translations: a list strings containing detokenized translations
             inputs: a list of string containing detokenized inputs
         """
-        print("save_debug:", save_debug)
         mode = self.training
         timer = cache.get("timer", None)
         try:
@@ -1030,9 +1029,6 @@ class MTEncDecModel(EncDecNLPModel):
             if processor is not None:
                 txt = processor.normalize(txt)
                 txt = processor.tokenize(txt)
-                if untokenized != txt:
-                    print("before input processing:", repr(untokenized))
-                    print("after input processing:", repr(txt))
             ids = tokenizer.text_to_ids(txt)
             ids = prepend_ids + [tokenizer.bos_id] + ids + [tokenizer.eos_id]
             inputs.append(ids)
@@ -1069,12 +1065,7 @@ class MTEncDecModel(EncDecNLPModel):
             list of translated strings
         """
         # __TODO__: This will reset both source and target processors even if you want to reset just one.
-        if source_lang is not None or target_lang is not None:
-            self.setup_pre_and_post_processing_utils(source_lang, target_lang)
-        if target_lang is None:
-            self.target_processor = None
-        print("target_lang, source_lang:", target_lang, source_lang)
-        print("self.target_processor:", self.target_processor)
+        self.setup_pre_and_post_processing_utils(source_lang, target_lang)
         mode = self.training
         prepend_ids = []
         if self.multilingual:
