@@ -17,6 +17,7 @@ import csv
 import json
 import math
 import os
+import copy
 from collections import OrderedDict as od
 from datetime import datetime
 from typing import List
@@ -26,7 +27,8 @@ import soundfile as sf
 import torch
 import wget
 from omegaconf import OmegaConf
-
+import soundfile as sf
+from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.asr.metrics.wer import WER
 from nemo.collections.asr.metrics.wer_bpe import WERBPE
 from nemo.collections.asr.models import ClusteringDiarizer, EncDecCTCModel, EncDecCTCModelBPE, EncDecRNNTBPEModel
@@ -80,6 +82,88 @@ def read_file_paths(file_list_path):
 
     return out_path_list
 
+class WERBPE_TS(WERBPE):
+    """
+    This is WER class that is modified for generating word_timestamps with logits.
+    The functions in WER class is modified to save the word_timestamps whenever character
+    is being saved into a list. Please refer to the definition of WER class for
+    more information.
+    """
+    def __init__(
+        self,
+        tokenizer: TokenizerSpec,
+        batch_dim_index=0,
+        use_cer=False,
+        ctc_decode=True,
+        log_prediction=True,
+        dist_sync_on_step=False,
+    ):
+
+        super().__init__(tokenizer, batch_dim_index, use_cer, ctc_decode, log_prediction, dist_sync_on_step)
+    
+    def ctc_decoder_predictions_tensor_with_ts(
+        self, time_stride, predictions: torch.Tensor, predictions_len: torch.Tensor = None
+    ) -> List[str]:
+        hypotheses, timestamps, word_timestamps = [], [], []
+        # Drop predictions to CPU
+        prediction_cpu_tensor = predictions.long().cpu()
+        # iterate over batch
+        self.time_stride = time_stride
+        for ind in range(prediction_cpu_tensor.shape[self.batch_dim_index]):
+            prediction = prediction_cpu_tensor[ind].detach().numpy().tolist()
+            if predictions_len is not None:
+                prediction = prediction[: predictions_len[ind]]
+            # CTC decoding procedure
+            decoded_prediction, char_ts, timestamp_list = [], [], []
+            previous = self.blank_id
+            for pdx, p in enumerate(prediction):
+                if (p != previous or previous == self.blank_id) and p != self.blank_id:
+                    decoded_prediction.append(p)
+                    char_ts.append(round(pdx*self.time_stride, 2))
+                    timestamp_list.append(round(pdx*self.time_stride, 2))
+
+                previous = p
+
+            hypothesis = self.decode_tokens_to_str_with_ts(decoded_prediction)
+            word_ts = self.get_ts_from_decoded_prediction(decoded_prediction, hypothesis, char_ts)
+
+            hypotheses.append(hypothesis)
+            timestamps.append(timestamp_list)
+            word_timestamps.append(word_ts)
+        return hypotheses, timestamps, word_timestamps
+
+    def decode_tokens_to_str_with_ts(self, tokens: List[int]) -> str:
+        hypothesis = self.tokenizer.ids_to_text(tokens)
+        return hypothesis
+
+    def decode_ids_to_tokens_with_ts(self, tokens: List[int]) -> List[str]:
+        token_list = self.tokenizer.ids_to_tokens(tokens)
+        return token_list
+
+    def get_ts_from_decoded_prediction(self, decoded_prediction, hypothesis, char_ts):
+        decoded_char_list = self.tokenizer.ids_to_tokens(decoded_prediction)
+        stt_idx, end_idx = 0, len(decoded_char_list)-1 
+        space = '▁'
+        word_ts = []
+        word_open_flag = False
+        for idx, ch in enumerate(decoded_char_list):
+            if idx != end_idx and (space == ch and space in decoded_char_list[idx+1]):
+                continue
+
+            if (idx == stt_idx or space == decoded_char_list[idx-1] or (space in ch and len(ch) > 1)) and (ch != space):
+                _stt = char_ts[idx]
+                word_open_flag = True
+            
+            if word_open_flag and ch != space and (idx == end_idx or space in decoded_char_list[idx+1]):
+                _end = round(char_ts[idx] + self.time_stride, 2)
+                word_open_flag = False
+                word_ts.append([_stt, _end])
+        try:
+            assert len(hypothesis.split()) == len(word_ts), "Hypothesis does not match word time stamp."
+        except:
+            import ipdb
+            ipdb.set_trace()
+        return word_ts
 
 class WERBPE_TS(WERBPE):
     """
@@ -300,7 +384,6 @@ class FrameBatchASR_Logits(FrameBatchASR):
             self.unmerged += decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
         return self.greedy_merge(self.unmerged), self.unmerged
 
-
 class ASR_DIAR_OFFLINE(object):
     """
     A Class designed for performing ASR and diarization together.
@@ -326,6 +409,7 @@ class ASR_DIAR_OFFLINE(object):
 
         if 'QuartzNet' in ASR_model_name:
             self.run_ASR = self.run_ASR_QuartzNet_CTC
+            # self.get_speech_labels_list = self.get_speech_labels_list_QuartzNet_CTC
             asr_model = EncDecCTCModel.from_pretrained(model_name=ASR_model_name, strict=False)
             self.params['offset'] = -0.18
             self.model_stride_in_secs = 0.02
@@ -339,7 +423,6 @@ class ASR_DIAR_OFFLINE(object):
             self.params['offset'] = 0
             self.chunk_len_in_sec = 1.6
             self.total_buffer_in_secs = 4
-
         elif 'citrinet' in ASR_model_name:
             self.run_ASR = self.run_ASR_BPE_CTC
             asr_model = EncDecCTCModelBPE.from_pretrained(model_name=ASR_model_name, strict=False)
@@ -358,7 +441,6 @@ class ASR_DIAR_OFFLINE(object):
             self.params['offset'] = 0
             self.chunk_len_in_sec = 1.6
             self.total_buffer_in_secs = 4
-
         else:
             raise ValueError(f"ASR model name not found: {self.params['ASR_model_name']}")
         self.params['time_stride'] = self.model_stride_in_secs
@@ -509,7 +591,6 @@ class ASR_DIAR_OFFLINE(object):
                 word_ts_list.append(word_ts)
                 assert len(_trans_words) == len(word_ts)
         return words_list, word_ts_list
-
     def apply_delay(self, word_ts):
         """
         Compensate the constant delay in the decoder output.
@@ -912,7 +993,7 @@ class ASR_DIAR_OFFLINE(object):
 
             start_point, end_point, speaker = labels[0].split()
             words = word_list[k]
-
+            
             logging.info(f"Creating results for Session: {uniq_id} n_spk: {n_spk} ")
             string_out = self.print_time(string_out, speaker, start_point, end_point, self.params)
 
@@ -938,6 +1019,7 @@ class ASR_DIAR_OFFLINE(object):
                 )
 
             self.write_and_log(uniq_id, riva_dict, string_out, audacity_label_words)
+            
 
         return total_riva_dict
 
@@ -1020,7 +1102,7 @@ class ASR_DIAR_OFFLINE(object):
         for start, end in speech_labels_float:
             speech_labels.append("{:.3f} {:.3f} speech".format(start, end))
         return speech_labels
-
+        
     def write_result_in_csv(self, args, WDER_dict, DER_result_dict, effective_WDER):
         """
         This function is for development use.

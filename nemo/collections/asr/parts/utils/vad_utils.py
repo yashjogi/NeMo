@@ -20,6 +20,7 @@ from multiprocessing import Pool
 
 import IPython.display as ipd
 import librosa
+import librosa.display
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ from pyannote.metrics import detection
 from sklearn.model_selection import ParameterGrid
 
 from nemo.utils import logging
-
+import IPython.display as ipd
 
 """
 This file contains all the utility functions required for voice activity detection. 
@@ -88,7 +89,7 @@ def write_vad_infer_manifest(file, args_func):
 
     filepath = file['audio_filepath']
     in_duration = file['duration']
-    in_offset = file['offset']
+    in_offset = file['offset'] if 'offset' in file else 0
 
     try:
         sr = 16000
@@ -392,21 +393,17 @@ def binarization(sequence, per_args):
                     speech_segments.add((max(0, start - pad_onset), i * shift_len + pad_offset))
                 start = i * shift_len
                 speech = False
-
         # Current frame is non-speech
         else:
             # Switch from non-speech to speech
             if sequence[i] > onset:
                 start = i * shift_len
                 speech = True
-
     # if it's speech at the end, add final segment
     if speech:
         speech_segments.add((max(0, start - pad_onset), i * shift_len + pad_offset))
-
     # Merge the overlapped speech segments due to padding
     speech_segments = merge_overlap_segment(speech_segments)  # not sorted
-
     return speech_segments
 
 
@@ -461,6 +458,7 @@ def filtering(speech_segments, per_args):
             speech_segments = merge_overlap_segment(speech_segments)
         if min_duration_on > 0.0:
             speech_segments = filter_short_segments(speech_segments, min_duration_on)
+
     return speech_segments
 
 
@@ -554,6 +552,12 @@ def get_parameter_grid(params):
     """
     Get the parameter grid given a dictionary of parameters.
     """
+    if "threshold" in params:
+        params_grid = []
+        for t in params["threshold"]:
+            params_grid.append({'onset': t, 'offset': t})
+        return params_grid
+
     has_filter_speech_first = False
     if 'filter_speech_first' in params:
         filter_speech_first = params['filter_speech_first']
@@ -593,44 +597,49 @@ def vad_tune_threshold_on_dev(
     metric = detection.DetectionErrorRate()
     params_grid = get_parameter_grid(params)
 
+    
     for param in params_grid:
-        # perform binarization, filtering accoring to param and write to rttm-like table
-        vad_table_dir = generate_vad_segment_table(vad_pred, param, shift_len=0.01, num_workers=20)
+        try:
+            # perform binarization, filtering accoring to param and write to rttm-like table
+            vad_table_dir = generate_vad_segment_table(vad_pred, param, shift_len=0.01, num_workers=20)
 
-        # add reference and hypothesis to metrics
-        for filename in paired_filenames:
-            groundtruth_RTTM_file = groundtruth_RTTM_dict[filename]
-            vad_table_filepath = os.path.join(vad_table_dir, filename + ".txt")
-            reference, hypothesis = vad_construct_pyannote_object_per_file(vad_table_filepath, groundtruth_RTTM_file)
-            metric(reference, hypothesis)  # accumulation
+            # add reference and hypothesis to metrics
+            for filename in paired_filenames:
+                groundtruth_RTTM_file = groundtruth_RTTM_dict[filename]
+                vad_table_filepath = os.path.join(vad_table_dir, filename + ".txt")
+                reference, hypothesis = vad_construct_pyannote_object_per_file(vad_table_filepath, groundtruth_RTTM_file)
+                metric(reference, hypothesis)  # accumulation
 
-        # delete tmp table files
-        shutil.rmtree(vad_table_dir, ignore_errors=True)
+            # delete tmp table files
+            shutil.rmtree(vad_table_dir, ignore_errors=True)
 
-        report = metric.report(display=False)
-        DetER = report.iloc[[-1]][('detection error rate', '%')].item()
-        FA = report.iloc[[-1]][('false alarm', '%')].item()
-        MISS = report.iloc[[-1]][('miss', '%')].item()
+            report = metric.report(display=False)
+            DetER = report.iloc[[-1]][('detection error rate', '%')].item()
+            FA = report.iloc[[-1]][('false alarm', '%')].item()
+            MISS = report.iloc[[-1]][('miss', '%')].item()
 
-        assert (
-            focus_metric == "DetER" or focus_metric == "FA" or focus_metric == "MISS"
-        ), "Metric we care most should be only in 'DetER', 'FA'or 'MISS'!"
-        all_perf[str(param)] = {'DetER (%)': DetER, 'FA (%)': FA, 'MISS (%)': MISS}
-        logging.info(f"parameter {param}, {all_perf[str(param)] }")
+            assert (
+                focus_metric == "DetER" or focus_metric == "FA" or focus_metric == "MISS"
+            ), "Metric we care most should be only in 'DetER', 'FA'or 'MISS'!"
+            all_perf[str(param)] = {'DetER (%)': DetER, 'FA (%)': FA, 'MISS (%)': MISS}
+            logging.info(f"parameter {param}, {all_perf[str(param)] }")
 
-        score = all_perf[str(param)][focus_metric + ' (%)']
+            score = all_perf[str(param)][focus_metric + ' (%)']
 
-        del report
-        metric.reset()  # reset internal accumulator
+            del report
+            metric.reset()  # reset internal accumulator
 
-        # save results for analysis
-        with open(result_file + ".txt", "a") as fp:
-            fp.write(f"{param}, {all_perf[str(param)] }\n")
+            # save results for analysis
+            with open(result_file + ".txt", "a") as fp:
+                fp.write(f"{param}, {all_perf[str(param)] }\n")
 
-        if score < min_score:
-            best_threhsold = param
-            optimal_scores = all_perf[str(param)]
-            min_score = score
+            if score < min_score:
+                best_threhsold = param
+                optimal_scores = all_perf[str(param)]
+                min_score = score
+
+        except:
+            print(f"Invalid output with param {param}!")
 
     return best_threhsold, optimal_scores
 
@@ -653,9 +662,15 @@ def check_if_param_valid(params):
                     raise ValueError(
                         "Invalid inputs! All float parameters excpet pad_onset and pad_offset should be larger than 0!"
                     )
+    if "onset" and "offset" in params:
+        if not (all(i <= 1 for i in params['onset']) and all(i <= 1 for i in params['offset'])):
+            raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
+    elif "threshold" in params:
+        print("using threshold!! ")
+        if not (all(i <= 1 for i in params['threshold'])):
+            raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
 
-    if not (all(i <= 1 for i in params['onset']) and all(i <= 1 for i in params['offset'])):
-        raise ValueError("Invalid inputs! The onset and offset thresholds should be in range [0, 1]!")
+
 
     return True
 
@@ -698,12 +713,15 @@ def pred_rttm_map(vad_pred, groundtruth_RTTM, vad_pred_method="frame"):
 
 def plot(
     path2audio_file,
-    path2_vad_pred,
+    vad_pred,
     path2ground_truth_label=None,
     offset=0,
     duration=None,
     threshold=None,
     per_args=None,
+    FRAME_LEN=0.01,
+    return_audio=True,
+    plot_melspectrogram=False,
 ):
     """
     Plot VAD outputs for demonstration in tutorial
@@ -713,18 +731,26 @@ def plot(
         path2ground_truth_label(str): path to groundtruth label file.
         threshold (float): threshold for prediction score (from 0 to 1).
     """
-    plt.figure(figsize=[20, 2])
-    FRAME_LEN = 0.01
+    
+    if isinstance(vad_pred, str):
+        try:
+            frame = np.loadtxt(vad_pred)
+        except:
+            raise ValueError(f"Fail to load vad_pred from {vad_pred}")
+    
+    else:
+        frame = vad_pred
+        
+    plt.figure(figsize=[20, 5])
 
     audio, sample_rate = librosa.load(path=path2audio_file, sr=16000, mono=True, offset=offset, duration=duration)
     dur = librosa.get_duration(audio, sr=sample_rate)
 
     time = np.arange(offset, offset + dur, FRAME_LEN)
-    frame = np.loadtxt(path2_vad_pred)
     frame = frame[int(offset / FRAME_LEN) : int((offset + dur) / FRAME_LEN)]
 
     len_pred = len(frame)
-    ax1 = plt.subplot()
+    ax1 = plt.subplot(211)
     ax1.plot(np.arange(audio.size) / sample_rate, audio, 'gray')
     ax1.set_xlim([0, int(dur) + 1])
     ax1.tick_params(axis='y', labelcolor='b')
@@ -732,7 +758,8 @@ def plot(
     ax1.set_ylim([-1, 1])
     ax2 = ax1.twinx()
 
-    prob = frame
+    prob = np.array(frame)
+
     if threshold and per_args:
         raise ValueError("threshold and per_args cannot be used at same time!")
     if not threshold and not per_args:
@@ -751,10 +778,23 @@ def plot(
 
     ax2.plot(np.arange(len_pred) * FRAME_LEN, pred, 'b', label='pred')
     ax2.plot(np.arange(len_pred) * FRAME_LEN, prob, 'g--', label='speech prob')
+    
     ax2.tick_params(axis='y', labelcolor='r')
     ax2.legend(loc='lower right', shadow=True)
     ax2.set_ylabel('Preds and Probas')
     ax2.set_ylim([-0.1, 1.1])
+
+    if plot_melspectrogram:
+        # need to change and use feature extractor with param from config files
+        S = librosa.feature.melspectrogram(
+            y=audio, sr=16000, n_fft=512, win_length=int(0.025*16000), window='hann', n_mels=80)
+
+        ax3 = plt.subplot(212)
+        ax3.sharex(ax1)
+        S_dB = librosa.power_to_db(S, ref=np.max)
+        img = librosa.display.specshow(S_dB, x_axis='time',
+                                y_axis='mel', sr=16000, ax=ax3,)
+
     return ipd.Audio(audio, rate=16000)
 
 

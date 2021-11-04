@@ -1,4 +1,4 @@
-name: &name "MarbleNet-3x2x64"
+name: &name "MarbleNet-6x2x64"
 
 model:
   sample_rate: 16000
@@ -110,7 +110,27 @@ model:
         residual: true
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
-
+        
+      - filters: 64
+        repeat: ${model.repeat}
+        kernel: [19]
+        stride: [1]
+        dilation: [1]
+        dropout: ${model.dropout}
+        residual: true
+        separable: true
+        kernel_size_factor: ${model.kernel_size_factor}
+        
+      - filters: 64
+        repeat: ${model.repeat}
+        kernel: [21]
+        stride: [1]
+        dilation: [1]
+        dropout: ${model.dropout}
+        residual: true
+        separable: true
+        kernel_size_factor: ${model.kernel_size_factor}
+        
       - filters: 128
         repeat: 1
         kernel: [29]
