@@ -537,6 +537,7 @@ class ONNXDuplexDecoderModel():
         self.model = OnnxT5('t5-base', decoder_session)
         # Language
         self.lang = lang
+        self.processor = MosesProcessor(lang_id=self.lang)
 
    
     def _infer(
@@ -561,10 +562,6 @@ class ONNXDuplexDecoderModel():
         if sum(nb_spans) == 0:
             return [[]] * len(sents)
         model, tokenizer = self.model, self._tokenizer
-        try:
-            model_max_len = model.config.n_positions
-        except AttributeError:
-            model_max_len = 512
         ctx_size = constants.DECODE_CTX_SIZE
         extra_id_0 = constants.EXTRA_ID_0
         extra_id_1 = constants.EXTRA_ID_1
@@ -580,8 +577,6 @@ class ONNXDuplexDecoderModel():
                 ctx_right = sent[cur_end + 1 : cur_end + 1 + ctx_size]
                 span_words = sent[cur_start : cur_end + 1]
                 span_words_str = ' '.join(span_words)
-                if is_url(span_words_str):
-                    span_words_str = span_words_str.lower()
                 input_centers.append(span_words_str)
                 input_dirs.append(inst_directions[ix])
                 # Build cur_inputs
@@ -597,11 +592,9 @@ class ONNXDuplexDecoderModel():
         # Apply the decoding model
         batch = tokenizer(all_inputs, padding=True, return_tensors='pt')
         input_ids = batch['input_ids']
-        generated_ids = model.generate(input_ids, max_length=model_max_len)
+        generated_ids = model.generate(input_ids, max_length=512)
         generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
 
-        # Post processing
-        generated_texts = self.postprocess_output_spans(input_centers, generated_texts, input_dirs)
 
         # Prepare final_texts
         final_texts, span_ctx = [], 0
@@ -613,21 +606,5 @@ class ONNXDuplexDecoderModel():
             final_texts.append(cur_texts)
 
         return final_texts
-
-    def postprocess_output_spans(self, input_centers, output_spans, input_dirs):
-        en_greek_spokens = list(constants.EN_GREEK_TO_SPOKEN.values())
-        for ix, (_input, _output) in enumerate(zip(input_centers, output_spans)):
-            if self.lang == constants.ENGLISH:
-                # Handle URL
-                if is_url(_input):
-                    output_spans[ix] = ' '.join(wordninja.split(_output))
-                    continue
-                # Greek letters
-                if _input in en_greek_spokens:
-                    if input_dirs[ix] == constants.INST_FORWARD:
-                        output_spans[ix] = _input
-                    if input_dirs[ix] == constants.INST_BACKWARD:
-                        output_spans[ix] = constants.EN_SPOKEN_TO_GREEK[_input]
-        return output_spans
 
   

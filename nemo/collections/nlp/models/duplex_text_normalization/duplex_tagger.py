@@ -402,7 +402,7 @@ class DuplexTaggerModel(NLPModel):
 
 class ONNXDuplexTaggerModel():
     def __init__(self, onnx_tagger, lang='en'):
-        self._tokenizer = AutoTokenizer.from_pretrained('distilroberta-base', add_prefix_space=True)
+        self._tokenizer = AutoTokenizer.from_pretrained('albert-base-v2', add_prefix_space=True)
         self.num_labels = len(constants.ALL_TAG_LABELS)
         self.model  = InferenceSession(str(onnx_tagger))
 
@@ -431,11 +431,43 @@ class ONNXDuplexTaggerModel():
             texts.append([prefix] + sent)
 
         # Apply the model
-        prefix = constants.TN_PREFIX
-        texts = [[prefix] + sent for sent in sents]
         encodings = self._tokenizer(
             texts, is_split_into_words=True, padding=True, truncation=True, return_tensors='pt'
         )
+        inputs = encodings
+        encodings_reduced = None
+
+         # check that the length of the 'input_ids' equals as least the length of the original input
+        # if an input symbol is missing in the tokenizer's vocabulary (such as emoji or a Chinese character), it could be skipped
+        len_texts = [len(x) for x in texts]
+        len_ids = [
+            len(self._tokenizer.convert_ids_to_tokens(x, skip_special_tokens=True)) for x in encodings['input_ids']
+        ]
+        idx_valid = [i for i, (t, enc) in enumerate(zip(len_texts, len_ids)) if enc >= t]
+        if len(idx_valid) != len(texts):
+            logging.warning(
+                'Some of the examples have symbols that were skipped during the tokenization. Such examples will be skipped.'
+            )
+            for i in range(len(texts)):
+                if i not in idx_valid:
+                    logging.warning(f'Invalid input: {texts[i]}')
+            # skip these sentences and fall back to the input
+            # exclude invalid examples from the encodings
+            encodings_reduced = {k: tensor[idx_valid, :] for k, tensor in encodings.items()}
+            for k, tensor in encodings_reduced.items():
+                if tensor.ndim == 1:
+                    encodings_reduced[k] = tensor.unsqueeze(dim=0)
+            inputs = BatchEncoding(data=encodings_reduced)
+        # skip the batch if no valid inputs are present
+        if encodings_reduced and encodings_reduced['input_ids'].numel() == 0:
+            # -1 to exclude tag for the prompt token
+            all_tag_preds = [[constants.SAME_TAG] * (len(x) - 1) for x in texts]
+            nb_spans = [0] * len(texts)
+            span_starts = [] * len(texts)
+            span_ends = [] * len(texts)
+            return all_tag_preds, nb_spans, span_starts, span_ends
+
+
         ip = {self.model.get_inputs()[0].name: encodings[self.model.get_inputs()[0].name].cpu().numpy(), self.model.get_inputs()[1].name: encodings[self.model.get_inputs()[1].name].cpu().numpy()}
         logit_name = self.model.get_outputs()[0].name
         
@@ -443,20 +475,26 @@ class ONNXDuplexTaggerModel():
         logits = torch.from_numpy(logits)
         pred_indexes = torch.argmax(logits, dim=-1).tolist()
 
-        # Extract all_tag_preds
+        # Extract all_tag_preds for words
         all_tag_preds = []
         batch_size, max_len = encodings['input_ids'].size()
+        pred_idx = 0
         for ix in range(batch_size):
-            raw_tag_preds = [constants.ALL_TAG_LABELS[p] for p in pred_indexes[ix][1:]]
-            tag_preds, previous_word_idx = [], None
-            word_ids = encodings.word_ids(batch_index=ix)
-            for jx, word_idx in enumerate(word_ids):
-                if word_idx is None:
-                    continue
-                elif word_idx != previous_word_idx:
-                    tag_preds.append(raw_tag_preds[jx - 1])
-                previous_word_idx = word_idx
-            tag_preds = tag_preds[1:]
+            if ix in idx_valid:
+                # remove first special token and task prefix token
+                raw_tag_preds = [constants.ALL_TAG_LABELS[p] for p in pred_indexes[pred_idx][2:]]
+                tag_preds, previous_word_idx = [], None
+                word_ids = encodings.word_ids(batch_index=ix)[2:]
+                for jx, word_idx in enumerate(word_ids):
+                    if word_idx is None:
+                        continue
+                    if word_idx != previous_word_idx:
+                        tag_preds.append(raw_tag_preds[jx])  # without special token at index 0
+                    previous_word_idx = word_idx
+                pred_idx += 1
+            else:
+                # for excluded examples, use SAME tags for all words
+                tag_preds = [constants.SAME_TAG] * (len(texts[ix]) - 1)
             all_tag_preds.append(tag_preds)
 
         # Postprocessing
@@ -470,21 +508,21 @@ class ONNXDuplexTaggerModel():
 
         return all_tag_preds, nb_spans, span_starts, span_ends
 
-    def postprocess_tag_preds(self, words, inst_dir, preds):
+    def postprocess_tag_preds(self, words: List[str], inst_dir: str, preds: List[str]):
         """ Function for postprocessing the raw tag predictions of the model. It
         corrects obvious mistakes in the tag predictions such as a TRANSFORM span
         starts with I_TRANSFORM_TAG (instead of B_TRANSFORM_TAG).
 
         Args:
-            words: The words in the input text
-            inst_dir: The direction of the instance (i.e., INST_BACKWARD or INST_FORWARD).
+            words: The words in the input sentence
+            inst_dir: The direction of the instance (i.e., constants.INST_BACKWARD or INST_FORWARD).
             preds: The raw tag predictions
 
         Returns: The processed raw tag predictions
         """
         final_preds = []
         for ix, p in enumerate(preds):
-            # a TRANSFORM span starts with I_TRANSFORM_TAG
+            # a TRANSFORM span starts with I_TRANSFORM_TAG, change to B_TRANSFORM_TAG
             if p == constants.I_PREFIX + constants.TRANSFORM_TAG:
                 if ix == 0 or (not constants.TRANSFORM_TAG in final_preds[ix - 1]):
                     final_preds.append(constants.B_PREFIX + constants.TRANSFORM_TAG)
@@ -494,21 +532,25 @@ class ONNXDuplexTaggerModel():
                 if has_numbers(words[ix]) and (not constants.TRANSFORM_TAG in p):
                     final_preds.append(constants.B_PREFIX + constants.TRANSFORM_TAG)
                     continue
+            # Convert B-TASK tag to B-SAME tag
+            if p == constants.B_PREFIX + constants.TASK_TAG:
+                final_preds.append(constants.B_PREFIX + constants.SAME_TAG)
+                continue
             # Default
             final_preds.append(p)
         return final_preds
 
-    def decode_tag_preds(self, tag_preds):
+    def decode_tag_preds(self, tag_preds: List[List[str]]):
         """ Decoding the raw tag predictions to locate the semiotic spans in the
         input texts.
 
         Args:
-            tag_preds: A list of list where each list contains the raw tag predictions for the corresponding input.
+            tag_preds: A list of list where each list contains the raw tag predictions for the corresponding input words.
 
         Returns:
             nb_spans: A list of ints where each int indicates the number of semiotic spans in each input.
-            span_starts: A list of lists where each list contains the starting locations of semiotic spans in an input.
-            span_ends: A list of lists where each list contains the ending locations of semiotic spans in an input.
+            span_starts: A list of lists where each list contains the starting locations of semiotic spans in an input words.
+            span_ends: A list of lists where each list contains the inclusive ending locations of semiotic spans in an input words.
         """
         nb_spans, span_starts, span_ends = [], [], []
         for i, preds in enumerate(tag_preds):
@@ -526,5 +568,4 @@ class ONNXDuplexTaggerModel():
             nb_spans.append(cur_nb_spans)
             span_starts.append(cur_span_starts)
             span_ends.append(cur_span_ends)
-
         return nb_spans, span_starts, span_ends
