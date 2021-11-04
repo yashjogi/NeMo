@@ -1027,9 +1027,7 @@ class MTEncDecModel(EncDecNLPModel):
         num_src_words = []
         for txt in text:
             untokenized = txt
-            print("Processor is None")
             if processor is not None:
-                print("processing input")
                 txt = processor.normalize(txt)
                 txt = processor.tokenize(txt)
                 if untokenized != txt:
