@@ -1028,6 +1028,7 @@ class MTEncDecModel(EncDecNLPModel):
         for txt in text:
             untokenized = txt
             if processor is not None:
+                print("processing input")
                 txt = processor.normalize(txt)
                 txt = processor.tokenize(txt)
                 if untokenized != txt:
