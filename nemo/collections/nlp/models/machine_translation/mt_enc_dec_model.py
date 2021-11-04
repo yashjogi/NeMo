@@ -1030,6 +1030,9 @@ class MTEncDecModel(EncDecNLPModel):
             if processor is not None:
                 txt = processor.normalize(txt)
                 txt = processor.tokenize(txt)
+                if untokenized != txt:
+                    print("before input processing:", repr(untokenized))
+                    print("after input processing:", repr(txt))
             ids = tokenizer.text_to_ids(txt)
             ids = prepend_ids + [tokenizer.bos_id] + ids + [tokenizer.eos_id]
             inputs.append(ids)
