@@ -178,6 +178,7 @@ def main():
         if not model_path.endswith('.nemo'):
             raise NotImplementedError(f"Only support .nemo files, but got: {model_path}")
         model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=model_path).eval()
+        print("source and target processors immediately after restoring:", model.source_processor, model.target_processor)
         models.append(model)
 
     if (len(models) > 1) and (args.write_timing):
