@@ -48,25 +48,6 @@ class CharTokenizer(TokenizerSpec):
     rf"""
     Each character is a token.
     Args:
-<<<<<<< HEAD
-        vocab_file: path to file with vocabulary which consists of valid Python string literals separated by the new
-            line character. Such literals must contain 1 character. Examples of valid Python literals: ``'a'``,
-            ``'\n'``, ``"'"``, ``'ж'``, ``'\u8976'``. File ``vocab_file`` has to be in ``'utf-8'`` encoding.
-        mask_token: mask token. The following is applicable to all special tokens. Parameter ``mask_token`` can be
-            either of type ``bool`` or a ``str`` of length 1. 
-            
-            If ``mask_token`` is ``False``, then mask token is not added to the tokenizer. This means that using
-            ``mask_id`` will raise an error, the attribute ``mask_token`` will be ``None``, and you cannot pass string
-            ``'mask'`` in parameters ``special_token_to_prepend``, ``special_token_to_append``,
-            ``special_tokens_to_remove_while_decoding``. 
-            
-            If the parameter ``mask_token`` is ``True``, then the token ``'<MASK>'`` is added to the vocabulary. The
-            string ``'<MASK>'`` will not be recognised as a single token in a text you pass for tokenization. However,
-            it can be prepended or appended to the tokenized text if constructor parameters ``special_token_to_prepend``
-            or ``special_token_to_append`` are equal to ``'mask'``. The substring ``'<MASK>'`` will appear in the
-            output of ``ids_to_text`` of ``tokens_to_text`` methods if you do not pass string ``'mask'`` in the
-            ``special_tokens_to_remove_while_decoding`` constructor parameter.
-=======
         vocab_file: path to file with vocabulary for a tokenizer. The file consists of valid Python string literals 
             separated by the new line character. Such literals must contain 1 character. Examples of valid Python 
             literals: ``'a'``, ``'\n'``, ``"'"``, ``'ж'``, ``'\u8976'``. Optionally the first line in the file can be a
@@ -81,7 +62,6 @@ class CharTokenizer(TokenizerSpec):
             If ``mask_token`` is ``bool`` it has to be ``False``. If ``mask_token`` is ``True`` an exception is raised.
             If ``mask_token`` is ``False`` and ``mask_token`` is present in special tokens dictionary in vocabulary
             file ``vocab_file``, then ``mask_token`` is remove from special tokens dictionary.
->>>>>>> main
             
             If the parameter ``mask_token`` is a string, then such strings in the input sequence are interpreted as
             mask tokens.
