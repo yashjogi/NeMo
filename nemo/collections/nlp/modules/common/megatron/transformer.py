@@ -31,6 +31,7 @@ from nemo.collections.nlp.modules.common.megatron.fused_bias_dropout_add import 
 from nemo.collections.nlp.modules.common.megatron.fused_bias_gelu import fused_bias_gelu
 from nemo.collections.nlp.modules.common.megatron.module import MegatronModule
 from nemo.collections.nlp.modules.common.megatron.utils import attention_mask_func, erf_gelu
+from apex.transformer.utils import divide as safe_divide
 
 
 """ We use the following notation throughout this file:
@@ -154,9 +155,9 @@ class ParallelAttention(MegatronModule):
 
         # Per attention head and per partition values.
         world_size = parallel_state.get_tensor_model_parallel_world_size()
-        self.hidden_size_per_partition = tensor_parallel.divide(projection_size, world_size)
-        self.hidden_size_per_attention_head = tensor_parallel.divide(projection_size, num_attention_heads)
-        self.num_attention_heads_per_partition = tensor_parallel.divide(num_attention_heads, world_size)
+        self.hidden_size_per_partition = safe_divide(projection_size, world_size)
+        self.hidden_size_per_attention_head = safe_divide(projection_size, num_attention_heads)
+        self.num_attention_heads_per_partition = safe_divide(num_attention_heads, world_size)
 
         # Strided linear layer.
         if attention_type == AttnType.self_attn:
