@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+import os
 from math import ceil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -27,9 +29,12 @@ from nemo.collections.common.losses import AggregatorLoss, CrossEntropyLoss
 from nemo.collections.common.metrics import GlobalAverageLossMetric
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
     BertPunctuationCapitalizationDataset,
+)
+from nemo.collections.nlp.data.token_classification.punctuation_capitalization_infer_dataset import (
     BertPunctuationCapitalizationInferDataset,
+)
+from nemo.collections.nlp.data.token_classification.punctuation_capitalization_tarred_dataset import (
     BertPunctuationCapitalizationTarredDataset,
-    PunctuationCapitalizationDataConfig,
 )
 from nemo.collections.nlp.metrics.classification_report import ClassificationReport
 from nemo.collections.nlp.models.nlp_model import NLPModel
@@ -41,6 +46,9 @@ from nemo.core.neural_types import LogitsType, NeuralType
 from nemo.utils import logging
 
 __all__ = ['PunctuationCapitalizationModel']
+
+
+DEFAULT_NUM_TOKENS_IN_BATCH = 5000
 
 
 class PunctuationCapitalizationModel(NLPModel, Exportable):
@@ -63,6 +71,7 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self.world_size = 1
         if trainer is not None:
             self.world_size = trainer.num_nodes * trainer.num_gpus
+        self.metrics = None
         super().__init__(cfg=cfg, trainer=trainer)
 
         self.bert_model = get_lm_model(
@@ -143,69 +152,63 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         punct_labels = batch['punct_labels'][subtokens_mask]
         capit_preds = torch.argmax(capit_logits, axis=-1)[subtokens_mask]
         capit_labels = batch['capit_labels'][subtokens_mask]
-        if dataloader_idx == 0:
-            getattr(self, f'{mode}_loss')(loss=loss, num_measurements=batch['loss_mask'].sum())
-            getattr(self, f'{mode}_punct_class_report')(punct_preds, punct_labels)
-            getattr(self, f'{mode}_capit_class_report')(capit_preds, capit_labels)
-        else:
-            getattr(self, f'{mode}_loss_{dataloader_idx}')(loss=loss, num_measurements=batch['loss_mask'].sum())
-            getattr(self, f'{mode}_punct_class_report_{dataloader_idx}')(punct_preds, punct_labels)
-            getattr(self, f'{mode}_capit_class_report_{dataloader_idx}')(capit_preds, capit_labels)
+        self.metrics[mode]['loss'][dataloader_idx](
+            loss=loss, num_measurements=batch['loss_mask'].sum().to(loss.device)
+        )
+        self.metrics[mode]['punct_class_report'][dataloader_idx](punct_preds, punct_labels)
+        self.metrics[mode]['capit_class_report'][dataloader_idx](capit_preds, capit_labels)
+        # torchmetrics are used for metrics computation
+        return {'loss': None, 'punct_class_report': None, 'capit_class_report': None}
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        self.eval_step(batch, 'val', dataloader_idx)
+        return self.eval_step(batch, 'val', dataloader_idx)
 
     def test_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        self.eval_step(batch, 'test', dataloader_idx)
+        return self.eval_step(batch, 'test', dataloader_idx)
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         if self._cfg.shuffle_train_dataset:
-            self.train_dataloader().dataset.shuffle()
+            if isinstance(self.train_dataloader().dataset, BertPunctuationCapitalizationDataset):
+                self.train_dataloader().dataset.shuffle()
+            else:
+                logging.warning(
+                    f"Shuffling every epoch is not supported for datasets of type "
+                    f"{type(self.train_dataloader().dataset)} only for "
+                    f"`{BertPunctuationCapitalizationDataset.__name__}`"
+                )
 
     def multi_eval_epoch_end(self, mode, dataloader_idx):
         """
         Called at the end of validation to aggregate outputs.
         outputs: list of individual outputs of each validation step.
         """
-        if dataloader_idx == 0:
-            loss = getattr(self, f'{mode}_loss').compute()
-            getattr(self, f'{mode}_loss').reset()
+        loss = self.metrics[mode]['loss'][dataloader_idx].compute()
+        self.metrics[mode]['loss'][dataloader_idx].reset()
 
-            punct_res = getattr(self, f'{mode}_punct_class_report').compute()
-            punct_precision, punct_recall, punct_f1, punct_report = punct_res
-            getattr(self, f'{mode}_punct_class_report').reset()
+        punct_res = self.metrics[mode]['punct_class_report'][dataloader_idx].compute()
+        punct_precision, punct_recall, punct_f1, punct_report = punct_res
+        self.metrics[mode]['punct_class_report'][dataloader_idx].reset()
 
-            capit_res = getattr(self, f'{mode}_capit_class_report').compute()
-            capit_precision, capit_recall, capit_f1, capit_report = capit_res
-            getattr(self, f'{mode}_capit_class_report').reset()
-        else:
-            loss = getattr(self, f'{mode}_loss_{dataloader_idx}').compute()
-            getattr(self, f'{mode}_loss_{dataloader_idx}').reset()
-
-            punct_res = getattr(self, f'{mode}_punct_class_report_{dataloader_idx}').compute()
-            punct_precision, punct_recall, punct_f1, punct_report = punct_res
-            getattr(self, f'{mode}_punct_class_report_{dataloader_idx}').reset()
-
-            capit_res = getattr(self, f'{mode}_capit_class_report_{dataloader_idx}').compute()
-            capit_precision, capit_recall, capit_f1, capit_report = capit_res
-            getattr(self, f'{mode}_capit_class_report_{dataloader_idx}').reset()
+        capit_res = self.metrics[mode]['capit_class_report'][dataloader_idx].compute()
+        capit_precision, capit_recall, capit_f1, capit_report = capit_res
+        self.metrics[mode]['capit_class_report'][dataloader_idx].reset()
         log_dict = {
             'log': {
-                'loss': loss,
-                'punct_precision': punct_precision,
-                'punct_f1': punct_f1,
-                'punct_recall': punct_recall,
-                'capit_precision': capit_precision,
-                'capit_f1': capit_f1,
-                'capit_recall': capit_recall,
+                f'{mode}_loss': loss,
+                f'{mode}_punct_precision': punct_precision,
+                f'{mode}_punct_f1': punct_f1,
+                f'{mode}_punct_recall': punct_recall,
+                f'{mode}_capit_precision': capit_precision,
+                f'{mode}_capit_f1': capit_f1,
+                f'{mode}_capit_recall': capit_recall,
             }
         }
         logging.info(f'Punctuation report: {punct_report}')
@@ -226,38 +229,18 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         """
         return self.multi_eval_epoch_end('test', dataloader_idx)
 
-    # def update_data_dir(self, data_dir: str) -> None:
-    #     """
-    #     Update data directory
-    #
-    #     Args:
-    #         data_dir: path to data directory
-    #     """
-    #     if os.path.exists(data_dir):
-    #         logging.info(f'Setting model.dataset.data_dir to {data_dir}.')
-    #         self._cfg.dataset.data_dir = data_dir
-    #     else:
-    #         raise ValueError(f'{data_dir} not found')
+    def update_data_dir(self, data_dir: str) -> None:
+        """
+        Update data directory
 
-    # def set_labels_config_parameters_for_tarred_case(self, dict_param_name, file_param_name):
-    #     if self._cfg[dict_param_name] is None and self._cfg.class_labels[file_param_name] is None:
-    #         raise ValueError(
-    #             f'If your train dataset is tarred, then you have to provide one of parameters '
-    #             f'`{dict_param_name}` or `class_labels.{file_param_name}` in the model config.'
-    #         )
-    #     if self._cfg[dict_param_name] is None:
-    #         self._cfg[dict_param_name] = {}
-    #         with open(self._cfg.class_labels[file_param_name]) as f:
-    #             labels_dict = {}
-    #             for i, line in enumerate(f):
-    #                 labels_dict[line.strip()] = i
-    #             self._cfg[dict_param_name] = OmegaConf.create(labels_dict)
-    #     else:
-    #         with open(self._cfg.class_labels[file_param_name], 'w') as f:
-    #             labels, _ = zip(*sorted(self._cfg[dict_param_name].items(), key=lambda x: x[1]))
-    #             f.write('\n'.join(labels))
-    #             for i, line in enumerate(f):
-    #                 self._cfg[dict_param_name][line.strip()] = i
+        Args:
+            data_dir: path to data directory
+        """
+        if os.path.exists(data_dir):
+            logging.info(f'Setting model.dataset.data_dir to {data_dir}.')
+            self._cfg.dataset.data_dir = data_dir
+        else:
+            raise ValueError(f'{data_dir} not found')
 
     def setup_training_data(self, train_data_config: Optional[DictConfig] = None):
         """Setup training data"""
@@ -296,54 +279,68 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         }
         return loss_kw, punct_kw, capit_kw
 
+    def setup_metrics_dictionary(self):
+        eval_metrics = torch.nn.ModuleDict(
+            {
+                "loss": torch.nn.ModuleList([]),
+                "punct_class_report": torch.nn.ModuleList([]),
+                "capit_class_report": torch.nn.ModuleList([]),
+            }
+        )
+        self.metrics = torch.nn.ModuleDict({"val": eval_metrics, "test": copy.deepcopy(eval_metrics)})
+
     def setup_validation_data(self, val_data_config: Optional[Dict] = None):
         """
         Setup validaton data
 
         val_data_config: validation data config
         """
+        if self.metrics is None:
+            self.setup_metrics_dictionary()
         if val_data_config is None:
             val_data_config = self._cfg.validation_ds
 
         self._validation_dl = self._setup_dataloader_from_config(cfg=val_data_config)
         if self._validation_dl is not None:
             loss_kw, punct_kw, capit_kw = self.get_eval_metrics_kwargs()
-            for dataloader_idx in range(len(self._validation_dl)):
-                if dataloader_idx == 0:
-                    setattr(self, 'val_loss', GlobalAverageLossMetric(**loss_kw))
-                    setattr(self, 'val_punct_class_report', ClassificationReport(**punct_kw))
-                    setattr(self, 'val_capit_class_report', ClassificationReport(**capit_kw))
-                else:
-                    setattr(self, f'val_loss_{dataloader_idx}', GlobalAverageLossMetric(**loss_kw))
-                    setattr(self, f'val_punct_class_report_{dataloader_idx}', ClassificationReport(**punct_kw))
-                    setattr(self, f'val_capit_class_report_{dataloader_idx}', ClassificationReport(**capit_kw))
+            self.metrics['val']['loss'].append(GlobalAverageLossMetric(**loss_kw))
+            self.metrics['val']['punct_class_report'].append(ClassificationReport(**punct_kw))
+            self.metrics['val']['capit_class_report'].append(ClassificationReport(**capit_kw))
 
     def setup_test_data(self, test_data_config: Optional[Dict] = None):
+        if self.metrics is None:
+            self.setup_metrics_dictionary()
         if test_data_config is None:
             test_data_config = self._cfg.test_ds
         self._test_dl = self._setup_dataloader_from_config(cfg=test_data_config)
         if self._test_dl is not None:
             loss_kw, punct_kw, capit_kw = self.get_eval_metrics_kwargs()
-            for dataloader_idx in range(len(self._test_dl)):
-                if dataloader_idx == 0:
-                    setattr(self, 'test_loss', GlobalAverageLossMetric(**loss_kw))
-                    setattr(self, 'test_punct_class_report', ClassificationReport(**punct_kw))
-                    setattr(self, 'test_capit_class_report', ClassificationReport(**capit_kw))
-                else:
-                    setattr(self, f'test_loss_{dataloader_idx}', GlobalAverageLossMetric(**loss_kw))
-                    setattr(self, f'test_punct_class_report_{dataloader_idx}', ClassificationReport(**punct_kw))
-                    setattr(self, f'test_capit_class_report_{dataloader_idx}', ClassificationReport(**capit_kw))
+            self.metrics['test']['loss'].append(GlobalAverageLossMetric(**loss_kw))
+            self.metrics['test']['punct_class_report'].append(ClassificationReport(**punct_kw))
+            self.metrics['test']['capit_class_report'].append(ClassificationReport(**capit_kw))
 
-    def _setup_dataloader_from_config(self, cfg: PunctuationCapitalizationDataConfig):
-        # use data_dir specified in the ds_item to run evaluation on multiple datasets
-        if cfg.use_tarred_dataset:
+    def _setup_dataloader_from_config(self, cfg: DictConfig):
+        ds_item = cfg.get('ds_item')
+        data_dir = self._cfg.dataset.get('data_dir')
+        # Following parameters can be missing in config if the model is restored from old checkpoint
+        use_tarred_dataset = cfg.get('use_tarred_dataset', False)
+        num_workers = cfg.get('num_workers')
+        pin_memory = cfg.get('pin_memory')
+        drop_last = cfg.get('drop_last')
+        if ds_item is None and data_dir is None:
+            raise ValueError(
+                f"At least one of parameters `model.dataset.data_dir` and `model.<dataset_config>.ds_item` should be "
+                f"present in model config. Parameters `data_dir` or `ds_item` are paths to directory where "
+                f"`metadata_file`, `text_file`, `labels_file` files are stored."
+            )
+        if use_tarred_dataset:
             if cfg.metadata_file is None:
                 raise ValueError(
                     f"If parameter `use_tarred_dataset` is `True`, then a field `metadata_file` has to be a path "
                     f"to tarred dataset metadata file, whereas `None` is given."
                 )
-            ds_item = self._cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
-            metadata_file = Path(cfg.ds_item) / cfg.metadata_file if ds_item is not None else cfg.metadata_file
+            ds_data_dir = data_dir if ds_item is None else ds_item
+            metadata_file = Path(ds_data_dir) / cfg.metadata_file
             dataset = BertPunctuationCapitalizationTarredDataset(
                 metadata_file=metadata_file,
                 tokenizer=self.tokenizer,
@@ -363,11 +360,18 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                     f"dataset config have to not `None`. Whereas `text_file={cfg.text_file}` and "
                     f"`label_file={cfg.labels_file}`."
                 )
-            ds_item = self._cfg.dataset.data_dir if cfg.ds_item is None else cfg.ds_item
-            if ds_item is None:
-                text_file, labels_file = cfg.text_file, cfg.labels_file
-            else:
-                text_file, labels_file = Path(cfg.ds_item) / cfg.text_file, Path(cfg.ds_item) / cfg.labels_file
+            # Following parameters can be missing in config if the model is restored from old checkpoint
+            tokens_in_batch = cfg.get('tokens_in_batch')
+            if tokens_in_batch is None:
+                logging.warning(
+                    f"`tokens_in_batch` parameter is missing in dataset config. The default value "
+                    f"{DEFAULT_NUM_TOKENS_IN_BATCH} is used."
+                )
+                tokens_in_batch = DEFAULT_NUM_TOKENS_IN_BATCH
+            max_seq_length = cfg.get('max_seq_length')
+            use_cache = cfg.get('use_cache')
+            ds_data_dir = data_dir if ds_item is None else ds_item
+            text_file, labels_file = Path(ds_data_dir) / cfg.text_file, Path(ds_data_dir) / cfg.labels_file
             dataset = BertPunctuationCapitalizationDataset(
                 tokenizer=self.tokenizer,
                 text_file=text_file,
@@ -375,25 +379,31 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                 pad_label=self._cfg.dataset.pad_label,
                 punct_label_ids=self._cfg.punct_label_ids,
                 capit_label_ids=self._cfg.capit_label_ids,
-                max_seq_length=cfg.max_seq_length,
+                max_seq_length=self._cfg.dataset.max_seq_length if max_seq_length is None else max_seq_length,
                 ignore_extra_tokens=self._cfg.dataset.ignore_extra_tokens,
                 ignore_start_end=self._cfg.dataset.ignore_start_end,
-                use_cache=cfg.use_cache,
+                use_cache=self._cfg.dataset.use_cache if use_cache is None else use_cache,
                 num_samples=cfg.num_samples,
-                tokens_in_batch=cfg.tokens_in_batch,
+                tokens_in_batch=tokens_in_batch,
                 punct_label_ids_file=self._cfg.class_labels.punct_labels_file,
                 capit_label_ids_file=self._cfg.class_labels.capit_labels_file,
                 njobs=cfg.get('njobs'),
                 verbose=False,
             )
+        if cfg.shuffle and cfg.use_tarred_dataset:
+            logging.warning(f"Shuffling in dataloader is not supported for tarred dataset.")
+            shuffle = False
+        else:
+            shuffle = cfg.shuffle
         return torch.utils.data.DataLoader(
             dataset=dataset,
             collate_fn=dataset.collate_fn,
             batch_size=1,
-            shuffle=cfg.shuffle,
-            num_workers=cfg.num_workers,
-            pin_memory=cfg.pin_memory,
-            drop_last=cfg.drop_last,
+            shuffle=shuffle,
+            num_workers=self._cfg.dataset.num_workers if num_workers is None else num_workers,
+            pin_memory=self._cfg.dataset.pin_memory if pin_memory is None else pin_memory,
+            drop_last=self._cfg.dataset.drop_last if drop_last is None else drop_last,
+            persistent_workers=cfg.get('persistent_workers', False),
         )
 
     def _setup_infer_dataloader(
@@ -474,8 +484,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
                 ``[number_of_word_in_this_segment, number_of_punctuation_labels]``. Word punctuation probabilities for
                 segments in the batch.
             b_capit_probs: list containing ``batch_size`` numpy arrays. The numpy arrays have shapes
-                ``[number_of_word_in_this_segment, number_of_capitalization_labels]``. Word capitalization probabilities for
-                segments in the batch.
+                ``[number_of_word_in_this_segment, number_of_capitalization_labels]``. Word capitalization
+                probabilities for segments in the batch.
             new_start_word_ids: indices of segment first words in a query after margin removal
         """
         new_start_word_ids = list(start_word_ids)

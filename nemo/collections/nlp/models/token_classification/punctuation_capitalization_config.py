@@ -18,9 +18,11 @@ from typing import Any, Dict, Optional, Tuple
 from omegaconf.omegaconf import MISSING
 
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
-    PunctuationCapitalizationDataConfig
+    PunctuationCapitalizationDataConfig,
 )
-from nemo.core.config.modelPT import OptimConfig, SchedConfig
+from nemo.core.config import TrainerConfig
+from nemo.core.config.modelPT import NemoConfig, OptimConfig, SchedConfig
+from nemo.utils.exp_manager import ExpManagerConfig
 
 
 @dataclass
@@ -91,18 +93,21 @@ class PunctuationCapitalizationModelConfig:
         labels_file=MISSING,
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
+        tokens_in_batch=MISSING,
     )
     validation_ds: Optional[PunctuationCapitalizationDataConfig] = PunctuationCapitalizationDataConfig(
         text_file=MISSING,
         labels_file=MISSING,
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
+        tokens_in_batch=MISSING,
     )
     test_ds: Optional[PunctuationCapitalizationDataConfig] = PunctuationCapitalizationDataConfig(
         text_file=MISSING,
         labels_file=MISSING,
         use_tarred_dataset=MISSING,
         metadata_file=MISSING,
+        tokens_in_batch=MISSING,
     )
     punct_label_ids: Optional[Dict[str, int]] = None
     capit_label_ids: Optional[Dict[str, int]] = None
@@ -118,3 +123,14 @@ class PunctuationCapitalizationModelConfig:
     language_model: LanguageModelConfig = LanguageModelConfig()
 
     optim: Optional[OptimConfig] = MTOptimConfig()
+
+
+@dataclass
+class PunctuationCapitalizationConfig(NemoConfig):
+    pretrained_model: Optional[str] = None
+    name: Optional[str] = 'MTEncDec'
+    do_training: bool = True
+    do_testing: bool = False
+    model: PunctuationCapitalizationModelConfig = PunctuationCapitalizationModelConfig()
+    trainer: Optional[TrainerConfig] = TrainerConfig()
+    exp_manager: Optional[ExpManagerConfig] = ExpManagerConfig(name='Punctuation_and_Capitalization', files_to_copy=[])

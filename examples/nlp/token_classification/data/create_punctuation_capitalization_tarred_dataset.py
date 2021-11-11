@@ -1,242 +1,264 @@
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
-import json
 import multiprocessing as mp
-import re
 from pathlib import Path
 
-import webdataset as wds
-from joblib import Parallel, delayed
-
-from nemo.collections.nlp.modules.common.tokenizer_utils import get_tokenizer
-from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import (
-    BertPunctuationCapitalizationDataset, Progress
+from nemo.collections.nlp.data.token_classification.punctuation_capitalization_tarred_dataset import (
+    build_label_ids_from_list_of_labels,
+    check_before_building_label_ids,
+    create_tarred_dataset,
 )
-from nemo.utils import logging
-
-
-NUMBER_RE = "(0|[1-9][0-9]*)"
-TAR_FRAGMENT_TMPL_1 = "fragment{}.{}.tar"
-TAR_FRAGMENT_TMPL_2 = "fragment{}.num_batches{}.{}.tar"
-TAR_FRAGMENT_PATTERN_1 = re.compile(f"fragment{NUMBER_RE}.{NUMBER_RE}.tar$")
-TAR_FRAGMENT_PATTERN_2 = re.compile(f"fragment{NUMBER_RE}.num_batches{NUMBER_RE}.{NUMBER_RE}.tar$")
-EXTRACT_NUM_BATCHES_PATTERN = re.compile(r"fragment\d+.num_batches(\d+).\d+.tar")
-
-DATASET_PARAMETERS_TMPL = "{prefix}.tokens{tokens_in_batch}.max_seq_length{max_seq_length}.{tokenizer}"
-TAR_FINAL_TMPL = ".batches{num_batches}.{ctr}.tar"
-
-WRITING_DATASET_PROGRESS_REPORT_PERIOD = 10 ** 4
 
 
 def get_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--text", "-t", type=Path, required=True)
-    parser.add_argument("--labels", "-L", type=Path, required=True)
-    parser.add_argument("--output_dir", "-o", type=Path, required=True)
-    parser.add_argument("--max_seq_length", "-s", type=int, default=512)
-    parser.add_argument("--tokens_in_batch", "-b", type=int, default=15000)
-    parser.add_argument("--lines_per_dataset_fragment", type=int, default=10 ** 6)
-    parser.add_argument("--num_batches_per_tarfile", type=int, default=1000)
-    parser.add_argument("--tokenizer", "-T", default="bert-base-uncased")
-    parser.add_argument("--tar_file_prefix", "-p", default="punctuation_capitalization")
-    parser.add_argument("--n_jobs", "-j", type=int, default=mp.cpu_count())
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="A tarred dataset allows to train on large amounts without storing it all into memory "
+        "simultaneously. In case of punctuation and capitalization model, tarred dataset is a directory which contains "
+        "metadata file, tar files with batches, punct_label_ids.csv and capit_label_ids.csv files. Metadata file is "
+        "a JSON file with 2 fields: 'num_batches' and 'tar_files'. 'num_batches' (int) is a total number of batches "
+        "in tarred dataset. 'tar_files' is a list of paths to tar files given relatively to directory containing the "
+        "metadata file. Every tar file contains objects written using `webdataset.TarWriter`. Each object is "
+        "a dictionary with two items: '__key__' and 'batch.pyd'. '__key__' is a name of a batch and 'batch.pyd' is a "
+        "pickled dictionary which contains 'input_ids', 'subtokens_mask', 'punct_labels', 'capit_labels'. 'input_ids' "
+        "is an array containing ids of source tokens, 'subtokens_mask' is a boolean array showing first tokens in "
+        "words, 'punct_labels' and 'capit_labels' are arrays with ids of labels. Metadata file should be passed to "
+        "constructor of `nemo.collections.nlp.data.token_classification.PunctuationCapitalizationTarredDataset` "
+        "and the instance of the class will handle iteration and constructing masks and token types for BERT model.",
+    )
+    parser.add_argument(
+        "--text",
+        "-t",
+        help="Path to source lowercased text without punctuation. Number of lines in `--text` file has to be equal "
+        "to number of lines in `--labels` file.",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
+        "--labels",
+        "-L",
+        type=Path,
+        required=True,
+        help="Path to file with labels in the format described here "
+        "https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#"
+        "nemo-data-format . Number of lines in `--labels` file has to be equal to the number of lines in `--text` "
+        "file.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        "-o",
+        type=Path,
+        required=True,
+        help="Path to directory where .tar files, metadata file, label id files are stored.",
+    )
+    parser.add_argument(
+        "--max_seq_length",
+        "-s",
+        type=int,
+        default=512,
+        help="Maximum number of subtokens in an input sequence. A source sequence which contain too many subtokens are "
+        "clipped to `--max_seq_length - 2` subtokens and then [CLS] token is prepended to the clipped sequence and "
+        "[SEP] token is appended to the clipped sequence. The clipping is performed via removal of subtokens in the "
+        "beginning of a source sequence.",
+    )
+    parser.add_argument(
+        "--tokens_in_batch",
+        "-b",
+        type=int,
+        default=15000,
+        help="Maximum number of tokens in a batch including [CLS], [SEP], [UNK], and [PAD] tokens. Before packing into "
+        "batches source sequences are sorted by number of tokens in order to reduce number of pad tokens. So the "
+        "number of sequences in a batch may be different.",
+    )
+    parser.add_argument(
+        "--lines_per_dataset_fragment",
+        type=int,
+        default=10 ** 6,
+        help="A number of lines processed by one worker during creation of tarred dataset. A worker tokenizes "
+        "`--lines_per_dataset_fragment` keeps in RAM tokenized text labels before packing them into batches. "
+        "Reducing `--lines_per_dataset_fragment` leads to reducing of the amount of memory required by this script.",
+    )
+    parser.add_argument(
+        "--num_batches_per_tarfile",
+        type=int,
+        default=1000,
+        help="A number of batches saved in a tar file. If you increase `--num_batches_per_tarfile` there will be less "
+        "tar files in the dataset. There cannot be less then `--num_batches_per_tarfile` batches in a tar file, and "
+        "all excess batches are removed. Maximum number of discarded batches is `--num_batches_per_tarfile - 1`.",
+    )
+    parser.add_argument(
+        "--tokenizer_name",
+        "-T",
+        default="bert-base-uncased",
+        help="Name of the tokenizer used for tokenization of source sequences. Possible options are 'sentencepiece', "
+        "'word', 'char', HuggingFace tokenizers. For more options see function "
+        "`nemo.collections.nlp.modules.common.get_tokenizer`. The tokenizer has have properties `cls_id`, `pad_id`, "
+        "`sep_id`, `unk_id`.",
+    )
+    parser.add_argument(
+        "--tokenizer_model", "-m", type=Path, help="Path to tokenizer model required for 'sentencepiece' tokenizer."
+    )
+    parser.add_argument(
+        "--vocab_file",
+        "-v",
+        type=Path,
+        help="Path to vocabulary file which is used in 'word', 'char', and HuggingFace tokenizers.",
+    )
+    parser.add_argument(
+        "--merges_file", "-M", type=Path, help="Path to merges file which maybe used in HuggingFace tokenizers."
+    )
+    parser.add_argument(
+        "--special_token_names",
+        "-n",
+        nargs="+",
+        help="Names of special tokens which may be passed to constructors of 'char', 'word', 'sentencepiece', and "
+        "HuggingFace tokenizers.",
+    )
+    parser.add_argument(
+        "--special_token_values",
+        "-V",
+        nargs="+",
+        help="Values of special tokens which may be passed to constructors of 'char', 'word', 'sentencepiece', and "
+        "HuggingFace tokenizers.",
+    )
+    parser.add_argument(
+        "--use_fast_tokenizer", "-f", action="store_true", help="Whether to use fast HuggingFace tokenizer."
+    )
+    parser.add_argument(
+        "--tokenizer_bpe_dropout",
+        "-d",
+        type=float,
+        help="BPE dropout for YouTokenToMe tokenizer. Currently YouTokenToMe tokenizer is not supported because "
+        "it lacks `cls_id` and `sep_id` properties.",
+    )
+    parser.add_argument(
+        "--pad_label",
+        "-P",
+        default='O',
+        help="Pad label both for punctuation and capitalization. This label is also is used for marking words which "
+        "do not need punctuation and capitalization.",
+    )
+    punct = parser.add_mutually_exclusive_group(required=False)
+    punct.add_argument(
+        "--punct_labels",
+        "-p",
+        nargs="+",
+        help="All punctuation labels EXCEPT PAD LABEL. Punctuation labels are strings separated by spaces. "
+        "Alternatively you can use parameter `--punct_label_ids_file`. If none of parameters `--punct_labels` "
+        "and `--punct_label_ids_file` are provided, then punctuation label ids will be inferred from `--labels` file.",
+    )
+    punct.add_argument(
+        "--punct_label_ids_file",
+        type=Path,
+        help="A path to file with punctuation labels. These labels include pad label. Pad label has to be the first "
+        "label in the file. Each label is written on separate line. Alternatively you can use `--punct_labels` "
+        "parameter. If none of parameters `--punct_labels` and `--punct_label_ids_file` are provided, then "
+        "punctuation label ids will be inferred from `--labels` file.",
+    )
+    capit = parser.add_mutually_exclusive_group(required=False)
+    capit.add_argument(
+        "--capit_labels",
+        "-c",
+        nargs="+",
+        help="All capitalization labels EXCEPT PAD LABEL. Capitalization labels are strings separated by spaces. "
+        "Alternatively you can use parameter `--capit_label_ids_file`. If none of parameters `--capit_labels` "
+        "and `--capit_label_ids_file` are provided, then capitalization label ids will be inferred from `--labels` "
+        "file.",
+    )
+    capit.add_argument(
+        "--capit_label_ids_file",
+        type=Path,
+        help="A path to file with capitalization labels. These labels include pad label. Pad label has to be the "
+        "first label in the file. Each label is written on separate line. Alternatively you can use `--capit_labels` "
+        "parameter. If none of parameters `--capit_labels` and `--capit_label_ids_file` are provided, then "
+        "capitalization label ids will be inferred from `--labels` file.",
+    )
+    parser.add_argument(
+        "--tar_file_prefix",
+        "-x",
+        default="punctuation_capitalization",
+        help="A string from which tar file names start.",
+    )
+    parser.add_argument(
+        "--n_jobs", "-j", type=int, default=mp.cpu_count(), help="Number of workers for creating tarred dataset."
+    )
     args = parser.parse_args()
-    args.text = args.text.expanduser()
-    args.labels = args.labels.expanduser()
-    args.output_dir = args.output_dir.expanduser()
-    return args
-
-
-def count_lines_and_get_fragment_starting_positions(file_name, lines_per_dataset_fragment):
-    pos = [0]
-    with file_name.open() as f:
-        i = 0
-        line = f.readline()
-        while line:
-            i += 1
-            if i % lines_per_dataset_fragment == 0:
-                pos.append(f.tell())
-            line = f.readline()
-    return i, pos[:-1] if i % lines_per_dataset_fragment == 0 else pos
-
-
-def process_fragment(
-    text_file,
-    labels_file,
-    output_dir,
-    text_start_pos,
-    label_start_pos,
-    lines_per_dataset_fragment,
-    max_seq_length,
-    tokens_in_batch,
-    num_batches_per_tarfile,
-    tokenizer,
-    fragment_idx,
-    tokenization_progress_queue,
-    batch_mark_up_progress_queue,
-    batch_building_progress_queue,
-    writing_to_tar_progress_queue,
-):
-    tmp_text = output_dir / f'tmp_text_{fragment_idx}.txt'
-    tmp_labels = output_dir / f'tmp_labels_{fragment_idx}.txt'
-    with text_file.open() as tf, labels_file.open() as lf, tmp_text.open('w') as otf, tmp_labels.open('w') as olf:
-        tf.seek(text_start_pos)
-        lf.seek(label_start_pos)
-        for _ in range(lines_per_dataset_fragment):
-            text_line = tf.readline()
-            if not text_line:
-                break
-            otf.write(text_line)
-            olf.write(lf.readline())
-    dataset = BertPunctuationCapitalizationDataset(
-        tmp_text,
-        tmp_labels,
-        max_seq_length,
-        tokenizer,
-        tokens_in_batch=tokens_in_batch,
-        njobs=0,
-        use_cache=False,
-        add_masks_and_segment_ids_to_batch=False,
-        verbose=False,
-        pickle_features=False,
-        save_label_ids=fragment_idx == 0,
-        tokenization_progress_queue=tokenization_progress_queue,
-        batch_mark_up_progress_queue=batch_mark_up_progress_queue,
-        batch_building_progress_queue=batch_building_progress_queue,
-    )
-    tmp_text.unlink()
-    tmp_labels.unlink()
-    tar_ctr = 0
-    current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
-    current_num_batches = 0
-    sink = wds.TarWriter(str(current_file_name))
-    progress_made = 0
-    for batch_i, batch in enumerate(dataset):
-        if batch_i % num_batches_per_tarfile == 0 and batch_i > 0:
-            sink.close()
-            current_file_name.rename(
-                output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr)
+    for name in [
+        "text",
+        "labels",
+        "output_dir",
+        "tokenizer_model",
+        "vocab_file",
+        "merges_file",
+        "punct_label_ids_file",
+        "capit_label_ids_file",
+    ]:
+        if getattr(args, name) is not None:
+            setattr(args, name, getattr(args, name).expanduser())
+    if args.special_token_names is not None or args.special_token_values is not None:
+        if args.special_token_names is None:
+            parser.error(
+                "If you provide parameter `--special_token_values` you have to provide parameter "
+                "`--special_token_names`."
             )
-            writing_to_tar_progress_queue.put(progress_made)
-            progress_made = 0
-            tar_ctr += 1
-            current_file_name = output_dir / TAR_FRAGMENT_TMPL_1.format(fragment_idx, tar_ctr)
-            current_num_batches = 0
-            sink = wds.TarWriter(str(current_file_name))
-        sink.write({"__key__": f"fragment-{fragment_idx}-batch-{batch_i}", "batch.pyd": batch})
-        current_num_batches += 1
-        progress_made += len(batch['input_ids'])
-    sink.close()
-    writing_to_tar_progress_queue.put(progress_made)
-    new_file_name = output_dir / TAR_FRAGMENT_TMPL_2.format(fragment_idx, current_num_batches, tar_ctr)
-    current_file_name.rename(new_file_name)
-    if progress_made > 0:
-        new_file_name.unlink()
-
-
-def remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name):
-    if not output_dir.is_dir():
-        return
-    tar_final_pattern = re.compile(output_file_tmpl.format(ctr=NUMBER_RE, num_batches=NUMBER_RE))
-    unexpected_tar_files = [
-        path for path in output_dir.iterdir()
-        if any(
-            [
-                p.match(path.name) is not None
-                for p in [TAR_FRAGMENT_PATTERN_1, TAR_FRAGMENT_PATTERN_2, tar_final_pattern]
-            ]
+        if args.special_token_values is None:
+            parser.error(
+                "If you provide parameter `--special_token_names` you have to provide parameter "
+                "`--special_token_values`."
+            )
+        if len(args.special_token_names) != len(args.special_token_values):
+            parser.error(
+                f"Parameters `--special_token_names` and `--special_token_values` have to have equal number of values "
+                f"whereas parameter `--special_token_names` has {len(args.special_token_names)} values and parameter "
+                f"`--special_token_values` has {len(args.special_token_values)} values."
+            )
+        if len(set(args.special_token_names)) != len(args.special_token_names):
+            for i in range(len(args.special_token_names) - 1):
+                if args.special_token_names[i] in args.special_token_names[i + 1 :]:
+                    parser.error(
+                        f"Values of parameter `--special_token_names` has to be unique. Found duplicate value "
+                        f"'{args.special_token_names[i]}'."
+                    )
+    if args.punct_labels is not None:
+        check_before_building_label_ids(
+            args.pad_label, args.punct_labels, '--pad_label', '--punct_labels', parser.error
         )
-    ]
-    if unexpected_tar_files:
-        logging.warning(
-            f"Found {len(unexpected_tar_files)} unexpected tar files in the output directory {output_dir}. "
-            f"All of them are going to be removed. The files match one of 3 patterns: "
-            f"'{TAR_FRAGMENT_PATTERN_1.pattern}', '{TAR_FRAGMENT_PATTERN_2.pattern}', "
-            f"'{tar_final_pattern.pattern}'. The first 3 unexpected files: {unexpected_tar_files[:3]}"
+        check_before_building_label_ids(
+            args.pad_label, args.capit_labels, '--pad_label', '--capit_labels', parser.error
         )
-        for fn in unexpected_tar_files:
-            fn.unlink()
-    if metadata_file_name.is_file():
-        logging.warning(f"Found metadata file {metadata_file_name}. It is going to be removed.")
-        metadata_file_name.unlink()
-
-
-def create_tarred_dataset(
-    text_file,
-    label_file,
-    output_dir,
-    max_seq_length,
-    tokens_in_batch,
-    lines_per_dataset_fragment,
-    num_batches_per_tarfile,
-    tokenizer,
-    tar_file_prefix,
-    n_jobs,
-):
-    ds_params_str = DATASET_PARAMETERS_TMPL.format(
-        prefix=tar_file_prefix,
-        tokens_in_batch=tokens_in_batch,
-        max_seq_length=max_seq_length,
-        tokenizer=tokenizer,
-    )
-    output_file_tmpl = ds_params_str + TAR_FINAL_TMPL
-    metadata_file_name = output_dir / ('metadata.' + ds_params_str + '.json')
-    remove_unexpected_files(output_dir, output_file_tmpl, metadata_file_name)
-    logging.info(
-        f"Counting lines in files {text_file} and {label_file} and creating segment borders. This may take "
-        f"considerable time. 86GB, 1.27b lines file was processed in 7 minutes."
-    )
-    result = Parallel(n_jobs=2)(
-        delayed(count_lines_and_get_fragment_starting_positions)(file_name, lines_per_dataset_fragment)
-        for file_name in [text_file, label_file]
-    )
-    if result[0][0] != result[1][0]:
-        raise ValueError(
-            f"Text file {text_file} and label file {label_file} contain different number of lines. Number of lines "
-            f"in text file: {result[0][0]}, number of lines in label file: {result[1][0]}."
-        )
-    num_lines = result[0][0]
-    text_start_bytes, label_start_bytes = result[0][1], result[1][1]
-    assert len(text_start_bytes) == len(label_start_bytes)
-    if text_start_bytes:
-        output_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        logging.warning(f"Both {label_file} and {text_file} are empty. Tarred dataset cannot be created.")
-        return
-    tokenizer = get_tokenizer(tokenizer)
-    with Progress(
-        num_lines,
-        ["Tokenization", "Batch mark up", "Batch building", "Writing tarred dataset"],
-        "query"
-    ) as progress_queues:
-        Parallel(n_jobs=min(n_jobs, len(text_start_bytes)))(
-            delayed(process_fragment)(
-                text_file,
-                label_file,
-                output_dir,
-                text_start_pos,
-                label_start_pos,
-                lines_per_dataset_fragment,
-                max_seq_length,
-                tokens_in_batch,
-                num_batches_per_tarfile,
-                tokenizer,
-                fragment_idx,
-                *progress_queues,
-            ) for fragment_idx, (text_start_pos, label_start_pos) in enumerate(zip(text_start_bytes, label_start_bytes))
-        )
-    metadata = {"num_batches": 0, "tar_files": []}
-    for i, fn in enumerate([fn for fn in output_dir.iterdir() if TAR_FRAGMENT_PATTERN_2.match(fn.name)]):
-        nb = int(EXTRACT_NUM_BATCHES_PATTERN.match(fn.name).group(1))
-        new_name = output_dir / output_file_tmpl.format(ctr=i, num_batches=nb)
-        fn.rename(new_name)
-        metadata['tar_files'].append(new_name.name)
-        metadata["num_batches"] += nb
-    with metadata_file_name.open('w') as f:
-        json.dump(metadata, f, indent=2)
+    return args
 
 
 def main():
     args = get_args()
+    if args.special_token_names is None:
+        special_tokens = None
+    else:
+        special_tokens = dict(zip(args.special_token_names, args.special_token_values))
+
+    if args.punct_labels is not None:
+        punct_label_ids = build_label_ids_from_list_of_labels(args.pad_label, args.punct_labels)
+    else:
+        punct_label_ids = None
+
+    if args.capit_labels is not None:
+        capit_label_ids = build_label_ids_from_list_of_labels(args.pad_label, args.capit_labels)
+    else:
+        capit_label_ids = None
+
     create_tarred_dataset(
         args.text,
         args.labels,
@@ -245,9 +267,20 @@ def main():
         args.tokens_in_batch,
         args.lines_per_dataset_fragment,
         args.num_batches_per_tarfile,
-        args.tokenizer,
-        args.tar_file_prefix,
-        args.n_jobs,
+        args.tokenizer_name,
+        tokenizer_model=args.tokenizer_model,
+        vocab_file=args.vocab_file,
+        merges_file=args.merges_file,
+        special_tokens=special_tokens,
+        use_fast_tokenizer=args.use_fast_tokenizer,
+        tokenizer_bpe_dropout=args.tokenizer_bpe_dropout,
+        pad_label=args.pad_label,
+        punct_label_ids=punct_label_ids,
+        capit_label_ids=capit_label_ids,
+        punct_label_ids_file=args.punct_label_ids_file,
+        capit_label_ids_file=args.capit_label_ids_file,
+        tar_file_prefix=args.tar_file_prefix,
+        n_jobs=args.n_jobs,
     )
 
 

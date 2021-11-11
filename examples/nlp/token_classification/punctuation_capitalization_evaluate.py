@@ -18,8 +18,12 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
+from nemo.collections.nlp.models.token_classification.punctuation_capitalization_config import (
+    PunctuationCapitalizationConfig,
+)
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
+from nemo.utils.config_utils import update_model_config
 from nemo.utils.exp_manager import exp_manager
 
 
@@ -56,7 +60,8 @@ def main(cfg: DictConfig) -> None:
         'During evaluation/testing, it is currently advisable to construct a new Trainer with single GPU and \
             no DDP to obtain accurate results'
     )
-
+    default_cfg = PunctuationCapitalizationConfig()
+    cfg = update_model_config(default_cfg, cfg)
     if not hasattr(cfg.model, 'test_ds'):
         raise ValueError(f'model.test_ds was not found in the config, skipping evaluation')
     else:
@@ -68,7 +73,8 @@ def main(cfg: DictConfig) -> None:
     if not cfg.pretrained_model:
         raise ValueError(
             'To run evaluation and inference script a pre-trained model or .nemo file must be provided.'
-            f'Choose from {PunctuationCapitalizationModel.list_available_models()} or "pretrained_model"="your_model.nemo"'
+            f'Choose from {PunctuationCapitalizationModel.list_available_models()} or '
+            f'"pretrained_model"="your_model.nemo"'
         )
 
     if os.path.exists(cfg.pretrained_model):
@@ -77,34 +83,20 @@ def main(cfg: DictConfig) -> None:
         model = PunctuationCapitalizationModel.from_pretrained(cfg.pretrained_model)
     else:
         raise ValueError(
-            f'Provide path to the pre-trained .nemo file or choose from {PunctuationCapitalizationModel.list_available_models()}'
+            f'Provide path to the pre-trained .nemo file or choose from '
+            f'{PunctuationCapitalizationModel.list_available_models()}'
         )
 
-    # data_dir = cfg.model.dataset.get('data_dir', None)
-    #
-    # if data_dir is None:
-    #     logging.error(
-    #         'No dataset directory provided. Skipping evaluation. '
-    #         'To run evaluation on a file, specify path to the directory that contains test_ds.text_file and test_ds.labels_file with "model.dataset.data_dir" argument.'
-    #     )
-    # elif not os.path.exists(data_dir):
-    #     logging.error(f'{data_dir} is not found, skipping evaluation on the test set.')
-    # else:
-    #     model.update_data_dir(data_dir=data_dir)
-    #     model._cfg.dataset = cfg.model.dataset
-    #
-    #     if not hasattr(cfg.model, 'test_ds'):
-    #         logging.error(f'model.test_ds was not found in the config, skipping evaluation')
-    #     elif model.prepare_test(trainer):
-    #         model.setup_test_data(cfg.model.test_ds)
-    #         trainer.test(model)
-    #     else:
-    #         logging.error('Skipping the evaluation. The trainer is not setup properly.')
-    if not hasattr(cfg.model, 'test_ds'):
-        logging.error(f'model.test_ds was not found in the config, skipping evaluation')
-    elif model.prepare_test(trainer):
-        model.setup_test_data(cfg.model.test_ds)
-        trainer.test(model)
+    data_dir = cfg.model.dataset.get('data_dir', None)
+
+    if data_dir is None:
+        logging.error(
+            'No dataset directory provided. Skipping evaluation. '
+            'To run evaluation on a file, specify path to the directory that contains test_ds.text_file and '
+            'test_ds.labels_file with "model.dataset.data_dir" argument.'
+        )
+    elif not os.path.exists(data_dir):
+        logging.error(f'{data_dir} is not found, skipping evaluation on the test set.')
     else:
         logging.error('Skipping the evaluation. The trainer is not setup properly.')
 

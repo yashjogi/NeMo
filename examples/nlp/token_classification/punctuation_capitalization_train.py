@@ -13,21 +13,19 @@
 # limitations under the License.
 
 import os
-from dataclasses import dataclass
-from typing import Optional
 
 import pytorch_lightning as pl
 import torch
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
-from nemo.collections.nlp.models.token_classification import PunctuationCapitalizationModelConfig
+from nemo.collections.nlp.models.token_classification.punctuation_capitalization_config import (
+    PunctuationCapitalizationConfig,
+)
 from nemo.core.config import hydra_runner
-from nemo.core.config.modelPT import NemoConfig
-from nemo.core.config.pytorch_lightning import TrainerConfig
 from nemo.utils import logging
 from nemo.utils.config_utils import update_model_config
-from nemo.utils.exp_manager import ExpManagerConfig, exp_manager
+from nemo.utils.exp_manager import exp_manager
 
 
 """
@@ -66,19 +64,8 @@ To use one of the pretrained versions of the model and finetune it, run:
 """
 
 
-@dataclass
-class PunctuationCapitalizationConfig(NemoConfig):
-    pretrained_model: Optional[str] = None
-    name: Optional[str] = 'MTEncDec'
-    do_training: bool = True
-    do_testing: bool = False
-    model: PunctuationCapitalizationModelConfig = PunctuationCapitalizationModelConfig()
-    trainer: Optional[TrainerConfig] = TrainerConfig()
-    exp_manager: Optional[ExpManagerConfig] = ExpManagerConfig(name='Punctuation_and_Capitalization', files_to_copy=[])
-
-
 @hydra_runner(config_path="conf", config_name="punctuation_capitalization_config")
-def main(cfg: PunctuationCapitalizationConfig) -> None:
+def main(cfg: DictConfig) -> None:
     torch.manual_seed(42)
     default_cfg = PunctuationCapitalizationConfig()
     cfg = update_model_config(default_cfg, cfg)
@@ -99,22 +86,6 @@ def main(cfg: PunctuationCapitalizationConfig) -> None:
             )
         model.setup_training_data()
         model.setup_validation_data()
-        # data_dir = cfg.model.dataset.get('data_dir', None)
-        # if data_dir:
-        #     if not os.path.exists(data_dir):
-        #         raise ValueError(f'{data_dir} is not found at')
-        #
-        #     # we can also do finetuning of the pretrained model but we would need to update the data dir
-        #     model.update_data_dir(data_dir)
-        #     # setup train and validation Pytorch DataLoaders
-        #     model.setup_training_data()
-        #     model.setup_validation_data()
-        #     logging.info(f'Using config file of the pretrained model')
-        # else:
-        #     raise ValueError(
-        #         'Specify a valid dataset directory that contains test_ds.text_file and test_ds.labels_file \
-        #         with "model.dataset.data_dir" argument'
-        #     )
 
     trainer.fit(model)
 
