@@ -22,6 +22,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import Meg
 from nemo.collections.nlp.parts.nlp_overrides import (
     NLPCheckpointConnector,
     NLPDDPPlugin,
+    NLPNativeBfloat16PrecisionPlugin,
     NLPNativeMixedPrecisionPlugin,
     NLPPrecisionPlugin,
     NLPSaveRestoreConnector,
@@ -41,6 +42,11 @@ def main(cfg) -> None:
         trainer = Trainer(
             plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes), NLPNativeMixedPrecisionPlugin()], **cfg.trainer
         )
+    elif cfg.trainer.precision == 'bf16':
+        trainer = Trainer(
+            plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes), NLPNativeBfloat16PrecisionPlugin(),],
+            **cfg.trainer,
+        )
     else:
         trainer = Trainer(plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes), NLPPrecisionPlugin()], **cfg.trainer)
 
@@ -51,9 +57,11 @@ def main(cfg) -> None:
     app_state.model_parallel_rank = compute_model_parallel_rank(trainer.local_rank, app_state.model_parallel_size)
 
 
+#         model_file = "/raid/purnendu/models/2-1pt3B-300k/1.3B_bf16/edited_nemo/finetuned-squad-7497samples/gpt1pt3B-ft-squad7497samples-rank1.nemo"  # gpt1pt3B-300k-rank1.nemo"  # 300k steps edited
+#  '/raid/purnendu/models/2-1pt3B-300k/1.3B_bf16/edited_nemo/gpt1pt3B-300k-rank1.nemo'
 
     model = MegatronGPTModel.restore_from(
-        '/raid/purnendu/models/megatron_gpt_rank2.nemo', trainer=trainer
+        '/raid/purnendu/models/3-squadpartial-scripted/rank0/gen_squad_ft_interm2_rank0.nemo', trainer=trainer
     )
 
     model.cfg.data.data_prefix = cfg.model.data.data_prefix

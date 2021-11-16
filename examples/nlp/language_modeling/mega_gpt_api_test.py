@@ -4,7 +4,7 @@ url = "http://localhost:9000/megagpt"
 
 payload = """{
     "prompt": "What is the meaning of life? A:",
-    "tokens_to_generate": 5,
+    "tokens_to_generate": 50,
     "stop_after_sentence": "True"
 }"""
 headers = {
