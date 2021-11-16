@@ -286,10 +286,11 @@ class GainPerturbation(Perturbation):
         rng: Random number generator
     """
 
-    def __init__(self, min_gain_dbfs=-10, max_gain_dbfs=10, rng=None):
+    def __init__(self, min_gain_dbfs=-10, max_gain_dbfs=10, rng=None, norm=False):
         self._min_gain_dbfs = min_gain_dbfs
         self._max_gain_dbfs = max_gain_dbfs
         self._rng = random.Random() if rng is None else rng
+        self._norm = norm
 
     def norm_attitude(self, samples):
         if max(abs(samples)) > 1.0:
@@ -300,8 +301,8 @@ class GainPerturbation(Perturbation):
         gain = self._rng.uniform(self._min_gain_dbfs, self._max_gain_dbfs)
         # logging.debug("gain: %d", gain)
         data._samples = data._samples * (10.0 ** (gain / 20.0))
-        # here
-        data._samples = self.norm_attitude(data._samples)
+        if self._norm:
+            data._samples = self.norm_attitude(data._samples)
 
 
 class ImpulsePerturbation(Perturbation):
@@ -407,6 +408,7 @@ class NoisePerturbation(Perturbation):
         audio_tar_filepaths=None,
         shuffle_n=100,
         orig_sr=16000,
+        norm=False,
     ):
         self._manifest = collections.ASRAudioText(manifest_path, parser=parsers.make_parser([]), index_by_file_id=True)
         self._audiodataset = None
@@ -423,6 +425,7 @@ class NoisePerturbation(Perturbation):
         self._min_snr_db = min_snr_db
         self._max_snr_db = max_snr_db
         self._max_gain_db = max_gain_db
+        self._norm = norm
 
     @property
     def orig_sr(self):
@@ -469,8 +472,8 @@ class NoisePerturbation(Perturbation):
 
         else:
             data._samples += noise._samples
-
-        data._samples = self.norm_attitude(data._samples)
+        if self._norm:
+            data._samples = self.norm_attitude(data._samples)
 
     def perturb_with_foreground_noise(
         self, data, noise, data_rms=None, max_noise_dur=2, max_additions=1,
@@ -508,11 +511,11 @@ class WhiteNoisePerturbation(Perturbation):
         rng: Random number generator
     """
 
-    def __init__(self, min_level=-90, max_level=-46, rng=None):
+    def __init__(self, min_level=-90, max_level=-46, rng=None, norm=False):
         self.min_level = int(min_level)
         self.max_level = int(max_level)
         self._rng = np.random.RandomState() if rng is None else rng
-
+        self._norm = norm
 
     def norm_attitude(self, samples):
         if max(abs(samples)) > 1.0:
@@ -523,7 +526,8 @@ class WhiteNoisePerturbation(Perturbation):
         noise_level_db = self._rng.randint(self.min_level, self.max_level, dtype='int32')
         noise_signal = self._rng.randn(data._samples.shape[0]) * (10.0 ** (noise_level_db / 20.0))
         data._samples += noise_signal
-        data._samples = self.norm_attitude(data._samples)
+        if self._norm:
+            data._samples = self.norm_attitude(data._samples)
     
 
 class RirAndNoisePerturbation(Perturbation):
