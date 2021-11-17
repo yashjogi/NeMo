@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 import torch
 from apex.transformer import parallel_state, tensor_parallel
-from apex.transformer.pipeline_parallel.schedules.common import build_model
+from apex.transformer.pipeline_parallel.schedules.common import build_model, _get_params_for_weight_decay_optimization
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.trainer.trainer import Trainer
 
@@ -86,6 +86,8 @@ class MegatronGPTModel(NLPModel):
 
         self.model = build_model(model_provider_func=self.model_provider_func, wrap_with_ddp=False)
 
+        self.setup_optimizer_param_groups()
+
     def model_provider_func(self, pre_process, post_process):
         """Model depends on pipeline paralellism."""
         model = GPTModel(
@@ -113,6 +115,10 @@ class MegatronGPTModel(NLPModel):
             onnx_safe=self.cfg.get('onnx_safe', False),
         )
         return model
+
+    def setup_optimizer_param_groups(self):
+        """ModelPT override. Optimizer will get self._optimizer_param_groups"""
+        self.setup_optimizer_param_groups = _get_params_for_weight_decay_optimization(self.model)
 
     def forward(self, tokens, position_ids, attention_mask, labels):
         output_tensor = self.model(tokens, position_ids, attention_mask, labels=labels)
@@ -258,6 +264,12 @@ class MegatronGPTModel(NLPModel):
         )
 
     def setup(self, stage=None):
+        """ PTL hook that is executed after DDP spawns.
+            We setup datasets here as megatron datasets require DDP to instantiate.
+            See https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#setup for more information.
+        Args:
+            stage (str, optional): Can be 'fit', 'validate', 'test' or 'predict'. Defaults to None.
+        """
         if stage == 'predict':
             return
         # TODO: consider adding a ModelPT guard to check if model is being restored.
