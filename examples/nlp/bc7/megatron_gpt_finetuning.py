@@ -73,12 +73,15 @@ def main(cfg) -> None:
         cfg.model.precision = cfg.trainer.precision
     # model = MegatronGPTModel(cfg.model, trainer)
     model = MegatronGPTModel.restore_from(
-        '/checkpoints/126m_fp16_gpt3_final.nemo', trainer=trainer
+        '/checkpoints/nemo/126m_fp16_gpt3_final.nemo', trainer=trainer
     )
+    model.cfg.data = cfg.model.data
+    model.cfg.nemo_file_path = '/results/bc7_tr3_gpt_126m_fp16.nemo'
+    model.cfg.optim = cfg.model.optim
 
     trainer.fit(model)
 
-    model.save_to('/outputs/bc7_tr3_gpt_127m.nemo')
+    model.save_to('/outputs/nemo/bc7_tr3_gpt_127m.nemo')
 
 
 if __name__ == '__main__':
