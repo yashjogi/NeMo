@@ -467,6 +467,7 @@ class TransformerLanguageModel(MegatronModule):
 
         # encoder.
         if enc_hidden_states is None:
+            # FIXME
             encoder_output = self.encoder(
                 encoder_input, enc_attn_mask, layer_past=layer_past, get_key_value=get_key_value
             )

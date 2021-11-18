@@ -28,6 +28,7 @@ from nemo.core.optim.novograd import Novograd
 from nemo.utils import logging
 from nemo.utils.model_utils import maybe_update_config_version
 
+
 AVAILABLE_OPTIMIZERS = {
     'sgd': optim.SGD,
     'adam': optim.Adam,
