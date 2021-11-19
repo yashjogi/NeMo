@@ -84,7 +84,8 @@ class MegatronGPTModel(NLPModel):
             tensor_model_parallel_size=cfg.get('tensor_model_parallel_size', 1),
         )
 
-        self.model = build_model(model_provider_func=self.model_provider_func, wrap_with_ddp=False)
+        # TODO: Not sure how to use lists of modules with PTL
+        self.model = build_model(model_provider_func=self.model_provider_func, wrap_with_ddp=False)[0]
 
         self.setup_optimizer_param_groups()
 
@@ -118,7 +119,7 @@ class MegatronGPTModel(NLPModel):
 
     def setup_optimizer_param_groups(self):
         """ModelPT override. Optimizer will get self._optimizer_param_groups"""
-        self._optimizer_param_groups = _get_params_for_weight_decay_optimization(self.model)
+        self._optimizer_param_groups = _get_params_for_weight_decay_optimization([self.model])
 
     def forward(self, tokens, position_ids, attention_mask, labels):
         output_tensor = self.model(tokens, position_ids, attention_mask, labels=labels)
