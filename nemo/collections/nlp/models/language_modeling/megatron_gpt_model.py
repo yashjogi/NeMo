@@ -118,7 +118,7 @@ class MegatronGPTModel(NLPModel):
 
     def setup_optimizer_param_groups(self):
         """ModelPT override. Optimizer will get self._optimizer_param_groups"""
-        self.setup_optimizer_param_groups = _get_params_for_weight_decay_optimization(self.model)
+        self._optimizer_param_groups = _get_params_for_weight_decay_optimization(self.model)
 
     def forward(self, tokens, position_ids, attention_mask, labels):
         output_tensor = self.model(tokens, position_ids, attention_mask, labels=labels)
