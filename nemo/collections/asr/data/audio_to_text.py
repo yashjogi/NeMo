@@ -116,7 +116,7 @@ class ASRManifestProcessor:
         self.parser = parser
 
         self.collection = collections.ASRAudioText(
-            manifests_files=manifest_filepath.split(','),
+            manifests_files=manifest_filepath,
             parser=parser,
             min_duration=min_duration,
             max_duration=max_duration,
@@ -193,6 +193,9 @@ class _AudioTextDataset(Dataset):
         eos_id: Optional[int] = None,
         pad_id: int = 0,
     ):
+        if type(manifest_filepath) == str:
+            manifest_filepath = manifest_filepath.split(",")
+
         self.manifest_processor = ASRManifestProcessor(
             manifest_filepath=manifest_filepath,
             parser=parser,
@@ -960,7 +963,7 @@ class _TarredAudioToTextDataset(IterableDataset):
     def __init__(
         self,
         audio_tar_filepaths: Union[str, List[str]],
-        manifest_filepath: str,
+        manifest_filepath: Union[str, List[str]],
         parser: Callable,
         sample_rate: int,
         int_values: bool = False,
@@ -978,7 +981,7 @@ class _TarredAudioToTextDataset(IterableDataset):
         world_size: int = 0,
     ):
         self.collection = collections.ASRAudioText(
-            manifests_files=manifest_filepath.split(','),
+            manifests_files=manifest_filepath,
             parser=parser,
             min_duration=min_duration,
             max_duration=max_duration,
@@ -1336,7 +1339,7 @@ class TarredAudioToBPEDataset(_TarredAudioToTextDataset):
     def __init__(
         self,
         audio_tar_filepaths: Union[str, List[str]],
-        manifest_filepath: str,
+        manifest_filepath: Union[str, List[str]],
         tokenizer: 'nemo.collections.common.tokenizers.TokenizerSpec',
         sample_rate: int,
         int_values: bool = False,

@@ -35,6 +35,7 @@ Introduction
 NVIDIA NeMo is a conversational AI toolkit built for researchers working on automatic speech recognition (ASR), natural language processing (NLP), and text-to-speech synthesis (TTS).
 The primary objective of NeMo is to help researchers from industry and academia to reuse prior work (code and pretrained models and make it easier to create new `conversational AI models <https://developer.nvidia.com/conversational-ai#started>`_.
 
+`Pre-trained NeMo models. <https://catalog.ngc.nvidia.com/models?query=nemo&orderBy=weightPopularDESC>`_ 
 
 `Introductory video. <https://www.youtube.com/embed/wBgpMf_KQVw>`_
 
@@ -85,7 +86,7 @@ Requirements
 ------------
 
 1) Python 3.6, 3.7 or 3.8
-2) Pytorch 1.8.1 or above
+2) Pytorch 1.10.0 or above
 3) NVIDIA GPU for training
 
 Documentation
@@ -163,27 +164,55 @@ Note that RNNT requires numba to be installed from conda.
   pip uninstall numba
   conda install -c numba numba
 
+Megatron GPT
+~~~~~~~~~~~~
+Megatron GPT training requires NVIDIA Apex to be installed.
+
+.. code-block:: bash
+
+    git clone https://github.com/NVIDIA/apex
+    cd apex
+    git checkout 14ccf5986401104121d0ef286a29386904af3bb7
+    pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+
 Docker containers:
 ~~~~~~~~~~~~~~~~~~
 
-If you chose to work with main branch, we recommend using NVIDIA's PyTorch container version 21.05-py3 and then installing from GitHub.
+If you chose to work with main branch, we recommend using NVIDIA's PyTorch container version 21.10-py3 and then installing from GitHub.
 
 .. code-block:: bash
 
     docker run --gpus all -it --rm -v <nemo_github_folder>:/NeMo --shm-size=8g \
     -p 8888:8888 -p 6006:6006 --ulimit memlock=-1 --ulimit \
-    stack=67108864 --device=/dev/snd nvcr.io/nvidia/pytorch:21.05-py3
+    stack=67108864 --device=/dev/snd nvcr.io/nvidia/pytorch:21.10-py3
 
 Examples
 --------
 
-Many example can be found under `"Examples" <https://github.com/NVIDIA/NeMo/tree/stable/examples>`_ folder.
+Many examples can be found under `"Examples" <https://github.com/NVIDIA/NeMo/tree/stable/examples>`_ folder.
 
 
 Contributing
 ------------
 
 We welcome community contributions! Please refer to the  `CONTRIBUTING.md <https://github.com/NVIDIA/NeMo/blob/stable/CONTRIBUTING.md>`_ CONTRIBUTING.md for the process.
+
+Publications
+------------
+
+We provide an ever growing list of publications that utilize the NeMo framework. Please refer to `PUBLICATIONS.md <https://github.com/NVIDIA/NeMo/blob/main/PUBLICATIONS.md>`_. We welcome the addition of your own articles to this list !
+
+Citation
+--------
+
+.. code-block:: bash
+
+  @article{kuchaiev2019nemo,
+    title={Nemo: a toolkit for building ai applications using neural modules},
+    author={Kuchaiev, Oleksii and Li, Jason and Nguyen, Huyen and Hrinchuk, Oleksii and Leary, Ryan and Ginsburg, Boris and Kriman, Samuel and Beliaev, Stanislav and Lavrukhin, Vitaly and Cook, Jack and others},
+    journal={arXiv preprint arXiv:1909.09577},
+    year={2019}
+  }
 
 License
 -------
