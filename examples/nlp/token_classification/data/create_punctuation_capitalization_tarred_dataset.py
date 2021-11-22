@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,27 +17,70 @@ import multiprocessing as mp
 from pathlib import Path
 
 from nemo.collections.nlp.data.token_classification.punctuation_capitalization_tarred_dataset import (
+    DEFAULT_CAPIT_LABEL_VOCAB_FILE_NAME,
+    DEFAULT_PUNCT_LABEL_VOCAB_FILE_NAME,
+    METADATA_CAPIT_LABEL_VOCAB_KEY,
+    METADATA_PUNCT_LABEL_VOCAB_KEY,
     build_label_ids_from_list_of_labels,
-    check_before_building_label_ids,
+    check_labels_for_being_unique_before_building_label_ids,
     create_tarred_dataset,
 )
 
 
-def get_args():
+"""
+A tarred dataset allows to train on large amounts without storing it all into memory simultaneously. In case of
+punctuation and capitalization model, tarred dataset is a directory which contains metadata file, tar files with
+batches, punct_label_vocab.csv and capit_label_vocab.csv files.
+
+A metadata file is a JSON file with 4 fields: 'num_batches', 'tar_files', 'punct_label_vocab_file',
+'capit_label_vocab_file'. 'num_batches' (int) is a total number of batches in tarred dataset. 'tar_files' is a list of
+paths to tar files relative to directory containing the metadata file. 'punct_label_vocab_file' and
+'capit_label_vocab_file' are paths to .csv files containing all unique punctuation and capitalization labels. Each
+label in these files is written in a separate line. The first labels in both files are equal and serve for padding and
+as neutral labels.
+
+Every tar file contains objects written using `webdataset.TarWriter`. Each object is a dictionary with two items:
+'__key__' and 'batch.pyd'. '__key__' is a name of a batch and 'batch.pyd' is a pickled dictionary which contains
+'input_ids', 'subtokens_mask', 'punct_labels', 'capit_labels'. 'input_ids' is an array containing ids of source tokens,
+'subtokens_mask' is a boolean array showing first tokens in words, 'punct_labels' and 'capit_labels' are arrays with
+ids of labels. Metadata file should be passed to constructor of
+`nemo.collections.nlp.data.token_classification.PunctuationCapitalizationTarredDataset` and the instance of 
+the class will handle iteration and constructing masks and token types for BERT model.
+
+Example of usage:
+
+python create_punctuation_capitalization_tarred_dataset.py \
+  --text <PATH_TO_TEXT_FILE> \
+  --labels <PATH_TO_LABELS_FILE> \
+  --output_dir <PATH_TO_OUTPUT_DIR> \
+  --lines_per_dataset_fragment 10000 \
+  --tokens_in_batch 8000 \
+  --num_batches_per_tarfile 5 \
+  --tokenizer_name char \
+  --vocab_file <PATH_TO_CHAR_TOKENIZER_VOCABULARY>
+"""
+
+
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="A tarred dataset allows to train on large amounts without storing it all into memory "
-        "simultaneously. In case of punctuation and capitalization model, tarred dataset is a directory which contains "
-        "metadata file, tar files with batches, punct_label_ids.csv and capit_label_ids.csv files. Metadata file is "
-        "a JSON file with 2 fields: 'num_batches' and 'tar_files'. 'num_batches' (int) is a total number of batches "
-        "in tarred dataset. 'tar_files' is a list of paths to tar files given relatively to directory containing the "
-        "metadata file. Every tar file contains objects written using `webdataset.TarWriter`. Each object is "
-        "a dictionary with two items: '__key__' and 'batch.pyd'. '__key__' is a name of a batch and 'batch.pyd' is a "
-        "pickled dictionary which contains 'input_ids', 'subtokens_mask', 'punct_labels', 'capit_labels'. 'input_ids' "
-        "is an array containing ids of source tokens, 'subtokens_mask' is a boolean array showing first tokens in "
-        "words, 'punct_labels' and 'capit_labels' are arrays with ids of labels. Metadata file should be passed to "
-        "constructor of `nemo.collections.nlp.data.token_classification.PunctuationCapitalizationTarredDataset` "
-        "and the instance of the class will handle iteration and constructing masks and token types for BERT model.",
+        description=f"A tarred dataset allows to train on large amounts without storing it all into memory "
+        f"simultaneously. In case of punctuation and capitalization model, tarred dataset is a directory which "
+        f"contains metadata file, tar files with batches, {DEFAULT_PUNCT_LABEL_VOCAB_FILE_NAME} and "
+        f"{DEFAULT_CAPIT_LABEL_VOCAB_FILE_NAME} files. A metadata file is a JSON file with 4 fields: 'num_batches', "
+        f"'tar_files', '{METADATA_PUNCT_LABEL_VOCAB_KEY}', '{METADATA_CAPIT_LABEL_VOCAB_KEY}'. 'num_batches' (int) is "
+        f"a total number of batches in tarred dataset. 'tar_files' is a list of paths to tar files relative "
+        f"to directory containing the metadata file. '{METADATA_PUNCT_LABEL_VOCAB_KEY}' and "
+        f"'{METADATA_CAPIT_LABEL_VOCAB_KEY}' are paths to .csv files containing all unique punctuation and "
+        f"capitalization labels. Each label in these files is written in a separate line. The first labels in both "
+        f"files are equal and serve for padding and as neutral labels. Every tar file contains objects written "
+        f"using `webdataset.TarWriter`. Each object is a dictionary with two items: '__key__' and 'batch.pyd'. "
+        f"'__key__' is a name of a batch and 'batch.pyd' is a pickled dictionary which contains 'input_ids', "
+        f"'subtokens_mask', 'punct_labels', 'capit_labels'. 'input_ids' is an array containing ids of source tokens, "
+        f"'subtokens_mask' is a boolean array showing first tokens in words, 'punct_labels' and 'capit_labels' are "
+        f"arrays with ids of labels. Metadata file should be passed to constructor of "
+        "`nemo.collections.nlp.data.token_classification.PunctuationCapitalizationTarredDataset` and the instance of "
+        "the class will handle iteration and constructing masks and token types for BERT model.",
     )
     parser.add_argument(
         "--text",
@@ -72,7 +115,7 @@ def get_args():
         help="Maximum number of subtokens in an input sequence. A source sequence which contain too many subtokens are "
         "clipped to `--max_seq_length - 2` subtokens and then [CLS] token is prepended to the clipped sequence and "
         "[SEP] token is appended to the clipped sequence. The clipping is performed via removal of subtokens in the "
-        "beginning of a source sequence.",
+        "end of a source sequence.",
     )
     parser.add_argument(
         "--tokens_in_batch",
@@ -88,16 +131,18 @@ def get_args():
         type=int,
         default=10 ** 6,
         help="A number of lines processed by one worker during creation of tarred dataset. A worker tokenizes "
-        "`--lines_per_dataset_fragment` keeps in RAM tokenized text labels before packing them into batches. "
-        "Reducing `--lines_per_dataset_fragment` leads to reducing of the amount of memory required by this script.",
+        "`--lines_per_dataset_fragment` lines and keeps in RAM tokenized text labels before packing them into "
+        "batches. Reducing `--lines_per_dataset_fragment` leads to reducing of the amount of memory required by this "
+        "script.",
     )
     parser.add_argument(
         "--num_batches_per_tarfile",
         type=int,
         default=1000,
-        help="A number of batches saved in a tar file. If you increase `--num_batches_per_tarfile` there will be less "
-        "tar files in the dataset. There cannot be less then `--num_batches_per_tarfile` batches in a tar file, and "
-        "all excess batches are removed. Maximum number of discarded batches is `--num_batches_per_tarfile - 1`.",
+        help="A number of batches saved in a tar file. If you increase `--num_batches_per_tarfile`, then there will "
+        "be less tar files in the dataset. There cannot be less then `--num_batches_per_tarfile` batches in a tar "
+        "file, and all excess batches are removed. Maximum number of discarded batches is "
+        "`--num_batches_per_tarfile - 1`.",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -105,8 +150,8 @@ def get_args():
         default="bert-base-uncased",
         help="Name of the tokenizer used for tokenization of source sequences. Possible options are 'sentencepiece', "
         "'word', 'char', HuggingFace tokenizers. For more options see function "
-        "`nemo.collections.nlp.modules.common.get_tokenizer`. The tokenizer has have properties `cls_id`, `pad_id`, "
-        "`sep_id`, `unk_id`.",
+        "`nemo.collections.nlp.modules.common.get_tokenizer`. The tokenizer has to have properties `cls_id`, "
+        "`pad_id`, `sep_id`, `unk_id`.",
     )
     parser.add_argument(
         "--tokenizer_model", "-m", type=Path, help="Path to tokenizer model required for 'sentencepiece' tokenizer."
@@ -115,10 +160,10 @@ def get_args():
         "--vocab_file",
         "-v",
         type=Path,
-        help="Path to vocabulary file which is used in 'word', 'char', and HuggingFace tokenizers.",
+        help="Path to vocabulary file which can be used in 'word', 'char', and HuggingFace tokenizers.",
     )
     parser.add_argument(
-        "--merges_file", "-M", type=Path, help="Path to merges file which maybe used in HuggingFace tokenizers."
+        "--merges_file", "-M", type=Path, help="Path to merges file which can be used in HuggingFace tokenizers."
     )
     parser.add_argument(
         "--special_token_names",
@@ -138,18 +183,12 @@ def get_args():
         "--use_fast_tokenizer", "-f", action="store_true", help="Whether to use fast HuggingFace tokenizer."
     )
     parser.add_argument(
-        "--tokenizer_bpe_dropout",
-        "-d",
-        type=float,
-        help="BPE dropout for YouTokenToMe tokenizer. Currently YouTokenToMe tokenizer is not supported because "
-        "it lacks `cls_id` and `sep_id` properties.",
-    )
-    parser.add_argument(
         "--pad_label",
         "-P",
         default='O',
         help="Pad label both for punctuation and capitalization. This label is also is used for marking words which "
-        "do not need punctuation and capitalization.",
+        "do not need punctuation and capitalization. It is also a neutral label used for marking words which do "
+        "not require punctuation and capitalization.",
     )
     punct = parser.add_mutually_exclusive_group(required=False)
     punct.add_argument(
@@ -157,15 +196,16 @@ def get_args():
         "-p",
         nargs="+",
         help="All punctuation labels EXCEPT PAD LABEL. Punctuation labels are strings separated by spaces. "
-        "Alternatively you can use parameter `--punct_label_ids_file`. If none of parameters `--punct_labels` "
-        "and `--punct_label_ids_file` are provided, then punctuation label ids will be inferred from `--labels` file.",
+        "Alternatively you can use parameter `--punct_label_vocab_file`. If none of parameters `--punct_labels` "
+        "and `--punct_label_vocab_file` are provided, then punctuation label ids will be inferred from `--labels` "
+        "file.",
     )
     punct.add_argument(
-        "--punct_label_ids_file",
+        "--punct_label_vocab_file",
         type=Path,
         help="A path to file with punctuation labels. These labels include pad label. Pad label has to be the first "
         "label in the file. Each label is written on separate line. Alternatively you can use `--punct_labels` "
-        "parameter. If none of parameters `--punct_labels` and `--punct_label_ids_file` are provided, then "
+        "parameter. If none of parameters `--punct_labels` and `--punct_label_vocab_file` are provided, then "
         "punctuation label ids will be inferred from `--labels` file.",
     )
     capit = parser.add_mutually_exclusive_group(required=False)
@@ -174,16 +214,16 @@ def get_args():
         "-c",
         nargs="+",
         help="All capitalization labels EXCEPT PAD LABEL. Capitalization labels are strings separated by spaces. "
-        "Alternatively you can use parameter `--capit_label_ids_file`. If none of parameters `--capit_labels` "
-        "and `--capit_label_ids_file` are provided, then capitalization label ids will be inferred from `--labels` "
+        "Alternatively you can use parameter `--capit_label_vocab_file`. If none of parameters `--capit_labels` "
+        "and `--capit_label_vocab_file` are provided, then capitalization label ids will be inferred from `--labels` "
         "file.",
     )
     capit.add_argument(
-        "--capit_label_ids_file",
+        "--capit_label_vocab_file",
         type=Path,
         help="A path to file with capitalization labels. These labels include pad label. Pad label has to be the "
         "first label in the file. Each label is written on separate line. Alternatively you can use `--capit_labels` "
-        "parameter. If none of parameters `--capit_labels` and `--capit_label_ids_file` are provided, then "
+        "parameter. If none of parameters `--capit_labels` and `--capit_label_vocab_file` are provided, then "
         "capitalization label ids will be inferred from `--labels` file.",
     )
     parser.add_argument(
@@ -203,8 +243,8 @@ def get_args():
         "tokenizer_model",
         "vocab_file",
         "merges_file",
-        "punct_label_ids_file",
-        "capit_label_ids_file",
+        "punct_label_vocab_file",
+        "capit_label_vocab_file",
     ]:
         if getattr(args, name) is not None:
             setattr(args, name, getattr(args, name).expanduser())
@@ -233,16 +273,16 @@ def get_args():
                         f"'{args.special_token_names[i]}'."
                     )
     if args.punct_labels is not None:
-        check_before_building_label_ids(
+        check_labels_for_being_unique_before_building_label_ids(
             args.pad_label, args.punct_labels, '--pad_label', '--punct_labels', parser.error
         )
-        check_before_building_label_ids(
+        check_labels_for_being_unique_before_building_label_ids(
             args.pad_label, args.capit_labels, '--pad_label', '--capit_labels', parser.error
         )
     return args
 
 
-def main():
+def main() -> None:
     args = get_args()
     if args.special_token_names is None:
         special_tokens = None
@@ -273,12 +313,11 @@ def main():
         merges_file=args.merges_file,
         special_tokens=special_tokens,
         use_fast_tokenizer=args.use_fast_tokenizer,
-        tokenizer_bpe_dropout=args.tokenizer_bpe_dropout,
         pad_label=args.pad_label,
         punct_label_ids=punct_label_ids,
         capit_label_ids=capit_label_ids,
-        punct_label_ids_file=args.punct_label_ids_file,
-        capit_label_ids_file=args.capit_label_ids_file,
+        punct_label_vocab_file=args.punct_label_vocab_file,
+        capit_label_vocab_file=args.capit_label_vocab_file,
         tar_file_prefix=args.tar_file_prefix,
         n_jobs=args.n_jobs,
     )

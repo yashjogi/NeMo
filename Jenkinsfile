@@ -79,6 +79,9 @@ pipeline {
       }
     }
 
+
+
+
     stage('L0: Unit Tests GPU') {
       steps {
         sh 'NEMO_NUMBA_MINVER=0.55 pytest -m "not pleasefixme and not torch_tts" --with_downloads'
@@ -126,7 +129,7 @@ pipeline {
           steps {
             sh 'CUDA_VISIBLE_DEVICES="" pytest tests/nemo_text_processing/es -m "not pleasefixme" --cpu --tn_cache_dir /home/TestData/nlp/text_norm/ci/grammars/Spanish/9-13'
           }
-        } 
+        }
         stage('Create En non-deterministic TN & Run all En TN/ITN tests') {
           steps {
             sh 'CUDA_VISIBLE_DEVICES="" python nemo_text_processing/text_normalization/normalize_with_audio.py --text "\$.01" --n_tagged 2 --cache_dir /home/TestData/nlp/text_norm/ci/grammars/9-13'
@@ -552,7 +555,7 @@ pipeline {
             pretrained_name="QuartzNet15x5Base-En" \
             audio_dir="/home/TestData/an4_transcribe/test_subset/" \
             output_filename="stt_test_res.json" \
-            cuda=true \
+            cuda=0 \
             amp=true'
             sh 'rm -rf stt_test_res.json'
           }
@@ -696,8 +699,10 @@ pipeline {
           steps {
             sh 'python examples/nlp/token_classification/punctuation_capitalization_evaluate.py \
             pretrained_model=/home/TestData/nlp/pretrained_models/Punctuation_and_Capitalization_albert.nemo \
-            model.dataset.use_cache=false \
-            model.dataset.data_dir=/home/TestData/nlp/token_classification_punctuation/ \
+            +model.train_ds.use_cache=false \
+            +model.validation_ds.use_cache=false \
+            +model.test_ds.use_cache=false \
+            model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
             trainer.gpus=[1] \
             exp_manager=null'
           }
@@ -706,8 +711,10 @@ pipeline {
           steps {
             sh 'python examples/nlp/token_classification/punctuation_capitalization_evaluate.py \
             pretrained_model=/home/TestData/nlp/pretrained_models/Punctuation_and_Capitalization_roberta.nemo \
-            model.dataset.use_cache=false \
-            model.dataset.data_dir=/home/TestData/nlp/token_classification_punctuation/ \
+            +model.train_ds.use_cache=false \
+            +model.validation_ds.use_cache=false \
+            +model.test_ds.use_cache=false \
+            model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
             trainer.gpus=[1] \
             exp_manager=null'
           }
@@ -1040,10 +1047,14 @@ pipeline {
             sh 'cd examples/nlp/token_classification && \
             python punctuation_capitalization_train.py \
             pretrained_model=punctuation_en_bert \
-            model.dataset.data_dir=/home/TestData/nlp/token_classification_punctuation/ \
+            model.train_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            model.validation_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            +model.train_ds.use_cache=false \
+            +model.validation_ds.use_cache=false \
+            +model.test_ds.use_cache=false \
             trainer.gpus=[1] \
             +trainer.fast_dev_run=true \
-            model.dataset.use_cache=false \
             exp_manager.exp_dir=null'
           }
         }
@@ -1063,37 +1074,138 @@ pipeline {
           steps {
             sh 'python examples/nlp/token_classification/token_classification_evaluate.py \
             model.dataset.data_dir=/home/TestData/nlp/ner/ \
-            pretrained_model=/home/TestData/nlp/pretrained_models/NER_Model_with_BERT_base_uncased.nemo && \
-            rm -rf nemo_experiments'
+            model.dataset.use_cache=false \
+            pretrained_model=/home/TestData/nlp/pretrained_models/NER_Model_with_BERT_base_uncased.nemo'
           }
         }
         stage('Evaluation script for Punctuation') {
           steps {
             sh 'python examples/nlp/token_classification/punctuation_capitalization_evaluate.py \
-            model.dataset.data_dir=/home/TestData/nlp/token_classification_punctuation/ \
-            pretrained_model=/home/TestData/nlp/pretrained_models/Punctuation_Capitalization_with_DistilBERT_base_uncased.nemo && \
-            rm -rf nemo_experiments'
+            model.train_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            model.validation_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+            +model.train_ds.use_cache=false \
+            +model.validation_ds.use_cache=false \
+            +model.test_ds.use_cache=false \
+            pretrained_model=/home/TestData/nlp/pretrained_models/Punctuation_Capitalization_with_DistilBERT_base_uncased.nemo'
           }
         }
-        stage('L2: Punctuation & Capitalization, 2GPUs with DistilBERT') {
+        stage('L2: Punctuation & Capitalization, 2GPUs with DistilBERT, Fine-tuning on different data') {
           steps {
             sh 'cd examples/nlp/token_classification && \
+            mkdir -p tmp_data && \
+            cp /home/TestData/nlp/token_classification_punctuation/*.txt tmp_data/ && \
             python punctuation_capitalization_train.py \
-            model.dataset.data_dir=/home/TestData/nlp/token_classification_punctuation/ \
-            model.language_model.pretrained_model_name=distilbert-base-uncased \
-            model.dataset.use_cache=false \
-            trainer.gpus=[0,1] \
-            trainer.accelerator=ddp \
-            trainer.max_epochs=1 \
-            +exp_manager.explicit_log_dir=/home/TestData/nlp/token_classification_punctuation/output && \
+              model.train_ds.ds_item=tmp_data \
+              model.validation_ds.ds_item=tmp_data \
+              model.test_ds.ds_item=tmp_data \
+              model.language_model.pretrained_model_name=distilbert-base-uncased \
+              +model.train_ds.use_cache=false \
+              +model.validation_ds.use_cache=false \
+              +model.test_ds.use_cache=false \
+              trainer.gpus=[0,1] \
+              trainer.accelerator=ddp \
+              trainer.max_epochs=1 \
+              +exp_manager.explicit_log_dir=/home/TestData/nlp/token_classification_punctuation/output \
+              +do_testing=true && \
+            mv tmp_data tmp_data2 && \
+            python punctuation_capitalization_train.py \
+              model.train_ds.ds_item=tmp_data2 \
+              model.validation_ds.ds_item=tmp_data2 \
+              model.test_ds.ds_item=tmp_data2 \
+              pretrained_model=/home/TestData/nlp/token_classification_punctuation/output/checkpoints/Punctuation_and_Capitalization.nemo \
+              +model.train_ds.use_cache=false \
+              +model.validation_ds.use_cache=false \
+              +model.test_ds.use_cache=false \
+              trainer.gpus=[0,1] \
+              trainer.accelerator=ddp \
+              trainer.max_epochs=1 \
+              +exp_manager.explicit_log_dir=/home/TestData/nlp/token_classification_punctuation/output && \
             python punctuation_capitalization_evaluate.py \
-            pretrained_model=/home/TestData/nlp/token_classification_punctuation/output/checkpoints/Punctuation_and_Capitalization.nemo && \
+              +model.train_ds.use_cache=false \
+              +model.validation_ds.use_cache=false \
+              +model.test_ds.use_cache=false \
+              pretrained_model=/home/TestData/nlp/token_classification_punctuation/output/checkpoints/Punctuation_and_Capitalization.nemo \
+              model.train_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+              model.validation_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+              model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ && \
+            python punctuation_capitalization_train.py \
+              +do_training=false \
+              +do_testing=true \
+              ~model.train_ds \
+              ~model.validation_ds \
+              model.test_ds.ds_item=tmp_data2 \
+              pretrained_model=/home/TestData/nlp/token_classification_punctuation/output/checkpoints/Punctuation_and_Capitalization.nemo \
+              +model.test_ds.use_cache=false \
+              trainer.gpus=[0,1] \
+              trainer.accelerator=ddp \
+              +exp_manager.explicit_log_dir=/home/TestData/nlp/token_classification_punctuation/output && \
+            rm -r tmp_data2 && \
             rm -rf /home/TestData/nlp/token_classification_punctuation/output/*'
           }
         }
       }
+      post {
+        always {
+          sh 'pwd && ls nemo_* && rm -rf nemo_experiments && ls nemo_*'
+        }
+      }
     }
-
+    stage('Punctuation & Capitalization tarred dataset') {
+      when {
+        anyOf {
+          branch 'main'
+          changeRequest target: 'main'
+        }
+      }
+      failFast true
+      stages {
+        stage('create and use tarred dataset') {
+          steps {
+            sh 'data_dir=/home/TestData/nlp/token_classification_punctuation && \
+            usual_data=${data_dir}/wmt_wiki_10000 && \
+            tarred_data=${data_dir}/train_tarred && \
+            output=${data_dir}/output && \
+            tokens_in_batch=2000 && \
+            max_seq_length=512 && \
+            lm_model=distilbert-base-uncased && \
+            python examples/nlp/token_classification/data/create_punctuation_capitalization_tarred_dataset.py \
+              --text ${usual_data}/input.txt \
+              --labels ${usual_data}/labels.txt \
+              --output_dir ${tarred_data} \
+              --tokens_in_batch ${tokens_in_batch} \
+              --max_seq_length 512 \
+              --lines_per_dataset_fragment 2000 \
+              --num_batches_per_tarfile 5 \
+              --tar_file_prefix punctuation_capitalization \
+              --tokenizer_name ${lm_model} \
+              --use_fast_tokenizer \
+              --pad_label O \
+              --n_jobs 3 && \
+            echo "Number of tarred files in dataset:" && \
+            ls ${tarred_data}/*.tar | wc -l && \
+            echo "Label id files in dataset:" && \
+            ls ${tarred_data}/*.csv && \
+            metadata_file=${tarred_data}/metadata.punctuation_capitalization.tokens${tokens_in_batch}.max_seq_length${max_seq_length}.${lm_model}.json && \
+            python examples/nlp/token_classification/punctuation_capitalization_train.py \
+              model.validation_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+              model.test_ds.ds_item=/home/TestData/nlp/token_classification_punctuation/ \
+              model.train_ds.ds_item=${tarred_data} \
+              model.language_model.pretrained_model_name=${lm_model} \
+              model.train_ds.use_tarred_dataset=true \
+              model.train_ds.tar_metadata_file=${metadata_file} \
+              +model.train_ds.use_cache=false \
+              +model.validation_ds.use_cache=false \
+              +model.test_ds.use_cache=false \
+              trainer.gpus=[0,1] \
+              trainer.accelerator=ddp \
+              trainer.max_epochs=1 \
+              +exp_manager.explicit_log_dir=${output} && \
+            rm -rf ${output}/* ${tarred_data}'
+          }
+        }
+      }
+    }
     stage('L2: Parallel Pretraining BERT pretraining from Text/Preprocessed') {
       when {
         anyOf {
@@ -1668,6 +1780,98 @@ pipeline {
     //   }
     // }
 
+    stage('L2: Megatron GPT Pretraining and Resume Training') {
+      when {
+        anyOf {
+          branch 'main'
+          changeRequest target: 'main'
+        }
+      }
+      failFast true
+      steps {
+        sh "python examples/nlp/language_modeling/megatron_gpt_pretraining.py \
+        trainer.gpus=2 \
+        trainer.log_every_n_steps=1 \
+        trainer.val_check_interval=10 \
+        trainer.limit_val_batches=2 \
+        trainer.accumulate_grad_batches=2 \
+        trainer.max_steps=10 \
+        trainer.precision=16 \
+        trainer.gradient_clip_val=1.0 \
+        exp_manager.exp_dir=examples/nlp/language_modeling/gpt_pretrain_results \
+        model.tensor_model_parallel_size=2 \
+        model.optim.name=fused_adam \
+        model.optim.lr=2e-4 \
+        model.optim.sched.warmup_steps=2 \
+        model.optim.sched.constant_steps=2 \
+        model.optim.sched.min_lr=8e-5 \
+        model.max_position_embeddings=128 \
+        model.encoder_seq_length=128 \
+        model.data.seq_length=128 \
+        model.tokenizer.vocab_file=/home/TestData/nlp/megatron_gpt/data/gpt/vocab.json \
+        model.tokenizer.merge_file=/home/TestData/nlp/megatron_gpt/data/gpt/merges.txt \
+        model.num_layers=8 \
+        model.hidden_size=256 \
+        model.num_attention_heads=8 \
+        model.activations_checkpoint_method='block' \
+        model.activations_checkpoint_num_layers=1 \
+        model.data.data_prefix=[.5,/home/TestData/nlp/megatron_gpt/data/gpt/simple_wiki_gpt_preproc_text_document,.5,/home/TestData/nlp/megatron_gpt/data/gpt/simple_wiki_gpt_preproc_text_document]"
+        sh "python examples/nlp/language_modeling/megatron_gpt_pretraining.py \
+        trainer.gpus=2 \
+        trainer.log_every_n_steps=1 \
+        trainer.val_check_interval=10 \
+        trainer.limit_val_batches=2 \
+        trainer.accumulate_grad_batches=2 \
+        trainer.max_steps=20 \
+        trainer.precision=16 \
+        trainer.gradient_clip_val=1.0 \
+        exp_manager.exp_dir=examples/nlp/language_modeling/gpt_pretrain_results \
+        exp_manager.resume_if_exists=True \
+        model.tensor_model_parallel_size=2 \
+        model.optim.name=fused_adam \
+        model.optim.lr=2e-4 \
+        model.optim.sched.warmup_steps=2 \
+        model.optim.sched.constant_steps=2 \
+        model.optim.sched.min_lr=8e-5 \
+        model.max_position_embeddings=128 \
+        model.encoder_seq_length=128 \
+        model.data.seq_length=128 \
+        model.tokenizer.vocab_file=/home/TestData/nlp/megatron_gpt/data/gpt/vocab.json \
+        model.tokenizer.merge_file=/home/TestData/nlp/megatron_gpt/data/gpt/merges.txt \
+        model.num_layers=8 \
+        model.hidden_size=256 \
+        model.num_attention_heads=8 \
+        model.activations_checkpoint_method='block' \
+        model.activations_checkpoint_num_layers=1 \
+        model.data.data_prefix=[.5,/home/TestData/nlp/megatron_gpt/data/gpt/simple_wiki_gpt_preproc_text_document,.5,/home/TestData/nlp/megatron_gpt/data/gpt/simple_wiki_gpt_preproc_text_document]"
+        sh "rm -rf examples/nlp/language_modeling/gpt_pretrain_results"
+      }
+    }
+      stage('L2: Megatron GPT Eval') {
+      when {
+        anyOf {
+          branch 'main'
+          changeRequest target: 'main'
+        }
+      }
+      failFast true
+      steps{
+        sh "python examples/nlp/language_modeling/megatron_gpt_eval.py \
+            --model_file \
+            /home/TestData/nlp/megatron_gpt/125M/megatron_gpt.nemo \
+            --prompt \
+            'How to fix GPU memory? A:' \
+            --tensor_model_parallel_size \
+            1 \
+            --tokens_to_generate \
+            32 \
+            --stop_after_sentence \
+            False \
+            --precision \
+            16"
+      }
+    }
+
     stage('L2: TTS Fast dev runs 1') {
       when {
         anyOf {
@@ -1716,9 +1920,9 @@ pipeline {
             train_dataset=/home/TestData/an4_dataset/an4_train.json \
             validation_datasets=/home/TestData/an4_dataset/an4_val.json \
             prior_folder=/home/TestData/an4_dataset/beta_priors \
-            trainer.gpus="[0]" \
+            trainer.devices="[0]" \
             +trainer.limit_train_batches=1 +trainer.limit_val_batches=1 trainer.max_epochs=1 \
-            trainer.accelerator=null \
+            trainer.strategy=null \
             model.train_ds.dataloader_params.batch_size=4 \
             model.train_ds.dataloader_params.num_workers=1 \
             model.validation_ds.dataloader_params.batch_size=4 \

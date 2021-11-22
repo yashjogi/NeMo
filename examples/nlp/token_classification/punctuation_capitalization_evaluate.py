@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,10 +44,9 @@ For more details about the config files and different ways of model restoration,
 *** Model Evaluation ***
 
     python punctuation_capitalization_evaluate.py \
-    model.dataset.data_dir=<PATH_TO_DATA_DIR>  \
-    pretrained_model=punctuation_en_distilbert 
+        model.test_ds.ds_item=<PATH_TO_TEST_DIR>  \
+        pretrained_model=punctuation_en_distilbert
 
-<PATH_TO_DATA_DIR> - a directory that contains test_ds.text_file and test_ds.labels_file (see the config)
 pretrained_model   - pretrained PunctuationCapitalizationModel model from list_available_models() or 
                      path to a .nemo file, for example: punctuation_en_bert or your_model.nemo
 
@@ -60,8 +59,7 @@ def main(cfg: DictConfig) -> None:
         'During evaluation/testing, it is currently advisable to construct a new Trainer with single GPU and \
             no DDP to obtain accurate results'
     )
-    default_cfg = PunctuationCapitalizationConfig()
-    cfg = update_model_config(default_cfg, cfg)
+    cfg = update_model_config(PunctuationCapitalizationConfig(), cfg)
     if not hasattr(cfg.model, 'test_ds'):
         raise ValueError(f'model.test_ds was not found in the config, skipping evaluation')
     else:
@@ -87,16 +85,16 @@ def main(cfg: DictConfig) -> None:
             f'{PunctuationCapitalizationModel.list_available_models()}'
         )
 
-    data_dir = cfg.model.dataset.get('data_dir', None)
-
-    if data_dir is None:
-        logging.error(
-            'No dataset directory provided. Skipping evaluation. '
-            'To run evaluation on a file, specify path to the directory that contains test_ds.text_file and '
-            'test_ds.labels_file with "model.dataset.data_dir" argument.'
-        )
-    elif not os.path.exists(data_dir):
-        logging.error(f'{data_dir} is not found, skipping evaluation on the test set.')
+    model.update_config(
+        class_labels=cfg.model.class_labels,
+        common_dataset_parameters=cfg.model.common_dataset_parameters,
+        test_ds=cfg.model.test_ds,
+    )
+    if not hasattr(cfg.model, 'test_ds'):
+        logging.error(f'model.test_ds was not found in the config, skipping evaluation')
+    elif model.prepare_test(trainer):
+        model.setup_test_data(cfg.model.test_ds)
+        trainer.test(model)
     else:
         logging.error('Skipping the evaluation. The trainer is not setup properly.')
 
