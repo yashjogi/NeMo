@@ -50,7 +50,7 @@ model:
   class_labels:
     punct_labels_file: punct_label_ids.csv
     capit_labels_file: capit_label_ids.csv
-  dataset:
+  common_dataset_parameters:
     ignore_extra_tokens: false
     ignore_start_end: true  # TODO: try false
     pad_label: 'O'
