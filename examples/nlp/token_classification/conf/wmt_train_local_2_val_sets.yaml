@@ -67,7 +67,7 @@ model:
     tokens_in_batch: 15000
     persistent_workers: true
     pin_memory: true
-    njobs: null
+    n_jobs: null
 
   validation_ds:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
