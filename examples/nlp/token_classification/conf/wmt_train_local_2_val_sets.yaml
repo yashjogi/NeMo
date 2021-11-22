@@ -75,7 +75,7 @@ model:
     use_tarred_dataset: false
     ds_item:
       - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/for_ngc/IWSLT_tst2019
-      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/for_ngc/wiki_dev
+      - /home/apeganov/NeMo/examples/speech_translation/punct_prepared_datasets/prepared_punctuation_data_min_punctuation_29.10.2021_2.43/for_ngc/wmt_dev
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: false
