@@ -85,21 +85,21 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
-    if (
-        args.encoder_tokenizer_model != 'None'
-        and args.decoder_tokenizer_model == 'None'
-        or args.decoder_tokenizer_model != 'None'
-        and args.encoder_tokenizer_model == 'None'
-    ):
-        if args.shared_tokenizer:
-            raise ValueError(
-                '''
-                If using a pre-trained shared tokenizer,
-                both encoder and decoder tokenizers must be the same
-                '''
-            )
-        else:
-            raise ValueError('Both encoder and decoder pre-trained tokenizer models must be specified')
+    # if (
+    #     args.encoder_tokenizer_model != 'None'
+    #     and args.decoder_tokenizer_model == 'None'
+    #     or args.decoder_tokenizer_model != 'None'
+    #     and args.encoder_tokenizer_model == 'None'
+    # ):
+    #     if args.shared_tokenizer:
+    #         raise ValueError(
+    #             '''
+    #             If using a pre-trained shared tokenizer,
+    #             both encoder and decoder tokenizers must be the same
+    #             '''
+    #         )
+    #     else:
+    #         raise ValueError('Both encoder and decoder pre-trained tokenizer models must be specified')
 
     if args.encoder_tokenizer_model == 'None' and args.decoder_tokenizer_model == 'None':
         encoder_tokenizer_model, decoder_tokenizer_model = MTDataPreproc.train_tokenizers(
