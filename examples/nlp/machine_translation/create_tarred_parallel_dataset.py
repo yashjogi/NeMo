@@ -80,7 +80,7 @@ if __name__ == '__main__':
     parser.add_argument("--prepend_eos_in_tgt", action='store_true')
     parser.add_argument("--decoder_vocab_file", type=Path)
     args = parser.parse_args()
-    if args.deocder_vocab_file is not None:
+    if args.decoder_vocab_file is not None:
         args.decoder_vocab_file = args.decoder_vocab_file.expanduser()
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
