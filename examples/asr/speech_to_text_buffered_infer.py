@@ -78,7 +78,9 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
                     duration = end - speech_segments[i][0] + frame_len * 4
                     
                     asr.read_audio_file(row['audio_filepath'], offset, duration, delay, model_stride_in_secs)
+                    print(row['audio_filepath'])
                     hyp = asr.transcribe(tokens_per_chunk, delay) + " "
+                    print(row['audio_filepath'], "DONE")
                     # there should be some better method to merge the hyps of segments.
                     final_hyp += hyp
                     total_duration_to_asr += duration
