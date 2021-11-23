@@ -8,7 +8,7 @@ git pull
 bash reinstall.sh
 cd examples/nlp/machine_translation
 wandb login ${WANDB_API_KEY}
-python create_autoregressive_char_vocabulary.py \
+python create_char_vocabulary.py \
   --input /data/train/cross_labels.txt \
   --output /workspace/cross_labels_char_vocab.txt \
   --characters_to_exclude $'\n' \

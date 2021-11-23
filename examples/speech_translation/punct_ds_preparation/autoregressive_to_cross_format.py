@@ -21,10 +21,16 @@ def get_args():
     parser.add_argument("--output", "-o", type=Path, required=True)
     vocab = parser.add_mutually_exclusive_group(required=True)
     vocab.add_argument(
-        "--output_vocab", "-v", type=Path, help="Path to file where transition vocabulary will be saved."
+        "--output_vocab", "-v", type=Path, help="Path to JSON file where transition vocabulary will be saved."
     )
     vocab.add_argument("--ready_vocab", "-r", type=Path)
-    parser.add_argument("--not_normalized_vocabulary", "-V", type=Path)
+    parser.add_argument(
+        "--not_normalized_vocabulary",
+        "-V",
+        type=Path,
+        help="A path to a directory where vocabulary of not normalized combinations are saved. Normalization is just "
+        "a removal of spaces before punctuation.",
+    )
     parser.add_argument("--normalize", "-n", action="store_true")
     args = parser.parse_args()
     args.input = args.input.expanduser()
