@@ -145,6 +145,7 @@ if __name__ == '__main__':
         decoder_tokenizer_model=decoder_tokenizer_model,
         decoder_tokenizer_r2l=args.decoder_tokenizer_r2l,
         decoder_bpe_dropout=args.decoder_tokenizer_bpe_dropout,
+        decoder_vocab_file=args.decoder_vocab_file,
         max_seq_length=args.max_seq_length,
         min_seq_length=args.min_seq_length,
         tokens_in_batch=args.tokens_in_batch,
