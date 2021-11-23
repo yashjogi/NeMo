@@ -18,6 +18,9 @@ from typing import Any, Dict, Optional
 import torch
 from apex.transformer import parallel_state, tensor_parallel
 from apex.transformer.pipeline_parallel.schedules.common import build_model, _get_params_for_weight_decay_optimization
+from apex.transformer.pipeline_parallel.schedules.fwd_bwd_pipelining_without_interleaving import (
+    forward_backward_pipelining_without_interleaving,
+)
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.trainer.trainer import Trainer
 
@@ -89,6 +92,9 @@ class MegatronGPTModel(NLPModel):
 
         self.setup_optimizer_param_groups()
 
+        if self.cfg.pipeline_model_parallel_size > 1:
+            self.automatic_optimization = False
+
     def model_provider_func(self, pre_process, post_process):
         """Model depends on pipeline paralellism."""
         model = GPTModel(
@@ -126,6 +132,12 @@ class MegatronGPTModel(NLPModel):
         return output_tensor
 
     def training_step(self, batch, batch_idx):
+        # TODO: refactor to make sense
+        if self.cfg.get('pipeline_model_parallel_size', 1) > 1:
+            reduced_loss = forward_backward_pipelining_without_interleaving(
+                forward_step_func=self.get_forward_output_and_loss_fnc, batch=batch, model=self, forward_only=True
+            )
+            return reduced_loss
         tokens, labels, loss_mask, attention_mask, position_ids = self.process_batch(batch)
         output_tensor = self(tokens, position_ids, attention_mask, labels)
         loss = self.loss_func(loss_mask, output_tensor)
@@ -145,11 +157,28 @@ class MegatronGPTModel(NLPModel):
             self._reduced_loss_buffer = []
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def get_forward_output_and_loss_fnc(self, batch):
         tokens, labels, loss_mask, attention_mask, position_ids = self.process_batch(batch)
         output_tensor = self(tokens, position_ids, attention_mask, labels)
-        loss = self.loss_func(loss_mask, output_tensor)
-        reduced_loss = average_losses_across_data_parallel_group([loss])
+
+        def loss_func(output_tensor):
+            loss = self.loss_func(loss_mask, output_tensor)
+            reduced_loss = average_losses_across_data_parallel_group([loss])
+            return loss, {'avg': reduced_loss}
+
+        return output_tensor, loss_func
+
+    def validation_step(self, batch, batch_idx):
+        reduced_loss = None
+        tokens, labels, loss_mask, attention_mask, position_ids = self.process_batch(batch)
+        if self.cfg.get('pipeline_model_parallel_size', 1) > 1:
+            reduced_loss = forward_backward_pipelining_without_interleaving(
+                forward_step_func=self.get_forward_output_and_loss_fnc, batch=batch, model=self, forward_only=True
+            )
+        else:
+            output_tensor = self(tokens, position_ids, attention_mask, labels)
+            loss = self.loss_func(loss_mask, output_tensor)
+            reduced_loss = average_losses_across_data_parallel_group([loss])
 
         return reduced_loss
 
