@@ -365,6 +365,7 @@ class MTDataPreproc:
         decoder_bpe_dropout,
         decoder_model_name,
         decoder_tokenizer_r2l,
+        decoder_vocab_file,
         max_seq_length,
         min_seq_length,
         tokens_in_batch,
@@ -438,6 +439,7 @@ class MTDataPreproc:
                         decoder_tokenizer_model=decoder_tokenizer_model,
                         decoder_bpe_dropout=decoder_bpe_dropout,
                         decoder_model_name=decoder_model_name,
+                        decoder_vocab_file=decoder_vocab_file,
                         fragment_index=fragment_index,
                         encoder_tokenizer_r2l=encoder_tokenizer_r2l,
                         decoder_tokenizer_r2l=decoder_tokenizer_r2l,
@@ -556,6 +558,7 @@ class MTDataPreproc:
         decoder_bpe_dropout,
         decoder_model_name,
         decoder_tokenizer_r2l,
+        decoder_vocab_file,
         fragment_index,
         prepend_eos_in_tgt=False,
     ):
@@ -595,6 +598,7 @@ class MTDataPreproc:
             decoder_bpe_dropout=decoder_bpe_dropout,
             decoder_model_name=decoder_model_name,
             decoder_tokenizer_r2l=decoder_tokenizer_r2l,
+            decoder_vocab_file=decoder_vocab_file,
             fragment_index=fragment_index,
             prepend_eos_in_tgt=prepend_eos_in_tgt,
         )
@@ -921,6 +925,7 @@ class MTDataPreproc:
         decoder_bpe_dropout,
         decoder_model_name,
         decoder_tokenizer_r2l,
+        decoder_vocab_file,
         fragment_index,
         prepend_eos_in_tgt=False,
     ):
@@ -956,6 +961,7 @@ class MTDataPreproc:
             decoder_bpe_dropout=decoder_bpe_dropout,
             decoder_model_name=decoder_model_name,
             decoder_r2l=decoder_tokenizer_r2l,
+            decoder_vocab_file=decoder_vocab_file,
         )
         dataset.batchify(encoder_tokenizer, decoder_tokenizer)
 
