@@ -25,13 +25,13 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="evelina_wiki_no_quotes_draco_bert_base"
+EXPNAME="evelina_wiki_large"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
 USERID='apeganov'
 LUSTRE_ACCOUNT_PREFIX=/gpfs/fs1/projects/${SLURM_ACCOUNT}
-DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_no_quotes_48_65"
+DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_48_65_3.11.2021"
 RESULTS=${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/results/$PROJECT/$EXPNAME
 CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
@@ -55,13 +55,12 @@ echo "*******STARTING********" \
   /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=train_local \
-	model.train_ds.metadata_file="/data/train_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
-	model.validation_ds.text_file="/data/dev/input.txt" \
-	model.validation_ds.labels_file="/data/dev/bert_labels.txt" \
-	model.test_ds.text_file="/data/test/input.txt" \
-	model.test_ds.labels_file="/data/test/bert_labels.txt" \
-	model.class_labels.punct_labels_file="/data/train_tarred/punct_label_ids.csv" \
-	model.class_labels.capit_labels_file="/data/train_tarred/capit_label_ids.csv" \
+	model.train_ds.metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
+	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
+	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.test_ds.text_file="/data/IWSLT_tst2019/input.txt" \
+	model.test_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.language_model.pretrained_model_name="bert-large-uncased" \
 	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
 	trainer.max_steps=${MAX_STEPS} \
