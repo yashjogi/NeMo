@@ -39,6 +39,7 @@ exp_manager:
   checkpoint_callback_params:
     save_best_model: true
     monitor: val_punct_f1
+    mode: max
   create_wandb_logger: true
   wandb_logger_kwargs:
     name: evelina_large_wiki_bs15000_steps100000
