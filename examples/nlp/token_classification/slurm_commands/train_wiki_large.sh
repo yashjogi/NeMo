@@ -72,9 +72,8 @@ echo "*******STARTING********" \
 	+exp_manager.resume_if_exists=True \
 	+exp_manager.resume_ignore_no_checkpoint=True \
 	exp_manager.create_checkpoint_callback=True \
-	+exp_manager.checkpoint_callback_params.monitor=val_loss \
 	+exp_manager.checkpoint_callback_params.save_top_k=3 \
-	+exp_manager.checkpoint_callback_params.mode=min \
+	+exp_manager.checkpoint_callback_params.mode=max \
 	+exp_manager.checkpoint_callback_params.always_save_nemo=False
 EOF
 
