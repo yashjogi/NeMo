@@ -56,7 +56,6 @@ echo "*******STARTING********" \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=train_local \
 	model.train_ds.use_tarred_dataset=true \
-
 	model.train_ds.metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
 	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
 	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \

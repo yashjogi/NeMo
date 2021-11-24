@@ -54,8 +54,8 @@ echo "*******STARTING********" \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
   /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
-	--config-name=train_local \
-	model.train_ds.metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
+	--config-name=local_bs15000_steps100000 \
+	model.train_ds.tar_metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
 	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
 	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
 	model.test_ds.text_file="/data/IWSLT_tst2019/input.txt" \
