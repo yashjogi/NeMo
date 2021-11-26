@@ -44,11 +44,11 @@ language model, such as `BERT: Pre-training of Deep Bidirectional Transformers f
 
     Connect to an instance with a GPU (**Runtime** -> **Change runtime type** -> select **GPU** for the hardware accelerator).
 
-    An example script on how to train the model can be found at: `NeMo/examples/nlp/token_classification/punctuation_capitalization_train.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_train.py>`__.
-
-    An example script on how to run evaluation and inference can be found at: `NeMo/examples/nlp/token_classification/punctuation_capitalization_evaluate.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_evaluate.py>`__.
+    An example script on how to train and evaluate the model can be found at: `NeMo/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py>`__.
 
     The default configuration file for the model can be found at: `NeMo/examples/nlp/token_classification/conf/punctuation_capitalization_config.yaml <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/conf/punctuation_capitalization_config.yaml>`__.
+
+    The script for inference can be found at: `NeMo/examples/nlp/token_classification/punctuate_capitalize_infer.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuate_capitalize_infer.py>`__.
 
 .. _raw_data_format_punct:
 
@@ -203,18 +203,19 @@ configuration file for training the model can be found at:
 
 A configuration file is a `.yaml` file which contains all parameters for model creation, training, testing, validation.
 A structure of the configuration file for training and testing is described in the :ref:`Run config<run-config-label>`
-section. Some of parameters are required in the config. Default values of required parameters are ``???``. If you omit
-any of other parameters, they will be initialized according to default values from following tables.
+section. Some of parameters are required in a punctuation-and-capitalization `.yaml` config. Default values of
+required parameters are ``???``. If you omit any of other parameters, they will be initialized according to default
+values from following tables.
 
 .. _run-config-label:
 
 Run config
 ^^^^^^^^^^
 
-An example of config file is
+An example of a config file is
 `here <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/conf/punctuation_capitalization_config.yaml>`_.
 
-.. list-table:: Run config. The main config passed to scripts `punctuation_capitalization_train.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_train.py>`_ and `punctuation_capitalization_evaluate.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_evaluate.py>`_
+.. list-table:: Run config. The main config passed to a script `punctuation_capitalization_train_evaluate.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py>`_
    :widths: 5 5 10 25
    :header-rows: 1
 
@@ -284,9 +285,9 @@ model.
    * - **class_labels**
      - :ref:`class labels config<class-labels-config-label>`
      - :ref:`class labels config<class-labels-config-label>`
-     - A mandatory parameter containing a dictionary with names of label id files used in ``.nemo`` checkpoints. These
-       file names can also be used for passing label vocabularies to the model. If you wish to use ``class_labels`` for
-       passing vocabularies, please provide path to vocabulary files in
+     - Cannot be omitted in `.yaml` config. The ``class_labels`` parameter containing a dictionary with names of label
+       id files used in ``.nemo`` checkpoints. These file names can also be used for passing label vocabularies to the
+       model. If you wish to use ``class_labels`` for passing vocabularies, please provide path to vocabulary files in
        ``model.common_dataset_parameters.label_vocab_dir`` parameter.
    * - **common_dataset_parameters**
      - :ref:`common dataset parameters config<common-dataset-parameters-config-label>`
@@ -295,7 +296,8 @@ model.
    * - **train_ds**
      - :ref:`data config<data-config-label>` with string in  ``ds_item``
      - ``null``
-     - A configuration for creating training dataset and data loader. A mandatory parameter if training is performed.
+     - A configuration for creating training dataset and data loader. Cannot be omitted in `.yaml` config if training
+       is performed.
    * - **validation_ds**
      - :ref:`data config<data-config-label>` with string OR list of strings in ``ds_item``
      - ``null``
@@ -303,7 +305,8 @@ model.
    * - **test_ds**
      - :ref:`data config<data-config-label>` with string OR list of strings in ``ds_item``
      - ``null``
-     - A configuration for creating test datasets and data loaders. A mandatory parameter if testing is performed.
+     - A configuration for creating test datasets and data loaders. Cannot be omitted in `.yaml` config if testing is
+       performed.
    * - **punct_head**
      - :ref:`head config<head-config-label>`
      - :ref:`head config<head-config-label>`
@@ -321,9 +324,11 @@ model.
      - :ref:`language model config<language-model-config-label>`
      - A configuration of a BERT-like language model which serves as a model body.
    * - **optim**
-     - :ref:`optim config<optim-config-label>`
-     - :ref:`optim config<optim-config-label>`
-     - A configuration of optimizer, learning rate scheduler, and L2 regularization.
+     - optimization config
+     - ``null``
+     - A configuration of optimizer, learning rate scheduler, and L2 regularization. Cannot be omitted in `.yaml`
+       config if training is performed. For more information see :ref:`Optimization <optimization-label>` and
+       `primer <https://github.com/NVIDIA/NeMo/blob/main/tutorials/00_NeMo_Primer.ipynb>`_ tutorial.
 
 .. _class-labels-config-label:
 
@@ -352,13 +357,15 @@ Class labels config
    * - **punct_labels_file**
      - string
      - ???
-     - A name of a punctuation labels file. It is a mandatory parameter that cannot be omitted in the config. This name
+     - A name of a punctuation labels file. This parameter cannot be omitted in `.yaml` config. This name
        is used as a name of label ids file in ``.nemo`` checkpoint. It also can be used for passing label vocabulary to
        the model. If ``punct_labels_file`` is used as a vocabulary file, then you should provide parameter
        ``label_vocab_dir`` in :ref:`common dataset parameters<common-dataset-parameters-config-label>`
        (``model.common_dataset_parameters.label_vocab_dir`` in :ref:`run config<run-config-label>`). Each line of
-       ``punct_labels_file`` file contains 1 label. The first line has to contain neutral label which has to be
+       ``punct_labels_file`` file contains 1 label. The values are sorted, ``<line number>==<label id>``, starting
+       from 0. A label with ``0`` id must contain neutral label which has to be
        equal to a ``pad_label`` parameter in :ref:`common dataset parameters<common-dataset-parameters-config-label>`.
+
    * - **capit_labels_file**
      - string
      - ???
@@ -398,11 +405,11 @@ defines on which tokens loss is computed.
    * - **pad_label**
      - string
      - ???
-     - A mandatory parameter which should contain label used for punctuation and capitalization label padding. It
-       also serves as a neutral label for both punctuation and capitalization. If any of ``punct_label_ids``,
-       ``capit_label_ids`` parameters is provided, then ``pad_label`` must have ``0`` id in them. In addition, if
-       ``label_vocab_dir`` is provided, then ``pad_label`` must be on the first lines in files
-       ``class_labels.punct_labels_file`` and ``class_labels.capit_labels_file``.
+     - This parameter cannot be omitted in `.yaml` config. The ``pad_label`` parameter contains label used for
+       punctuation and capitalization label padding. It also serves as a neutral label for both punctuation and
+       capitalization. If any of ``punct_label_ids``, ``capit_label_ids`` parameters is provided, then ``pad_label``
+       must have ``0`` id in them. In addition, if ``label_vocab_dir`` is provided, then ``pad_label`` must be on the
+       first lines in files ``class_labels.punct_labels_file`` and ``class_labels.capit_labels_file``.
    * - **ignore_extra_tokens**
      - bool
      - ``false``
@@ -465,18 +472,19 @@ For convenience, items of data config are described in 4 tables:
    * - **use_tarred_dataset**
      - bool
      - ???
-     - A mandatory parameter specifying whether to use tarred dataset or regular dataset. If ``true``, then you should
-       provide ``ds_item``, ``tar_metadata_file`` parameters. Otherwise, you should provide parameters ``ds_item``,
-       ``text_file``, ``labels_file``, ``tokens_in_batch`` parameters.
+     - This parameter cannot be omitted in `.yaml` config. The ``use_tarred_dataset`` parameter specifies whether to
+       use tarred dataset or regular dataset. If ``true``, then you should provide ``ds_item``, ``tar_metadata_file``
+       parameters. Otherwise, you should provide parameters ``ds_item``, ``text_file``, ``labels_file``,
+       ``tokens_in_batch`` parameters.
    * - **ds_item**
      - **string** OR **list of strings** (only if used in ``model.validation_ds`` or ``model.test_ds``)
      - ???
-     - A mandatory parameter containing path to a directory containing ``tar_metadata_file`` file
-       (if ``use_tarred_dataset=true``) or ``text_file`` and ``labels_file`` (if ``use_tarred_dataset=false``).
-       For ``validation_ds`` or ``test_ds`` you may specify a list of paths in ``ds_item``.
-       If ``ds_item`` is a list, then evaluation will be performed on several datasets. To override ``ds_item`` config
-       parameter with a list use following syntax:
-       ``python punctuation_capitalization_train.py model.validation_ds.ds_item=[path1,path2]`` (no spaces after ``=``
+     - This parameter cannot be omitted in `.yaml` config. The ``ds_item`` parameter contains a path to a directory
+       with ``tar_metadata_file`` file (if ``use_tarred_dataset=true``) or ``text_file`` and ``labels_file``
+       (if ``use_tarred_dataset=false``). For ``validation_ds`` or ``test_ds`` you may specify a list of paths in
+       ``ds_item``. If ``ds_item`` is a list, then evaluation will be performed on several datasets. To override
+       ``ds_item`` config parameter with a list use following syntax:
+       ``python punctuation_capitalization_train_evaluate.py model.validation_ds.ds_item=[path1,path2]`` (no spaces after ``=``
        sign).
    * - **label_info_save_dir**
      - string
@@ -499,18 +507,20 @@ For convenience, items of data config are described in 4 tables:
    * - **text_file**
      - string
      - ``null``
-     - A mandatory parameter if ``use_tarred_dataset=false``. ``text_file`` is a name of a source text file which is
-       located in ``ds_item`` directory.
+     - This parameter cannot be omitted in `.yaml` config if ``use_tarred_dataset=false``. The ``text_file``
+       parameter is a name of a source text file which is located in ``ds_item`` directory.
    * - **labels_file**
      - string
      - ``null``
-     - A mandatory parameter if ``use_tarred_dataset=false``. ``labels_file`` is a name of a file with punctuation and
-       capitalization labels in :ref:`NeMo format <nemo-data-format-label>`. It has is located in ``ds_item`` directory.
+     - This parameter cannot be omitted in `.yaml` config if ``use_tarred_dataset=false``. The ``labels_file``
+       parameter is a name of a file with punctuation and capitalization labels in
+       :ref:`NeMo format <nemo-data-format-label>`. It has is located in ``ds_item`` directory.
    * - **tokens_in_batch**
      - int
      - ``null``
-     - A mandatory parameter if ``use_tarred_dataset=false``. ``tokens_in_batch`` contains a number of tokens in a batch
-       including paddings and special tokens ([CLS], [SEP], [UNK]). This config does not have ``batch_size`` parameter.
+     - This parameter cannot be omitted in `.yaml` config if ``use_tarred_dataset=false``. The ``tokens_in_batch``
+       parameter contains a number of tokens in a batch including paddings and special tokens ([CLS], [SEP], [UNK]).
+       This config does not have ``batch_size`` parameter.
    * - **max_seq_length**
      - int
      - ``512``
@@ -566,8 +576,9 @@ For convenience, items of data config are described in 4 tables:
    * - **tar_metadata_file**
      - string
      - ``null``
-     - A mandatory parameter if ``use_tarred_dataset=true``. A tarred metadata file and other parts of tarred dataset
-       are usually created by the script
+     - This parameter cannot be omitted in `.yaml` config if ``use_tarred_dataset=true``. The ``tar_metadata_file``
+       is a path to metadata file of tarred dataset. A tarred metadata file and
+       other parts of tarred dataset are usually created by the script
        `examples/nlp/token_classification/data/create_punctuation_capitalization_tarred_dataset.py
        <https://github.com/NVIDIA/NeMo/blob/main/examples/nlp/token_classification/data/create_punctuation_capitalization_tarred_dataset.py>`_
    * - **tar_shuffle_n**
@@ -694,7 +705,8 @@ Alternatively you can initialize the language model using ``lm_checkpoint``.
    * - **pretrained_model_name**
      - string
      - ???
-     - A mandatory parameter containing name of HuggingFace pretrained model. For example, ``'bert-base-uncased'``.
+     - This parameter cannot be omitted in `.yaml` config. The ``pretrained_model_name`` parameter contains a name of
+       HuggingFace pretrained model. For example, ``'bert-base-uncased'``.
    * - **config_file**
      - string
      - ``null``
@@ -737,7 +749,8 @@ A configuration of a source text tokenizer.
    * - **tokenizer_name**
      - string
      - ???
-     - A mandatory parameter containing a name of the tokenizer used for tokenization of source sequences. Possible
+     - This parameter cannot be omitted in `.yaml` config. The ``tokenizer_name`` parameter containing a name of the
+       tokenizer used for tokenization of source sequences. Possible
        options are ``'sentencepiece'``, ``'word'``, ``'char'``, HuggingFace tokenizers (e.g. ``'bert-base-uncased'``).
        For more options see function ``nemo.collections.nlp.modules.common.get_tokenizer``. The tokenizer must have
        properties ``cls_id``, ``pad_id``, ``sep_id``, ``unk_id``.
@@ -755,106 +768,6 @@ A configuration of a source text tokenizer.
      - ``null``
      - A path to a tokenizer model required for ``'sentencepiece'`` tokenizer.
 
-.. _optim-config-label:
-
-Optimization config
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table:: Location of optimization config in parent configs
-   :widths: 5 5
-   :header-rows: 1
-
-   * - **Parent config**
-     - **Key in parent config**
-   * - :ref:`Run config<run-config-label>`
-     - ``model.optim``
-   * - :ref:`Model config<model-config-label>`
-     - ``optim``
-
-An optimization configuration which includes L2 regularization and learning rate scheduling.
-
-.. list-table:: Language model config
-   :widths: 5 5 10 25
-   :header-rows: 1
-
-   * - **Parameter**
-     - **Data type**
-     - **Default value**
-     - **Description**
-   * - **name**
-     - string
-     - ???
-     - A name of an optimizer. For possible options see :ref:`optimizers-label`.
-   * - **lr**
-     - float
-     - ``1e-3``
-     - An initial learning rate value. If warmup is used, then ``lr`` is a learning rate after warmup.
-   * - **betas**
-     - ``Tuple[float, float]``
-     - ``[0.9,0.98]``
-     - An Adam optimizer momentum parameters.
-   * - **weight_decay**
-     - float
-     - ``0.0``
-     - A weight decay for L2 regularization.
-   * - **sched**
-     - :ref:`scheduler config<sched-config-label>`
-     - :ref:`scheduler config<sched-config-label>`
-     - A configuration of learning rate scheduler.
-
-.. _sched-config-label:
-
-Scheduler config
-^^^^^^^^^^^^^^^^
-
-.. list-table:: Location of scheduler config in parent configs
-   :widths: 5 5
-   :header-rows: 1
-
-   * - **Parent config**
-     - **Key in parent config**
-   * - :ref:`Run config<run-config-label>`
-     - ``model.optim.sched``
-   * - :ref:`Model config<model-config-label>`
-     - ``optim.sched``
-   * - :ref:`Optimization config<optim-config-label>`
-     - ``sched``
-
-A configuration of a learning rate scheduler.
-
-Warmup is a period in the beginning of training during which learning rate is increased linearly to its initial
-value.
-
-.. list-table:: Language model config
-   :widths: 5 5 10 25
-   :header-rows: 1
-
-   * - **Parameter**
-     - **Data type**
-     - **Default value**
-     - **Description**
-   * - **name**
-     - string
-     - ``'InverseSquareRootAnnealing'``
-     - A name of learning rate scheduler. For possible options see :ref:`learning-rate-schedulers-label`.
-   * - **warmup_steps**
-     - int
-     - ``null``
-     - Number of steps spent on warmup. You may specify at most one of parameters ``warmup_steps`` and ``warmup_ratio``.
-   * - **betas**
-     - ``Tuple[float, float]``
-     - ``[0.9,0.98]``
-     - An Adam optimizer momentum parameters.
-   * - **warmup_ratio**
-     - float
-     - ``null``
-     - The fraction of training steps spend on warmup. You may specify at most one of parameters ``warmup_steps`` and
-       ``warmup_ratio``.
-   * - **last_epoch**
-     - int
-     - ``-1``
-     - A number of an epoch from which to resume scheduling. Useful when restoring from checkpoint. See more in PyTorch
-       documentation. If ``last_epoch`` equals ``-1``, then start scheduling from the beginning.
 
 Model training
 ^^^^^^^^^^^^^^
@@ -939,14 +852,23 @@ Before calculating final predictions, probabilities for tokens marked by asteris
 Model Evaluation
 ----------------
 
-An example script on how to evaluate the pre-trained model, can be found at `examples/nlp/token_classification/punctuation_capitalization_evaluate.py <https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_evaluate.py>`_.
+Model evaluation is performed by the same script
+`examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py
+<https://github.com/NVIDIA/NeMo/blob/stable/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py>`_
+as training.
+
+Use :ref`config<run-config-lab>` parameter ``do_training=false`` to disable training and parameter ``do_testing=true``
+to enable testing. If both parameters ``do_training`` and ``do_testing`` are ``true``, then model is trained and then
+tested.
 
 To start evaluation of the pre-trained model, run:
 
 .. code::
 
-    python punctuation_capitalization_evaluate.py \
-           model.dataset.data_dir=<PATH/TO/DATA/DIR>  \
+    python punctuation_capitalization_train_evaluate.py \
+           +model.do_training=false \
+           +model.to_testing=true \
+           model.test_ds.ds_item=<PATH/TO/TEST/DATA/DIR>  \
            pretrained_model=punctuation_en_bert \
            model.test_ds.text_file=<text_dev.txt> \
            model.test_ds.labels_file=<labels_dev.txt>

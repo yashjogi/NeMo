@@ -68,7 +68,7 @@ To use one of the pretrained versions of the model and finetune it, run:
 @hydra_runner(config_path="conf", config_name="punctuation_capitalization_config")
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(42)
-    cfg = update_model_config(PunctuationCapitalizationConfig(), cfg)
+    cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
     trainer = pl.Trainer(**cfg.trainer)
     exp_manager(trainer, cfg.get("exp_manager", None))
     if not cfg.do_training and not cfg.do_testing:
@@ -93,18 +93,21 @@ def main(cfg: DictConfig) -> None:
                 f'Provide path to the pre-trained .nemo file or choose from '
                 f'{PunctuationCapitalizationModel.list_available_models()}'
             )
-        model.update_config(
+        model.update_config_after_restoring_from_checkpoint(
             class_labels=cfg.model.class_labels,
             common_dataset_parameters=cfg.model.common_dataset_parameters,
             train_ds=cfg.model.get('train_ds') if cfg.do_training else None,
             validation_ds=cfg.model.get('validation_ds') if cfg.do_training else None,
             test_ds=cfg.model.get('test_ds') if cfg.do_testing else None,
-            optim=cfg.model.optim,
+            optim=cfg.model.get('optim') if cfg.do_training else None,
         )
         model.set_trainer(trainer)
-        model.setup_training_data()
-        model.setup_validation_data()
-        model.setup_optimization()
+        if cfg.do_training:
+            model.setup_training_data()
+            model.setup_validation_data()
+            model.setup_optimization()
+        else:
+            model.setup_test_data()
     if cfg.do_training:
         trainer.fit(model)
     if cfg.do_testing:

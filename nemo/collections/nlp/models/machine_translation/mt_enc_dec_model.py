@@ -398,7 +398,7 @@ class MTEncDecModel(EncDecNLPModel):
         log_probs = self(*forward_args)
         eval_loss = self.eval_loss_fn(log_probs=log_probs, labels=labels)
         # this will run encoder twice -- TODO: potentially fix
-        _, translations = self.batch_translate(
+        inputs, translations = self.batch_translate(
             src=src_ids,
             src_mask=src_mask,
             num_tgt_words=num_src_words,
@@ -422,6 +422,7 @@ class MTEncDecModel(EncDecNLPModel):
             if self.tgt_character_vocabulary is not None:
                 getattr(self, f'{mode}_CER_{dataloader_idx}')(tr_ctc, gt_ctc, gt_lengths, tr_lengths)
         return {
+            'inputs': inputs,
             'translations': translations,
             'ground_truths': ground_truths,
             'num_non_pad_tokens': num_non_pad_tokens,
@@ -465,8 +466,10 @@ class MTEncDecModel(EncDecNLPModel):
                 if self.tgt_character_vocabulary is not None:
                     cer, _, _ = getattr(self, f'{mode}_CER_{dataloader_idx}').compute()
 
+            inputs = list(itertools.chain(*[x['inputs'] for x in output]))
             translations = list(itertools.chain(*[x['translations'] for x in output]))
             ground_truths = list(itertools.chain(*[x['ground_truths'] for x in output]))
+            assert len(translations) == len(inputs)
             assert len(translations) == len(ground_truths)
 
             # Gather translations and ground truths from all workers
@@ -508,6 +511,7 @@ class MTEncDecModel(EncDecNLPModel):
                 for i in range(0, 3):
                     ind = random.randint(0, len(translations) - 1)
                     logging.info("    " + '\u0332'.join(f"Example {i}:"))
+                    logging.info(f"    Input:        {inputs[ind]}")
                     logging.info(f"    Prediction:   {translations[ind]}")
                     logging.info(f"    Ground Truth: {ground_truths[ind]}")
             else:

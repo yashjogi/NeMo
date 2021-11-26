@@ -23,61 +23,8 @@ from nemo.collections.nlp.data.token_classification.punctuation_capitalization_d
     legacy_data_config_to_new_data_config,
 )
 from nemo.core.config import TrainerConfig
-from nemo.core.config.modelPT import NemoConfig, OptimConfig, SchedConfig
+from nemo.core.config.modelPT import NemoConfig
 from nemo.utils.exp_manager import ExpManagerConfig
-
-
-@dataclass
-class PunctuationCapitalizationSchedConfig(SchedConfig):
-    """
-    A configuration of a learning rate scheduler. This config is a part of
-    :class:`PunctuationCapitalizationOptimConfig` config.
-
-    Warmup is a period in the beginning of training during which learning rate is increased linearly to its initial
-    value.
-    """
-
-    name: str = 'InverseSquareRootAnnealing'
-    """A name of learning rate scheduler. For possible options see
-    `Learning Rate Schedulers
-    <https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/core/core.html#learning-rate-schedulers>`_."""
-
-    warmup_steps: Optional[int] = None
-    """Number of steps spent on warmup. You may specify at most one of parameters ``warmup_steps`` and
-    ``warmup_ratio``."""
-
-    warmup_ratio: Optional[float] = None
-    """The fraction of training steps spend on warmup. You may specify at most one of parameters ``warmup_steps`` and
-    ``warmup_ratio``."""
-
-    last_epoch: int = -1
-    """A number of an epoch from which to resume scheduling. Useful when restoring from checkpoint. See more in PyTorch
-    documentation. If ``last_epoch`` equals ``-1``, then start scheduling from the beginning."""
-
-
-# TODO: support more optimizers (it pins the optimizer to Adam-like optimizers).
-@dataclass
-class PunctuationCapitalizationOptimConfig(OptimConfig):
-    """
-    A structure and default values of optimization configuration of punctuation and capitalization model.
-    
-    This config is a part of :class:`PunctuationCapitalizationModelConfig` config.
-    """
-
-    name: str = 'adam'
-    "A name of an optimizer. For possible options see :ref:`core/core:Optimizers`."
-
-    lr: float = 1e-3
-    """An initial learning rate value. If warmup is used, then ``lr`` is a learning rate after warmup."""
-
-    betas: Tuple[float, float] = (0.9, 0.98)
-    """An Adam optimizer momentum parameters."""
-
-    weight_decay: float = 0.0
-    """A weight decay for L2 regularization."""
-
-    sched: Optional[PunctuationCapitalizationSchedConfig] = PunctuationCapitalizationSchedConfig()
-    """A configuration of learning rate scheduler."""
 
 
 @dataclass
@@ -156,7 +103,9 @@ class ClassLabelsConfig:
     A structure and default values of a mandatory part of config which contains names of files which are saved in .nemo
     checkpoint. These files can also be used for passing label vocabulary to the model. For using them as label
     vocabularies you will need to provide path these files in parameter
-    ``model.common_dataset_parameters.label_vocab_dir``.
+    ``model.common_dataset_parameters.label_vocab_dir``. Each line in labels files
+    contains 1 label. The values are sorted, ``<line number>==<label id>``, starting from ``0``. A label with ``0`` id
+    must contain neutral label which must be equal to ``model.common_dataset_parameters.pad_label``.
 
     This config is a part of :class:`~CommonDatasetParametersConfig`.
     """
@@ -256,8 +205,11 @@ class PunctuationCapitalizationModelConfig:
     language_model: LanguageModelConfig = LanguageModelConfig()
     """A configuration of a BERT-like language model which serves as a model body."""
 
-    optim: Optional[OptimConfig] = PunctuationCapitalizationOptimConfig()
-    """A configuration of optimizer and learning rate scheduler."""
+    optim: Optional[Any] = None
+    """A configuration of optimizer and learning rate scheduler. There is much variability in such config. For
+    description see `Optimizers
+    <https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/core/core.html#optimizers>`_ section in
+    documentation and `primer <https://github.com/NVIDIA/NeMo/blob/main/tutorials/00_NeMo_Primer.ipynb>_ tutorial."""
 
 
 @dataclass
