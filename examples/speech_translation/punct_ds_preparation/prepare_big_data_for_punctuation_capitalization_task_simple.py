@@ -754,6 +754,7 @@ def extract_dev_text_segments_worker(
             else:
                 f.write(sentences[sentence_i] + '\n')
                 sentence_i += 1
+    assert len(segments) == num_segments, f"{len(segments)} were cut whereas {num_segments} segments were expected."
     progress_queue.put(progress)
     return segments
 
