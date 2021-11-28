@@ -1,14 +1,15 @@
-python prepare_big_data_for_punctuation_capitalization_task.py \
-  --output_dir /media/apeganov/DATA/prepared_wiki_split \
+python prepare_big_data_for_punctuation_capitalization_task_simple.py \
+  --output_dir /media/apeganov/DATA/wiki_92_128_29.11.2021 \
   --corpus_types wikipedia \
-  --clean_data_dir /media/apeganov/DATA/debug_punct_wiki_preparation_clean \
   --create_model_input \
   --bert_labels \
   --autoregressive_labels \
+  --sequence_length_range 92 128 \
   --allowed_punctuation '.,?' \
-  --fasttext_model lid.176.bin \
   --only_first_punctuation_character_after_word_in_autoregressive \
   --no_label_if_all_characters_are_upper_case \
   --input_files ~/data/enwiki-20210920-pages-articles-multistream.xml \
-  --resume_from normalization \
-  -n
+  --num_jobs 24 \
+  --num_passes_through_dataset 2 \
+  --dev_size 10000 \
+  --test_size 0
