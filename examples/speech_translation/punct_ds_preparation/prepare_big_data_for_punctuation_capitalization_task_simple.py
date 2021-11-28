@@ -4,11 +4,12 @@ import logging
 import multiprocessing as mp
 import random
 import re
-from itertools import accumulate
+from itertools import accumulate, chain
 from pathlib import Path
 from queue import Empty
 from subprocess import run
 from time import sleep
+from typing import List, Tuple
 
 import numpy as np
 from bs4 import BeautifulSoup, NavigableString
@@ -672,8 +673,118 @@ def remove_parentheses_parallel(document_dir, output_dir, num_jobs):
     progress_process.join()
 
 
-def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, max_num_segments):
+def count_words(text):
+    return len(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(text))
+
+
+def get_segment_info(sentences: List[str], sequence_length_range: Tuple[int, int], num_segments: int, file: Path):
+    num_words = 0
+    sent_i = len(sentences) - 1
+    while sent_i > 0 and num_words < sequence_length_range[1]:
+        num_words += count_words(sentences[sent_i])
+        sent_i -= 1
+    if num_segments > sent_i + 1:
+        raise ValueError(
+            f"Not enough words ({num_words}) in file {file} to cut {num_segments} segments with number of words in "
+            f"range {sequence_length_range}"
+        )
+    logging.info(f"Cutting {num_segments} segments from {sent_i + 1} sentences in file {file}.")
+    start_sentences = sorted(random.sample(list(range(sent_i + 1)), num_segments))
+    lengths = list(range(sequence_length_range[0], sequence_length_range[1]))
+    num_words = []
+    for i in range(num_segments):
+        num_words.append(lengths[i % len(lengths)])
+    return start_sentences, num_words
+
+
+def cut_segment(text, shift, num_words_in_segment):
+    segment = ""
+    for word_i, m in enumerate(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.finditer(text)):
+        if word_i < shift:
+            continue
+        if word_i < num_words_in_segment + shift:
+            break
+        segment += m.group(0)
+    return segment
+
+
+def extract_dev_text_segments_worker(
+    file: Path, num_segments: int, sequence_length_range: Tuple[int, int], after_extraction_document_dir: Path
+):
+    output_file = after_extraction_document_dir / file.name
+    segments = []
+    docs = big.read_docs_from_file(file)
+    sentences = list(chain([doc.splitlines() for doc in docs.values()]))
+    start_sentences, num_words_by_segments = get_segment_info(sentences, sequence_length_range, num_segments, file)
+    curr_segment_i = -1
+    sentence_i = 0
+    with output_file.open('w') as f:
+        while sentence_i < len(sentences):
+            if sentence_i == start_sentences[curr_segment_i]:
+                num_words = count_words(sentences[start_sentences[curr_segment_i]])
+                shift = random.randint(0, num_words // 2)
+                num_words_raw = 0
+                num_sentences_for_segment = 0
+                while num_words_raw < shift + num_words_by_segments[curr_segment_i]:
+                    num_words_raw += len(
+                        small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(
+                            sentences[sentence_i + num_sentences_for_segment]
+                        )
+                    )
+                    num_sentences_for_segment += 1
+                segments.append(
+                    cut_segment(
+                        ' '.join(sentences[sentence_i : sentence_i + num_sentences_for_segment]),
+                        shift,
+                        num_words_by_segments[curr_segment_i],
+                    )
+                )
+                sentence_i += num_sentences_for_segment
+            else:
+                f.write(sentences[sentence_i] + '\n')
+    return segments
+
+
+def extract_dev_text_segments(
+    document_dir: Path,
+    after_extraction_document_dir: Path,
+    output_dir: Path,
+    dev_size: int,
+    test_size: int,
+    sequence_length_range: Tuple[int, int],
+    num_jobs: int,
+):
+    files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
+    num_segments_by_files = get_how_many_segments_to_cut_by_files(files, dev_size + test_size)
+    num_jobs = min(num_jobs, len(files))
+    with mp.Pool(num_jobs) as pool:
+        result = pool.starmap(
+            extract_dev_text_segments_worker,
+            zip(
+                files,
+                num_segments_by_files,
+                [sequence_length_range] * len(files),
+                [after_extraction_document_dir] * len(files),
+            )
+        )
+    result = list(chain(*result))
+    assert len(result) == dev_size + test_size
+    dev_segments = result[:dev_size]
+    test_segments = result[dev_size:]
+    dev_text_file = output_dir / 'dev_text.txt'
+    test_text_file = output_dir / 'test_text.txt'
+    with dev_text_file.open('w') as f:
+        for segment in dev_segments:
+            f.write(segment + '\n')
+    with test_text_file.open('w') as f:
+        for segment in test_segments:
+            f.write(segment + '\n')
+    return dev_text_file, test_text_file
+
+
+def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments):
     permutation = random.sample(num_words_in_segments, len(num_words_in_segments))
+    shift = random.randint(0, max(num_words_in_segments))
     # print("permutation:", permutation)
     p_i = 0
     start_match = None
@@ -682,6 +793,9 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
     num_cut_segments = 0
     m = None
     for m in small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.finditer(text):
+        if shift > 0:
+            shift -= 1
+            continue
         if start_match is None:
             start_match = m
         num_in_segment += 1
@@ -697,15 +811,13 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, ma
                 progress_report = 0
             num_in_segment = 0
             num_cut_segments += 1
-            if max_num_segments is not None and num_cut_segments >= max_num_segments:
-                break
-    if start_match is not None and max_num_segments is not None and num_cut_segments < max_num_segments:
+    if start_match is not None:
         out_f.write(strip_segment(text[start_match.span()[0]: m.span()[1]]) + '\n')
         num_cut_segments += 1
     return num_cut_segments
 
 
-def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, sequence_range):
+def cut_and_save(rank, progress_queue, files, num_passes_through_dataset, output_dir, sequence_range):
     num_words_in_segments = list(range(sequence_range[0], sequence_range[1]))
     for f_i, f in enumerate(files):
         out_file = output_dir / (f.stem + '.txt')
@@ -713,17 +825,9 @@ def cut_and_save(rank, progress_queue, files, num_to_cut_by_files, output_dir, s
         random.shuffle(text)
         text = '\n'.join([doc[1]['text'] for doc in text])
         text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
-
-        if num_to_cut_by_files[f_i] is None:
-            with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
-                cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments, None)
-        else:
-            n = 0
-            with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
-                while n < num_to_cut_by_files[f_i]:
-                    n += cut_and_save_one_pass(
-                        text, out_f, progress_queue, num_words_in_segments, num_to_cut_by_files[f_i]
-                    )
+        with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
+            for _ in range(num_passes_through_dataset):
+                cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments)
 
 
 def get_how_many_segments_to_cut_by_files(files, size):
@@ -787,7 +891,7 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     return sum(res)
 
 
-def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_range, num_jobs):
+def cut_and_save_parallel(document_dir, sorted_text_file, num_passes_through_dataset, sequence_length_range, num_jobs):
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     num_jobs = min(num_jobs, len(files))
     num_files_per_job = len(files) // num_jobs
@@ -795,17 +899,9 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
         [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
         + [files[(num_jobs - 1) * num_files_per_job:]]
     )
-    if size is None:
-        num_to_cut_by_files = [[None] * len(df) for df in distributed_files]
-    else:
-        num_to_cut_by_files = get_how_many_segments_to_cut_by_files(files, size)
-        num_to_cut_by_files = (
-            [num_to_cut_by_files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
-            + [num_to_cut_by_files[(num_jobs - 1) * num_files_per_job:]]
-        )
     manager = mp.Manager()
     progress_queue = manager.Queue()
-    size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs) if size is None else size
+    size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
     progress_process = mp.Process(target=big.show_prog, args=(progress_queue, size, "segment"))
     progress_process.start()
     output_dir = sorted_text_file.parent / 'cut_separate_files'
@@ -818,7 +914,7 @@ def cut_and_save_parallel(document_dir, sorted_text_file, size, sequence_length_
                     range(num_jobs),
                     [progress_queue] * num_jobs,
                     distributed_files,
-                    num_to_cut_by_files,
+                    [num_passes_through_dataset] * num_jobs,
                     [output_dir] * num_jobs,
                     [sequence_length_range] * num_jobs,
                 )
@@ -885,28 +981,46 @@ def main():
             doc_id_to_file_i.update(corpus_doc_id_to_file_i)
             start_doc_id = max(corpus_doc_id_to_file_i.keys()) + 1
             start_file_id = max(corpus_doc_id_to_file_i.values()) + 1
+    if args.dev_size > 0 or args.test_size > 0:
+        after_extraction_document_dir = args.output_dir / Path("after_extraction_documents")
+    else:
+        after_extraction_document_dir = document_dir
+    if args.resume_from is None or args.resume_from in ['dev_test_extraction']:
+        dev_text_file, test_text_file = extract_dev_text_segments(
+            document_dir,
+            after_extraction_document_dir,
+            args.output_dir,
+            args.dev_size,
+            args.test_size,
+            args.sequence_length_range,
+            args.num_jobs,
+        )
     sorted_text_file = args.output_dir / 'sorted_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting"]:
         rp = '(' not in args.allowed_punctuation or ')' not in args.allowed_punctuation
         if rp:
-            rp_dir = document_dir.parent / 'documents_without_parentheses'
-            remove_parentheses_parallel(document_dir, rp_dir, args.num_jobs)
+            rp_dir = after_extraction_document_dir.parent / 'documents_without_parentheses'
+            remove_parentheses_parallel(after_extraction_document_dir, rp_dir, args.num_jobs)
         else:
             rp_dir = None
         cut_and_save_parallel(
-            rp_dir if rp else document_dir, sorted_text_file, args.size, args.sequence_length_range, args.num_jobs
+            rp_dir if rp else after_extraction_document_dir,
+            sorted_text_file,
+            args.num_passes_through_dataset,
+            args.sequence_length_range,
+            args.num_jobs,
         )
     shuffled_text_file = args.output_dir / 'shuffled_text.txt'
     if args.resume_from is None or args.resume_from in ["cutting", "shuffling"]:
         logging.info("shuffling segments...")
         shuffle_file_lines(sorted_text_file, shuffled_text_file)
-    args.size = count_lines_in_file(sorted_text_file)
+    size = count_lines_in_file(sorted_text_file)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
         big.write_dataset_fast(
             [0, args.test_size],
-            shuffled_text_file,
+            test_text_file,
             args.output_dir / Path("test"),
             args.create_model_input,
             args.bert_labels,
@@ -918,8 +1032,8 @@ def main():
     if args.dev_size > 0:
         logging.info("Writing dev dataset...")
         big.write_dataset_fast(
-            [args.test_size, args.test_size + args.dev_size],
-            shuffled_text_file,
+            [0,  args.dev_size],
+            dev_text_file,
             args.output_dir / Path("dev"),
             args.create_model_input,
             args.bert_labels,
@@ -930,7 +1044,7 @@ def main():
         )
     logging.info("Writing train dataset...")
     big.write_dataset_parallel(
-        [args.test_size + args.dev_size, args.size],
+        [args.test_size + args.dev_size, size],
         shuffled_text_file,
         args.output_dir / Path("train"),
         args.create_model_input,
@@ -982,11 +1096,12 @@ def get_args(
         required=True,
     )
     parser.add_argument(
-        "--size",
+        "--num_passes_through_dataset",
         "-S",
         type=int,
-        help="Number of sequences in the created dataset. This number includes sequences in train, dev, and test "
-        "datasets. By default it is equal to the total number of sentences in the input data.",
+        help="How many times the script goes through data to cut train segments. Dev and test are cut train and "
+        "sentences used for dev and test are excluded from the process.",
+        default=1,
     )
     parser.add_argument("--dev_size", "-d", help="Number of sequences in dev data.", type=int, default=10 ** 4)
     parser.add_argument("--test_size", "-t", help="Percentage of test data.", type=int, default=10 ** 4)
@@ -997,7 +1112,7 @@ def get_args(
         "using uniform distribution.",
         type=int,
         nargs=2,
-        default=[2, 64],
+        default=(2, 64),
     )
     parser.add_argument(
         "--create_model_input",
@@ -1052,9 +1167,6 @@ def get_args(
     )
     parser.add_argument("--num_jobs", default=1, type=int)
     args = parser.parse_args()
-    if args.size is not None:
-        if args.dev_size > args.size:
-            raise ValueError(f"Parameter `--dev_size={args.dev_size}` is less than size of all dataset ({args.size})")
     args.input_files = [x.expanduser() for x in args.input_files]
     if len(args.input_files) != len(args.corpus_types):
         raise ValueError(
@@ -1067,6 +1179,7 @@ def get_args(
             f"Punctuation marks {args.allowed_punctuation - small.SUPPORTED_BERT_PUNCTUATION} are not allowed for BERT "
             f"labels."
         )
+    args.sequence_length_range = tuple(args.sequence_length_range)
     return args
 
 
