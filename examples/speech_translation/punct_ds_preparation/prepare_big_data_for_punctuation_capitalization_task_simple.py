@@ -733,11 +733,7 @@ def extract_dev_text_segments_worker(
                 num_words_raw = 0
                 num_sentences_for_segment = 0
                 while num_words_raw < shift + num_words_by_segments[curr_segment_i]:
-                    num_words_raw += len(
-                        small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.findall(
-                            sentences[sentence_i + num_sentences_for_segment]
-                        )
-                    )
+                    num_words_raw += count_words(sentences[sentence_i + num_sentences_for_segment])
                     num_sentences_for_segment += 1
                 segments.append(
                     cut_segment(
