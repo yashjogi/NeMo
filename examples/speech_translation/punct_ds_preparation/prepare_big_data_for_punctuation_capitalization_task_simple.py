@@ -846,17 +846,16 @@ def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments):
     return num_cut_segments
 
 
-def cut_and_save(rank, progress_queue, files, num_passes_through_dataset, output_dir, sequence_range):
+def cut_and_save(file_num, progress_queue, file, num_passes_through_dataset, output_dir, sequence_range):
     num_words_in_segments = list(range(sequence_range[0], sequence_range[1]))
-    for f_i, f in enumerate(files):
-        out_file = output_dir / (f.stem + '.txt')
-        text = list(big.read_docs_from_file(f)[0].items())
-        random.shuffle(text)
-        text = '\n'.join([doc[1]['text'] for doc in text])
-        text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
-        with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
-            for _ in range(num_passes_through_dataset):
-                cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments)
+    out_file = output_dir / (file.stem + '.txt')
+    text = list(big.read_docs_from_file(file)[0].items())
+    random.shuffle(text)
+    text = '\n'.join([doc[1]['text'] for doc in text])
+    text = small.SPACE_DUP.sub(' ', text.replace('\n', ' '))
+    with out_file.open('w', buffering=BUFFER_SIZE) as out_f:
+        for _ in range(num_passes_through_dataset):
+            cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments)
 
 
 def get_how_many_segments_to_cut_by_files(files, size):
@@ -923,11 +922,6 @@ def estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
 def cut_and_save_parallel(document_dir, sorted_text_file, num_passes_through_dataset, sequence_length_range, num_jobs):
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     num_jobs = min(num_jobs, len(files))
-    num_files_per_job = len(files) // num_jobs
-    distributed_files = (
-        [files[i * num_files_per_job: (i + 1) * num_files_per_job] for i in range(num_jobs - 1)]
-        + [files[(num_jobs - 1) * num_files_per_job:]]
-    )
     manager = mp.Manager()
     progress_queue = manager.Queue()
     size = estimate_number_of_segments_parallel(files, sequence_length_range, num_jobs)
@@ -940,12 +934,12 @@ def cut_and_save_parallel(document_dir, sorted_text_file, num_passes_through_dat
             cut_and_save,
             list(
                 zip(
-                    range(num_jobs),
-                    [progress_queue] * num_jobs,
-                    distributed_files,
-                    [num_passes_through_dataset] * num_jobs,
-                    [output_dir] * num_jobs,
-                    [sequence_length_range] * num_jobs,
+                    range(len(files)),
+                    [progress_queue] * len(files),
+                    files,
+                    [num_passes_through_dataset] * len(files),
+                    [output_dir] * len(files),
+                    [sequence_length_range] * len(files),
                 )
             )
         )
