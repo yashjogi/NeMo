@@ -1034,6 +1034,7 @@ def main():
         logging.info("shuffling segments...")
         shuffle_file_lines(sorted_text_file, shuffled_text_file)
     size = count_lines_in_file(sorted_text_file)
+    logging.info(f"Train set will contain {size} lines.")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.test_size > 0:
         logging.info("Writing test dataset...")
@@ -1063,7 +1064,7 @@ def main():
         )
     logging.info("Writing train dataset...")
     big.write_dataset_parallel(
-        [args.test_size + args.dev_size, size],
+        [0, size],
         shuffled_text_file,
         args.output_dir / Path("train"),
         args.create_model_input,
