@@ -711,6 +711,7 @@ def cut_segment(text, shift, num_words_in_segment):
 def extract_dev_text_segments_worker(
     file: Path, num_segments: int, sequence_length_range: Tuple[int, int], after_extraction_document_dir: Path
 ):
+    after_extraction_document_dir.mkdir(parents=True, exist_ok=True)
     output_file = after_extraction_document_dir / file.name
     segments = []
     docs = big.read_docs_from_file(file)[0]
