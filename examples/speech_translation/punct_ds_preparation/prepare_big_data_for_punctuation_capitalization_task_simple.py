@@ -722,7 +722,7 @@ def extract_dev_text_segments_worker(
     docs = big.read_docs_from_file(file)[0]
     sentences = list(chain(*[doc['text'].splitlines() for doc in docs.values()]))
     start_sentences, num_words_by_segments = get_segment_info(sentences, sequence_length_range, num_segments, file)
-    curr_segment_i = -1
+    curr_segment_i = 0
     sentence_i = 0
     progress = 0
     with output_file.open('w') as f:
@@ -742,6 +742,7 @@ def extract_dev_text_segments_worker(
                         num_words_by_segments[curr_segment_i],
                     )
                 )
+                curr_segment_i += 1
                 progress += 1
                 if progress >= 100:
                     progress_queue.put(progress)
