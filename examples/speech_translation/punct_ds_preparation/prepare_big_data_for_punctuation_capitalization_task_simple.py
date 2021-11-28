@@ -761,7 +761,7 @@ def extract_dev_text_segments_worker(
                 progress = 0
         sentence_i += 1
     for doc_id, doc in docs.items():
-        doc['text'] = '\n'.join([line for i, line in enumerate(doc['line']) if i not in doc['to_exclude']]) + '\n'
+        doc['text'] = '\n'.join([line for i, line in enumerate(doc['lines']) if i not in doc['to_exclude']]) + '\n'
         del doc['lines']
         del doc['to_exclude']
     big.write_docs_to_file(docs, output_file)
