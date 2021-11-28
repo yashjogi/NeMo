@@ -695,6 +695,7 @@ def get_segment_info(sentences: List[str], sequence_length_range: Tuple[int, int
     num_words = []
     for i in range(num_segments):
         num_words.append(lengths[i % len(lengths)])
+    assert len(start_sentences) == len(num_words)
     return start_sentences, num_words
 
 
@@ -728,7 +729,7 @@ def extract_dev_text_segments_worker(
     excluded = set()
     with output_file.open('w') as f:
         while sentence_i < len(sentences):
-            if sentence_i == start_sentences[curr_segment_i]:
+            if curr_segment_i < len(start_sentences) and sentence_i == start_sentences[curr_segment_i]:
                 num_words = count_words(sentences[start_sentences[curr_segment_i]])
                 shift = random.randint(0, num_words // 2)
                 num_words_raw = 0
