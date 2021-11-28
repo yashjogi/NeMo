@@ -783,7 +783,9 @@ def extract_dev_text_segments(
                 )
             )
     result = list(chain(*result))
-    assert len(result) == dev_size + test_size
+    assert len(result) == dev_size + test_size, (
+        f"{len(result)} segments were cut whereas {dev_size + test_size} segments were expected."
+    )
     dev_segments = result[:dev_size]
     test_segments = result[dev_size:]
     dev_text_file = output_dir / 'dev_text.txt'
