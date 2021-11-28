@@ -7,6 +7,7 @@ import logging
 import multiprocessing as mp
 import random
 import re
+import shutil
 from itertools import accumulate
 from math import ceil
 from pathlib import Path
@@ -1083,6 +1084,7 @@ def write_dataset_parallel(
     for joined_fn in [text_fn, input_fn, bert_fn, ar_fn]:
         with joined_fn.open('w') as f:
             run(['cat'] + [str(d / f'{joined_fn.stem}.txt') for d in output_dirs], stdout=f)
+    shutil.rmtree(str(tmp_dir))
 
 
 def write_dataset_fast(

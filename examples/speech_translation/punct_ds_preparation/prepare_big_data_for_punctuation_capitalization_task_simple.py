@@ -812,10 +812,8 @@ def extract_dev_text_segments(
 
 
 def cut_and_save_one_pass(text, out_f, progress_queue, num_words_in_segments):
-    print("one pass is called")
     permutation = random.sample(num_words_in_segments, len(num_words_in_segments))
     shift = random.randint(0, max(num_words_in_segments))
-    # print("permutation:", permutation)
     p_i = 0
     start_match = None
     num_in_segment = 0
