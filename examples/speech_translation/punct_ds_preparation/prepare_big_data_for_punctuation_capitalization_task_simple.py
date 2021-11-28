@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup, NavigableString
 from tqdm import tqdm
 
 from nemo.collections.common.tokenizers import TokenizerSpec
+from nemo.collections.nlp.data.token_classification.punctuation_capitalization_dataset import Progress
 from nemo.collections.nlp.modules import get_tokenizer
 
 import prepare_big_data_for_punctuation_capitalization_task_complex as big
@@ -709,7 +710,11 @@ def cut_segment(text, shift, num_words_in_segment):
 
 
 def extract_dev_text_segments_worker(
-    file: Path, num_segments: int, sequence_length_range: Tuple[int, int], after_extraction_document_dir: Path
+    file: Path,
+    num_segments: int,
+    sequence_length_range: Tuple[int, int],
+    after_extraction_document_dir: Path,
+    progress_queue: mp.Queue,
 ):
     after_extraction_document_dir.mkdir(parents=True, exist_ok=True)
     output_file = after_extraction_document_dir / file.name
@@ -719,6 +724,7 @@ def extract_dev_text_segments_worker(
     start_sentences, num_words_by_segments = get_segment_info(sentences, sequence_length_range, num_segments, file)
     curr_segment_i = -1
     sentence_i = 0
+    progress = 0
     with output_file.open('w') as f:
         while sentence_i < len(sentences):
             if sentence_i == start_sentences[curr_segment_i]:
@@ -740,9 +746,14 @@ def extract_dev_text_segments_worker(
                         num_words_by_segments[curr_segment_i],
                     )
                 )
+                progress += 1
+                if progress >= 100:
+                    progress_queue.put(progress)
+                    progress = 0
                 sentence_i += num_sentences_for_segment
             else:
                 f.write(sentences[sentence_i] + '\n')
+    progress_queue.put(progress)
     return segments
 
 
@@ -758,16 +769,18 @@ def extract_dev_text_segments(
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     num_segments_by_files = get_how_many_segments_to_cut_by_files(files, dev_size + test_size)
     num_jobs = min(num_jobs, len(files))
-    with mp.Pool(num_jobs) as pool:
-        result = pool.starmap(
-            extract_dev_text_segments_worker,
-            zip(
-                files,
-                num_segments_by_files,
-                [sequence_length_range] * len(files),
-                [after_extraction_document_dir] * len(files),
+    with Progress(dev_size + test_size, 'Cutting segments', 'segment') as progress_queues:
+        with mp.Pool(num_jobs) as pool:
+            result = pool.starmap(
+                extract_dev_text_segments_worker,
+                zip(
+                    files,
+                    num_segments_by_files,
+                    [sequence_length_range] * len(files),
+                    [after_extraction_document_dir] * len(files),
+                    [progress_queues[0]] * len(files),
+                )
             )
-        )
     result = list(chain(*result))
     assert len(result) == dev_size + test_size
     dev_segments = result[:dev_size]
