@@ -725,6 +725,7 @@ def extract_dev_text_segments_worker(
     curr_segment_i = 0
     sentence_i = 0
     progress = 0
+    excluded = set()
     with output_file.open('w') as f:
         while sentence_i < len(sentences):
             if sentence_i == start_sentences[curr_segment_i]:
@@ -742,14 +743,16 @@ def extract_dev_text_segments_worker(
                         num_words_by_segments[curr_segment_i],
                     )
                 )
+                excluded.update({sentence_i + i for i in range(num_sentences_for_segment)})
                 curr_segment_i += 1
                 progress += 1
                 if progress >= 100:
                     progress_queue.put(progress)
                     progress = 0
-                sentence_i += num_sentences_for_segment
+                sentence_i += 1
             else:
-                f.write(sentences[sentence_i] + '\n')
+                if sentence_i not in excluded:
+                    f.write(sentences[sentence_i] + '\n')
                 sentence_i += 1
     assert len(segments) == num_segments, f"{len(segments)} were cut whereas {num_segments} segments were expected."
     progress_queue.put(progress)
