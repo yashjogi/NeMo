@@ -68,16 +68,17 @@ def load_tsv_convert_to_json(part: str, testing: bool = False) -> str:
     with open(os.path.join(bc7_tr3_datadir, 'bc7_tr3-' + part + '.json'), 'w', encoding='utf-8') as f:
         for jsoni in parsed:
             f.write(json.dumps(jsoni) + '\n')
-
-    if part == 'train':
-        zero_shot_drug_samples_dict = {}
-        drugnames_list = df[~df["drug"].str.contains("none")]['drug'].unique().tolist()
-        for drni in drugnames_list:
-            dfni = df2[df2['drug'].str.contains(drni)]
-            zero_shot_drug_samples_dict[drni.lstrip('"').rstrip('"')] = json.loads(dfni[['text','drug']].to_json(orient='records'))
-        with open(os.path.join(bc7_tr3_datadir, 'bc7_tr3-fewshot_train.json'), 'w', encoding='utf-8') as f:
-            json.dump(zero_shot_drug_samples_dict, f, indent=2)
-
+    
+    zero_shot_drug_samples_dict = {}
+    drugnames_list = df[~df["drug"].str.contains("none")]['drug'].unique().tolist()
+    for drni in drugnames_list:
+        dfni = df2[df2['drug'].str.contains(drni)]
+        zero_shot_drug_samples_dict[drni.lstrip('"').rstrip('"')] = json.loads(dfni[['text','drug']].to_json(orient='records'))
+    
+    if part == 'val':
+        zero_shot_drug_samples_dict["none"] = json.loads(df2[df2['drug'].str.contains("none")].to_json(orient='records'))
+    with open(os.path.join(bc7_tr3_datadir, 'bc7_tr3-fewshot_' + part + '.json'), 'w', encoding='utf-8') as f:
+        json.dump(zero_shot_drug_samples_dict, f, indent=2)
 
     
 
