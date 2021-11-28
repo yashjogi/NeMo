@@ -721,40 +721,50 @@ def extract_dev_text_segments_worker(
     output_file = after_extraction_document_dir / file.name
     segments = []
     docs = big.read_docs_from_file(file)[0]
-    sentences = list(chain(*[doc['text'].splitlines() for doc in docs.values()]))
+    sentences = []
+    doc_ids = []
+    sent_indices = []
+    for doc_id, doc in docs.items():
+        doc['lines'] = doc['text'].splitlines()
+        doc['to_exclude'] = set()
+        sentences += doc['lines']
+        doc_ids += [doc_id] * len(doc['lines'])
+        sent_indices.extend(range(len(doc['lines'])))
     start_sentences, num_words_by_segments = get_segment_info(sentences, sequence_length_range, num_segments, file)
     curr_segment_i = 0
     sentence_i = 0
     progress = 0
     excluded = set()
-    with output_file.open('w') as f:
-        while sentence_i < len(sentences):
-            if curr_segment_i < len(start_sentences) and sentence_i == start_sentences[curr_segment_i]:
-                num_words = count_words(sentences[start_sentences[curr_segment_i]])
-                shift = random.randint(0, num_words // 2)
-                num_words_raw = 0
-                num_sentences_for_segment = 0
-                while num_words_raw < shift + num_words_by_segments[curr_segment_i]:
-                    num_words_raw += count_words(sentences[sentence_i + num_sentences_for_segment])
-                    num_sentences_for_segment += 1
-                segments.append(
-                    cut_segment(
-                        ' '.join(sentences[sentence_i : sentence_i + num_sentences_for_segment]),
-                        shift,
-                        num_words_by_segments[curr_segment_i],
-                    )
+    while sentence_i < len(sentences):
+        if curr_segment_i < len(start_sentences) and sentence_i == start_sentences[curr_segment_i]:
+            num_words = count_words(sentences[start_sentences[curr_segment_i]])
+            shift = random.randint(0, num_words // 2)
+            num_words_raw = 0
+            num_sentences_for_segment = 0
+            while num_words_raw < shift + num_words_by_segments[curr_segment_i]:
+                num_words_raw += count_words(sentences[sentence_i + num_sentences_for_segment])
+                num_sentences_for_segment += 1
+            segments.append(
+                cut_segment(
+                    ' '.join(sentences[sentence_i : sentence_i + num_sentences_for_segment]),
+                    shift,
+                    num_words_by_segments[curr_segment_i],
                 )
-                excluded.update({sentence_i + i for i in range(num_sentences_for_segment)})
-                curr_segment_i += 1
-                progress += 1
-                if progress >= 100:
-                    progress_queue.put(progress)
-                    progress = 0
-                sentence_i += 1
-            else:
-                if sentence_i not in excluded:
-                    f.write(sentences[sentence_i] + '\n')
-                sentence_i += 1
+            )
+            for i in range(num_sentences_for_segment):
+                docs[doc_ids[sentence_i + i]]['to_exclude'].add(sent_indices[sentence_i + i])
+            excluded.update({sentence_i + i for i in range(num_sentences_for_segment)})
+            curr_segment_i += 1
+            progress += 1
+            if progress >= 1:
+                progress_queue.put(progress)
+                progress = 0
+        sentence_i += 1
+    for doc_id, doc in docs.items():
+        doc['text'] = '\n'.join([line for i, line in enumerate(doc['line']) if i not in doc['to_exclude']]) + '\n'
+        del doc['lines']
+        del doc['to_exclude']
+    big.write_docs_to_file(docs, output_file)
     assert len(segments) == num_segments, f"{len(segments)} were cut whereas {num_segments} segments were expected."
     progress_queue.put(progress)
     return segments
@@ -772,7 +782,7 @@ def extract_dev_text_segments(
     files = [f for f in document_dir.iterdir() if is_int(f.stem) and f.suffixes == ['.xml']]
     num_segments_by_files = get_how_many_segments_to_cut_by_files(files, dev_size + test_size)
     num_jobs = min(num_jobs, len(files))
-    with Progress(dev_size + test_size, 'Cutting segments', 'segment') as progress_queues:
+    with Progress(dev_size + test_size, 'Cutting dev and test segments', 'segment') as progress_queues:
         with mp.Pool(num_jobs) as pool:
             result = pool.starmap(
                 extract_dev_text_segments_worker,
