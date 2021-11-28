@@ -714,7 +714,7 @@ def extract_dev_text_segments_worker(
     output_file = after_extraction_document_dir / file.name
     segments = []
     docs = big.read_docs_from_file(file)[0]
-    sentences = list(chain([doc.splitlines() for doc in docs.values()]))
+    sentences = list(chain([doc['source'].splitlines() for doc in docs.values()]))
     start_sentences, num_words_by_segments = get_segment_info(sentences, sequence_length_range, num_segments, file)
     curr_segment_i = -1
     sentence_i = 0
