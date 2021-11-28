@@ -753,6 +753,7 @@ def extract_dev_text_segments_worker(
                 sentence_i += num_sentences_for_segment
             else:
                 f.write(sentences[sentence_i] + '\n')
+                sentence_i += 1
     progress_queue.put(progress)
     return segments
 
