@@ -1,5 +1,5 @@
 python prepare_big_data_for_punctuation_capitalization_task_simple.py \
-  --output_dir /media/apeganov/DATA/new_commentary_92_128_29.11.2021 \
+  --output_dir /media/apeganov/DATA/news_commentary_92_128_29.11.2021 \
   --corpus_types news-commentary \
   --create_model_input \
   --bert_labels \
