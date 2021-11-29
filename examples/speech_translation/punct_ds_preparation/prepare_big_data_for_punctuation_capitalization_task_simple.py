@@ -704,7 +704,7 @@ def cut_segment(text, shift, num_words_in_segment):
     for word_i, m in enumerate(small.WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION.finditer(text)):
         if word_i < shift:
             continue
-        if word_i < num_words_in_segment + shift:
+        if word_i >= num_words_in_segment + shift:
             break
         segment += m.group(0)
     return segment
