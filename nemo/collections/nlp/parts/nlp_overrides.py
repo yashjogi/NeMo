@@ -253,7 +253,13 @@ class GradScaler(torch.cuda.amp.GradScaler):
     """
 
     def __init__(
-        self, init_scale=2.0 ** 16, growth_factor=2.0, backoff_factor=0.5, growth_interval=2000, enabled=True
+        self,
+        init_scale=2.0 ** 16,
+        growth_factor=2.0,
+        backoff_factor=0.5,
+        growth_interval=2000,
+        enabled=True,
+        hysteresis=1,
     ):
         super().__init__(
             init_scale=init_scale,
@@ -262,6 +268,8 @@ class GradScaler(torch.cuda.amp.GradScaler):
             growth_interval=growth_interval,
             enabled=enabled,
         )
+        self.hysteresis = hysteresis
+        self._hysteresis_tracker = self.hysteresis
 
     def _maybe_opt_step(self, optimizer, optimizer_state, *args, **kwargs):
         retval = None
@@ -278,23 +286,10 @@ class GradScaler(torch.cuda.amp.GradScaler):
 
     def update(self, new_scale=None):
         """
-        Updates the scale factor.
-
-        If any optimizer steps were skipped the scale is multiplied by ``backoff_factor``
-        to reduce it. If ``growth_interval`` unskipped iterations occurred consecutively,
-        the scale is multiplied by ``growth_factor`` to increase it.
-
-        Passing ``new_scale`` sets the new scale value manually. (``new_scale`` is not
-        used directly, it's used to fill GradScaler's internal scale tensor. So if
-        ``new_scale`` was a tensor, later in-place changes to that tensor will not further
-        affect the scale GradScaler uses internally.)
-
-        Args:
-            new_scale (float or :class:`torch.cuda.FloatTensor`, optional, default=None):  New scale factor.
-
-        .. warning::
-            :meth:`update` should only be called at the end of the iteration, after ``scaler.step(optimizer)`` has
-            been invoked for all optimizers used this iteration.
+        Updates to native grad scaler update function.
+        1. Check inf across model-parallel ranks.
+        2. Update hysteresis tracker.
+        3. Apply hysteresis to grad scale update.
         """
         if not self._enabled:
             return
@@ -338,18 +333,72 @@ class GradScaler(torch.cuda.amp.GradScaler):
                     )
                     found_inf_combined += found_inf
 
-            torch._amp_update_scale_(
-                _scale,
-                _growth_tracker,
-                found_inf_combined,
-                self._growth_factor,
-                self._backoff_factor,
-                self._growth_interval,
-            )
+            if found_inf_combined > 0:
+                self._hysteresis_tracker -= 1
+                if self._hysteresis_tracker <= 0:
+                    # When hysteresis becomes zero, follow the native grad scale update rule.
+                    # Increase scale and reset growth tracker
+                    torch._amp_update_scale_(
+                        _scale,
+                        _growth_tracker,
+                        found_inf_combined,
+                        self._growth_factor,
+                        self._backoff_factor,
+                        self._growth_interval,
+                    )
+                else:
+                    # Only reset the growth tracker when hysteresis is larger than zero
+                    _growth_tracker.fill_(0.)
+            else:
+                # When no inf found, follow the native grad scale update rule.
+                # Increment growth_tracker, update scale when growth tracker reaches the interval, and
+                # reset the hysteresis tracker.
+                torch._amp_update_scale_(
+                    _scale,
+                    _growth_tracker,
+                    found_inf_combined,
+                    self._growth_factor,
+                    self._backoff_factor,
+                    self._growth_interval,
+                )
+                self._hysteresis_tracker = self.hysteresis
 
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(torch.cuda.amp.grad_scaler._refresh_per_optimizer_state)
-        
+
+    def state_dict(self):
+        """
+        Add hysteresis_tracker to the native functions' state_dict
+        """
+        return {"scale": self.get_scale(),
+                "growth_factor": self._growth_factor,
+                "backoff_factor": self._backoff_factor,
+                "growth_interval": self._growth_interval,
+                "_growth_tracker": self._get_growth_tracker(),
+                "_hysteresis_tracker": self._hysteresis_tracker} if self._enabled else {}
+
+    def load_state_dict(self, state_dict):
+        """
+        Load hysteresis_tracker in addition to the state dict of the native function
+        """
+        if not self._enabled:
+            return
+
+        if len(state_dict) == 0:
+            raise RuntimeError("The source state dict is empty, possibly because it was saved "
+                               "from a disabled instance of GradScaler.")
+
+        self._init_scale = state_dict["scale"]
+        if self._scale is not None:
+            self._scale.fill_(state_dict["scale"])
+        self._growth_factor = state_dict["growth_factor"]
+        self._backoff_factor = state_dict["backoff_factor"]
+        self._growth_interval = state_dict["growth_interval"]
+        self._init_growth_tracker = state_dict["_growth_tracker"]
+        if self._growth_tracker is not None:
+            self._growth_tracker.fill_(state_dict["_growth_tracker"])
+        self._hysteresis_tracker = state_dict["_hysteresis_tracker"]
+
 
 class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
     """
@@ -365,7 +414,10 @@ class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
     """
 
     def __init__(
-        self, precision: Union[str, int], device: str, scaler: Optional[torch.cuda.amp.GradScaler] = None
+        self,
+        precision: Union[str, int],
+        device: str,
+        scaler: Optional[torch.cuda.amp.GradScaler] = None
     ) -> None:
         super().__init__(precision, device, scaler)
 
@@ -414,6 +466,7 @@ class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
             # note: the scaler will skip the `optimizer.step` if nonfinite gradients are found
             self.scaler.step(optimizer, **kwargs)
             self.scaler.update()
+            model.log('grad_scale', self.scaler.get_scale())
 
     @contextmanager
     def forward_context(self) -> Generator[None, None, None]:
