@@ -47,7 +47,7 @@ def main():
     united_file_path = args.input_files[0].parent / args.united_file_name
     lines = []
     for i, inp_obj in enumerate(input_file_objects):
-        lines[i] = inp_obj.readline().strip('\n')
+        lines.append(inp_obj.readline().strip('\n'))
     line_number = 0
     with united_file_path.open('w') as united_f:
         while all(lines):
@@ -82,6 +82,7 @@ def main():
                 output_file_objects[i].write(line + '\n')
     for output_file_object in output_file_objects:
         output_file_object.close()
+    os.remove(shuffled_file_path)
 
 
 if __name__ == "__main__":
