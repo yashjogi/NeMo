@@ -1,5 +1,7 @@
 import argparse
+import json
 from pathlib import Path
+from typing import Dict, List, Union
 
 
 def get_args():
@@ -112,9 +114,28 @@ def get_args():
     return args
 
 
+def load_manifest(manifest: Path) -> List[Dict[str, Union[str, float]]]:
+    result = []
+    with manifest.open() as f:
+        for i, line in enumerate(f):
+            data = json.loads(line)
+            result.append(data)
+    return result
+
+
 def main():
     args = get_args()
-
+    if args.input_manifest is None:
+        texts = []
+        with args.input_text.open() as f:
+            for line in f:
+                texts.append(line.strip())
+    else:
+        manifest = load_manifest(args.input_manifest)
+        text_key = "pred_text" if "pred_text" in manifest[0] else "text"
+        texts = []
+        for item in manifest:
+            texts.append(item[text_key])
 
 
 if __name__ == "__main__":
