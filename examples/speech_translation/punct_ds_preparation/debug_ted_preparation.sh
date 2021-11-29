@@ -1,5 +1,5 @@
 python prepare_big_data_for_punctuation_capitalization_task_simple.py \
-  --output_dir /media/apeganov/DATA/debug_TED_92_128_29.11.2021 \
+  --output_dir /media/apeganov/DATA/TED_92_128_29.11.2021 \
   --corpus_types TED \
   --create_model_input \
   --bert_labels \
@@ -9,6 +9,6 @@ python prepare_big_data_for_punctuation_capitalization_task_simple.py \
   --only_first_punctuation_character_after_word_in_autoregressive \
   --no_label_if_all_characters_are_upper_case \
   --num_passes_through_dataset 5 \
-  --dev_size 1000 \
-  --test_size 1000 \
+  --dev_size 0 \
+  --test_size 0 \
   --input_files ~/data/TED_Talks/en-ja/train.tags.en-ja.en
