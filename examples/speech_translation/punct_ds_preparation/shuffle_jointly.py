@@ -66,6 +66,8 @@ def main():
     run(['shuf', str(united_path)], stdout=shuffled_f)
     os.remove(united_path)
     shuffled_f.close()
+    for out_file in args.output_files:
+        out_file.parent.mkdir(parents=True, exist_ok=True)
     output_file_objects = [out_file.open('w') for out_file in args.output_files]
     f = io.FileIO(shuffled_fd)
     for tmp_line in f:
