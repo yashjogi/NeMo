@@ -1,7 +1,11 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
+
+import torch
+
+from nemo.collections.nlp.models.machine_translation import MTEncDecModel
 
 
 def get_args():
@@ -60,43 +64,25 @@ def get_args():
         "-L",
         type=int,
         default=64,
-        help="Length of segments into which queries are split. `--max_seq_length` includes [CLS] and [SEP] tokens.",
+        help="Numbers of words in segments into which queries are split.",
     )
     parser.add_argument(
         "--step",
         "-s",
         type=int,
         default=8,
-        help="Relative shift of consequent segments into which long queries are split. Long queries are split into "
-        "segments which can overlap. Parameter `step` controls such overlapping. Imagine that queries are "
-        "tokenized into characters, `max_seq_length=5`, and `step=2`. In such a case query 'hello' is tokenized "
-        "into segments `[['[CLS]', 'h', 'e', 'l', '[SEP]'], ['[CLS]', 'l', 'l', 'o', '[SEP]']]`.",
+        help="Number of words between beginnings of consequent segments."
     )
     parser.add_argument(
         "--margin",
         "-g",
         type=int,
         default=16,
-        help="A number of subtokens in the beginning and the end of segments which output probabilities are not used "
-        "for prediction computation. The first segment does not have left margin and the last segment does not have "
-        "right margin. For example, if input sequence is tokenized into characters, `max_seq_length=5`, `step=1`, "
-        "and `margin=1`, then query 'hello' will be tokenized into segments `[['[CLS]', 'h', 'e', 'l', '[SEP]'], "
-        "['[CLS]', 'e', 'l', 'l', '[SEP]'], ['[CLS]', 'l', 'l', 'o', '[SEP]']]`. These segments are passed to the "
-        "model. Before final predictions computation, margins are removed. In the next list, subtokens which logits "
-        "are not used for final predictions computation are marked with asterisk: `[['[CLS]'*, 'h', 'e', 'l'*, "
-        "'[SEP]'*], ['[CLS]'*, 'e'*, 'l', 'l'*, '[SEP]'*], ['[CLS]'*, 'l'*, 'l', 'o', '[SEP]'*]]`.",
+        help="A number of words near borders in segments which are not used for punctuation and capitalization "
+        "prediction.",
     )
     parser.add_argument(
         "--batch_size", "-b", type=int, default=128, help="Number of segments which are processed simultaneously.",
-    )
-    parser.add_argument(
-        "--save_labels_instead_of_text",
-        "-B",
-        action="store_true",
-        help="If this option is set, then punctuation and capitalization labels are saved instead text with restored "
-        "punctuation and capitalization. Labels are saved in format described here "
-        "https://docs.nvidia.com/deeplearning/nemo/"
-        "user-guide/docs/en/main/nlp/punctuation_and_capitalization.html#nemo-data-format",
     )
     parser.add_argument(
         "--device",
@@ -108,6 +94,16 @@ def get_args():
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
         parser.error("--output_manifest requires --input_manifest")
+    if args.max_seq_length <= 0:
+        parser.error(
+            f"Parameter `--max_seq_length` has to be positive, whereas `--max_seq_length={args.max_seq_length}`"
+        )
+    if args.max_seq_length - 2 * args.margin < args.step:
+        parser.error(
+            f"Parameters `--max_seq_length`, `--margin`, `--step` must satisfy condition "
+            f"`max_seq_length - 2 * margin >= step` whereas `--max_seq_length={args.max_seq_length}`, "
+            f"`--margin={args.margin}`, `--step={args.step}`."
+        )
     for name in ["input_manifest", "input_text", "output_manifest", "output_text", "model_path"]:
         if getattr(args, name) is not None:
             setattr(args, name, getattr(args, name).expanduser())
@@ -123,8 +119,31 @@ def load_manifest(manifest: Path) -> List[Dict[str, Union[str, float]]]:
     return result
 
 
+def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tuple[List[str], List[int]]:
+    segments, query_indices = [], []
+    segment_start = 0
+    for q_i, query in enumerate(texts):
+        words = query.split()
+        while segment_start + max_seq_length < len(words):
+            segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
+            query_indices.append(q_i)
+            segment_start += step
+    return segments, query_indices
+
+
 def main():
     args = get_args()
+    if args.pretrained_name is None:
+        model = MTEncDecModel.restore_from(args.model_path)
+    else:
+        model = MTEncDecModel.from_pretrained(args.pretrained_name)
+    if args.device is None:
+        if torch.cuda.is_available():
+            model = model.cuda()
+        else:
+            model = model.cpu()
+    else:
+        model = model.to(args.device)
     if args.input_manifest is None:
         texts = []
         with args.input_text.open() as f:
@@ -136,6 +155,8 @@ def main():
         texts = []
         for item in manifest:
             texts.append(item[text_key])
+    segments, query_indices = split_into_segments(texts, args.max_seq_length, args.margin)
+
 
 
 if __name__ == "__main__":
