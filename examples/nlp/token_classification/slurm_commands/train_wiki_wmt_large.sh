@@ -12,7 +12,7 @@
 #SBATCH --ntasks-per-node=16     # n tasks per machine (one task per gpu) <required>
 set -x
 USERID='apeganov'
-CONTAINER=":"
+CONTAINER="gitlab-master.nvidia.com/apeganov/speechtranslation:latest"
 WANDB="${wandb}" # replace with your own WandB API key
 
 # Training - we want to train for 300B tokens with a global batch size of at least 1M tokens
