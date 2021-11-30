@@ -12,7 +12,7 @@ model:
   preproc_out_dir: preprocessed_data # path to store data preprocessing outputs
   src_language: 'en'
   tgt_language: 'en'
-  use_decoder_tips: true
+  use_decoder_tips: false
   sum_replacement_with_original_embeddings: true
   detach_decoder_tips: false
   tgt_character_vocabulary: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/autoregressive_char_vocabulary.txt

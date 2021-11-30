@@ -55,6 +55,7 @@ echo "*******STARTING********" \
   /code/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=local_bs15000_steps100000 \
+	do_testing=false \
 	model.train_ds.ds_item="/data/train_bert_tarred_13000" \
 	model.train_ds.tar_metadata_file="metadata.punctuation_capitalization.tokens13000.max_seq_length512.bert-large-uncased.json" \
 	model.validation_ds.ds_item=[/data/europarl_dev,/data/news_commentary_dev,/data/rapid_dev,/data/wiki_dev,/data/IWSLT_tst2019] \
