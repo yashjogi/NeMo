@@ -25,13 +25,13 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="evelina_wiki_large"
+EXPNAME="evelina_wiki_wmt_large"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
 USERID='apeganov'
 LUSTRE_ACCOUNT_PREFIX=/gpfs/fs1/projects/${SLURM_ACCOUNT}
-DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_48_65_3.11.2021"
+DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_wmt_92_128_29.11.2021"
 RESULTS=${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/results/$PROJECT/$EXPNAME
 CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
@@ -55,11 +55,11 @@ echo "*******STARTING********" \
   /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=local_bs15000_steps100000 \
-	model.train_ds.tar_metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
-	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
-	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
-	model.test_ds.text_file="/data/IWSLT_tst2019/input.txt" \
-	model.test_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.train_ds.ds_item="/data/train_bert_tarred_13000" \
+	model.train_ds.tar_metadata_file="metadata.punctuation_capitalization.tokens13000.max_seq_length512.bert-large-uncased.json" \
+	model.validation_ds.ds_item=[/data/europarl_dev,/data/news_commentary_dev,/data/rapid_dev,/data/wiki_dev,/data/IWSLT_tst2019] \
+	model.validation_ds.tokens_in_batch=4092 \
+	~model.test_ds \
 	model.language_model.pretrained_model_name="bert-large-uncased" \
 	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
