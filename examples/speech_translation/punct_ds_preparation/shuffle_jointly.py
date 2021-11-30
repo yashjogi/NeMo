@@ -72,7 +72,7 @@ def main():
                 )
             united_f.write(args.line_delimiter.join(lines) + '\n')
             progress_bar.n += 1
-            for i, inp_obj in tqdm(enumerate(input_file_objects), total=num_lines, unit='line', desc="uniting files"):
+            for i, inp_obj in enumerate(input_file_objects):
                 lines[i] = inp_obj.readline()
     progress_bar.close()
     if any(lines):
