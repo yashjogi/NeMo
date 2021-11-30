@@ -75,13 +75,19 @@ model:
     r2l: false
 
   decoder_tokenizer:
-    library: yttm
-    tokenizer_model: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/autoregressive_labels.BPE.10.model
+    library: char
+    vocab_file: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/cross_char_vocabulary.txt
     bpe_dropout: 0.0
     r2l: false
     word_tokens:
-      - U
-      - O
+      - a
+      - b
+      - c
+      - d
+      - e
+      - f
+      - g
+      - h
 
   encoder:
     library: nemo
