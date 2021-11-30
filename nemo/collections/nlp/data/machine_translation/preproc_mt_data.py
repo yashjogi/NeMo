@@ -365,7 +365,6 @@ class MTDataPreproc:
         decoder_bpe_dropout,
         decoder_model_name,
         decoder_tokenizer_r2l,
-        decoder_vocab_file,
         max_seq_length,
         min_seq_length,
         tokens_in_batch,
@@ -375,7 +374,8 @@ class MTDataPreproc:
         world_size,
         n_jobs=-2,
         tar_file_prefix='parallel',
-        prepend_eos_in_tgt=False
+        prepend_eos_in_tgt=False,
+        decoder_vocab_file=None,
     ):
         """Create tarred dataset from large paired translation data.
 

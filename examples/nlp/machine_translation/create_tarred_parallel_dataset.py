@@ -78,7 +78,7 @@ if __name__ == '__main__':
         '--n_preproc_jobs', type=int, default=-2, help='Number of processes to use for creating the tarred dataset.',
     )
     parser.add_argument("--prepend_eos_in_tgt", action='store_true')
-    parser.add_argument("--decoder_vocab_file", type=Path)
+    parser.add_argument("--decoder_vocab_file", type=Path, help="Added for support of char tokenizer.")
     args = parser.parse_args()
     if args.decoder_vocab_file is not None:
         args.decoder_vocab_file = args.decoder_vocab_file.expanduser()
