@@ -61,10 +61,9 @@ def main():
         lines.append(inp_obj.readline().strip('\n'))
     line_number = 0
     num_lines = get_num_lines(args.input_files[0])
+    progress_bar = tqdm(total=num_lines, unit='line', desc="Uniting files", unit_scale=True)
     with united_file_path.open('w') as united_f:
         while all(lines):
-            for i, inp_obj in tqdm(enumerate(input_file_objects), total=num_lines, unit='line', desc="uniting files"):
-                lines[i] = inp_obj.readline()
             delimiter_in_line = [args.line_delimiter in line for line in lines]
             if any(delimiter_in_line):
                 raise ValueError(
@@ -72,6 +71,10 @@ def main():
                     f"{args.input_files[delimiter_in_line.index(True)]}."
                 )
             united_f.write(args.line_delimiter.join(lines) + '\n')
+            progress_bar.n += 1
+            for i, inp_obj in tqdm(enumerate(input_file_objects), total=num_lines, unit='line', desc="uniting files"):
+                lines[i] = inp_obj.readline()
+    progress_bar.close()
     if any(lines):
         raise ValueError(
             f"Files {', '.join([str(args.input_files[i]) for i, line in enumerate(lines) if not line])} "
