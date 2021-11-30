@@ -19,7 +19,7 @@ model:
 
   train_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/cross_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/autoregressive_labels.txt
     tokens_in_batch: 16000
     use_tarred_dataset: true
     metadata_file: null
@@ -31,7 +31,7 @@ model:
 
   validation_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/cross_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
     tokens_in_batch: 2048
     clean: false
     max_seq_length: 512
@@ -44,7 +44,7 @@ model:
 
   test_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/cross_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
     tokens_in_batch: 2048
     clean: false
     max_seq_length: 512
@@ -75,8 +75,8 @@ model:
     r2l: false
 
   decoder_tokenizer:
-    library: char
-    vocab_file: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/cross_char_vocabulary.txt
+    library: yttm
+    tokenizer_model: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/autoregressive_labels.BPE.10.model
     bpe_dropout: 0.0
     r2l: false
     word_tokens:

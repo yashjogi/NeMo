@@ -15,11 +15,11 @@ model:
   use_decoder_tips: false
   sum_replacement_with_original_embeddings: true
   detach_decoder_tips: false
-  tgt_character_vocabulary: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/autoregressive_char_vocabulary.txt
+  tgt_character_vocabulary: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/cross_char_vocabulary.txt
 
   train_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/autoregressive_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/cross_labels.txt
     tokens_in_batch: 16000
     use_tarred_dataset: true
     metadata_file: null
@@ -31,7 +31,7 @@ model:
 
   validation_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/cross_labels.txt
     tokens_in_batch: 2048
     clean: false
     max_seq_length: 512
@@ -44,7 +44,7 @@ model:
 
   test_ds:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/cross_labels.txt
     tokens_in_batch: 2048
     clean: false
     max_seq_length: 512
