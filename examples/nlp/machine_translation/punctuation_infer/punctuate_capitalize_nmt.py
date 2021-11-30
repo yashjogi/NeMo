@@ -138,6 +138,12 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
     return segments, query_indices
 
 
+def apply_autoregressive_labels(
+    queries: List[str], segment_autoregressive_labels: List[str], query_indices: List[int], step: int, margin: int
+) -> List[str]:
+
+
+
 def main():
     args = get_args()
     if args.pretrained_name is None:
@@ -186,7 +192,20 @@ def main():
             log_timing=args.write_timing,
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
         )
-
+    processed_texts = apply_autoregressive_labels(
+        texts, autoregressive_punctuation_labels, query_indices, args.step, args.margin
+    )
+    if args.output_manifest is None:
+        args.output_text.parent.mkdir(exist_ok=True, parents=True)
+        with args.output_text.open('w') as f:
+            for t in processed_texts:
+                f.write(t + '\n')
+    else:
+        args.output_manifest.parent.mkdir(exist_ok=True, parents=True)
+        with args.output_manifest.open('w') as f:
+            for item, t in zip(manifest, processed_texts):
+                item[text_key] = t
+                f.write(json.dumps(item) + '\n')
 
 
 if __name__ == "__main__":
