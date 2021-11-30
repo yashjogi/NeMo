@@ -71,7 +71,7 @@ def main():
                     f"Line delimiter {repr(args.line_delimiter)} is present in line number {line_number} in file "
                     f"{args.input_files[delimiter_in_line.index(True)]}."
                 )
-            print("joined:", repr(args.line_delimiter.join(lines)))
+            # print("joined:", repr(args.line_delimiter.join(lines)))
             united_f.write(args.line_delimiter.join(lines) + '\n')
             progress_bar.n += 1
             progress_bar.update(0)
