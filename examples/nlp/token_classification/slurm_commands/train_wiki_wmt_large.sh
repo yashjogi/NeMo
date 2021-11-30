@@ -12,7 +12,7 @@
 #SBATCH --ntasks-per-node=16     # n tasks per machine (one task per gpu) <required>
 set -x
 USERID='apeganov'
-CONTAINER="gitlab-master.nvidia.com/apeganov/speechtranslation:latest"
+CONTAINER=":"
 WANDB="${wandb}" # replace with your own WandB API key
 
 # Training - we want to train for 300B tokens with a global batch size of at least 1M tokens
@@ -52,7 +52,7 @@ echo "*******STARTING********" \
 && echo "Starting training" \
 && cd /code/ \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
-  /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
+  /code/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py \
 	--config-path=/code/examples/nlp/token_classification/conf/wiki \
 	--config-name=local_bs15000_steps100000 \
 	model.train_ds.ds_item="/data/train_bert_tarred_13000" \
