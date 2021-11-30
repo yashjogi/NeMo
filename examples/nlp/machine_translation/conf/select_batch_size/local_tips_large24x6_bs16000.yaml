@@ -21,8 +21,8 @@ model:
     src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/input.txt
     tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/small/autoregressive_labels.txt
     tokens_in_batch: 16000
-    use_tarred_dataset: false
-    metadata_file: null
+    use_tarred_dataset: true
+    metadata_file: metadata.json
     clean: false
     shuffle: true
     drop_last: false
