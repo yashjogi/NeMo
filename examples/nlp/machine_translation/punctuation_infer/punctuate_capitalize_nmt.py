@@ -92,6 +92,12 @@ def get_args():
         help="Which device to use. If device is not set and CUDA is available, then GPU will be used. If device is "
         "not set and CUDA is not available, then CPU is used.",
     )
+    parser.add_argument(
+        "--add_source_num_words_to_batch",
+        action="store_true",
+        help="Whether to pass number of words in source sequences to beam search generator. Set this if fixed length " \
+        "beam search is used."
+    )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
         parser.error("--output_manifest requires --input_manifest")
@@ -170,6 +176,17 @@ def main():
         max_delta_length=args.max_delta_length,
         decoder_word_ids=model.decoder_tokenizer.word_ids,
     )
+    autoregressive_punctuation_labels = []
+    for i in range(0, len(segments), args.batch_size):
+        autoregressive_punctuation_labels += model.translate(
+            text=segments[i : i + args.batch_size],
+            source_lang=args.source_lang,
+            target_lang=args.target_lang,
+            return_beam_scores=args.write_scores,
+            log_timing=args.write_timing,
+            add_src_num_words_to_batch=args.add_src_num_words_to_batch,
+        )
+
 
 
 if __name__ == "__main__":
