@@ -42,6 +42,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
     init_method_normal,
 )
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
+from nemo.collections.nlp.parts.utils_funcs import inject_model_parallel_rank
 from nemo.utils import AppState, app_state, logging
 
 
@@ -349,6 +350,11 @@ class MegatronGPTModel(NLPModel):
         """
         if stage == 'predict':
             return
+
+        # inject model parallel rank into resume path
+        if self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path is not None:
+            self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path = inject_model_parallel_rank(self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path)
+
         # TODO: consider adding a ModelPT guard to check if model is being restored.
         # allowing restored models to optionally setup datasets
         self.build_train_valid_test_datasets()
