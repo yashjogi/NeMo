@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple, Union
 import torch
 
 from nemo.collections.nlp.models.machine_translation import MTEncDecModel
+from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGenerator
 
 
 def get_args():
@@ -156,7 +157,19 @@ def main():
         for item in manifest:
             texts.append(item[text_key])
     segments, query_indices = split_into_segments(texts, args.max_seq_length, args.margin)
-
+    model.beam_search = BeamSearchSequenceGenerator(
+        embedding=model.decoder.embedding,
+        decoder=model.decoder.decoder,
+        log_softmax=model.log_softmax,
+        bos=model.decoder_tokenizer.bos_id,
+        pad=model.decoder_tokenizer.pad_id,
+        eos=model.decoder_tokenizer.eos_id,
+        max_sequence_length=model.decoder.max_sequence_length,
+        beam_size=args.beam_size,
+        len_pen=args.len_pen,
+        max_delta_length=args.max_delta_length,
+        decoder_word_ids=model.decoder_tokenizer.word_ids,
+    )
 
 
 if __name__ == "__main__":

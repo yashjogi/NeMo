@@ -9,6 +9,8 @@ from tqdm import tqdm
 
 logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
+BUFFER_SIZE = 2 ** 25
+
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -54,15 +56,14 @@ def get_num_lines(input_file):
 
 def main():
     args = get_args()
-    input_file_objects = [inp_file.open() for inp_file in args.input_files]
+    input_file_objects = [inp_file.open(buffering=BUFFER_SIZE) for inp_file in args.input_files]
     united_file_path = args.input_files[0].parent / args.united_file_name
-    lines = []
-    for i, inp_obj in enumerate(input_file_objects):
-        lines.append(inp_obj.readline().strip('\n'))
+    lines = [inp_obj.readline().strip('\n') for inp_obj in input_file_objects]
+    print("lines:", lines)
     line_number = 0
     num_lines = get_num_lines(args.input_files[0])
     progress_bar = tqdm(total=num_lines, unit='line', desc="Uniting files", unit_scale=True)
-    with united_file_path.open('w') as united_f:
+    with united_file_path.open('w', buffering=BUFFER_SIZE) as united_f:
         while all(lines):
             delimiter_in_line = [args.line_delimiter in line for line in lines]
             if any(delimiter_in_line):
@@ -84,18 +85,19 @@ def main():
     for input_file_object in input_file_objects:
         input_file_object.close()
     shuffled_file_path = args.input_files[0].parent / args.shuffled_file_name
+    logging.info(f"Shuffling: shuf {united_file_path} > {shuffled_file_path}")
     with shuffled_file_path.open('w') as f:
         run(['shuf', str(united_file_path)], stdout=f)
     os.remove(united_file_path)
     for out_file in args.output_files:
         out_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file_objects = [out_file.open('w') for out_file in args.output_files]
-    with shuffled_file_path.open() as f:
+    output_file_objects = [out_file.open('w', buffering=BUFFER_SIZE) for out_file in args.output_files]
+    with shuffled_file_path.open(buffering=BUFFER_SIZE) as f:
         for line_i, tmp_line in tqdm(enumerate(f), total=num_lines, unit='line', desc="spliting lines"):
             lines = tmp_line.strip().split(args.line_delimiter)
             assert len(lines) == len(output_file_objects), (
-                f"Number of lines {len(lines)} in shuffled file does not equal number of output file objects "
-                f"{output_file_objects}."
+                f"Number of lines {len(lines)} in shuffled file {shuffled_file_path }does not equal number of output"
+                f"file objects {output_file_objects}. Line from shuffled file: {repr(tmp_line)}"
             )
             for i, line in enumerate(lines):
                 output_file_objects[i].write(line + '\n')
