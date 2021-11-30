@@ -1,7 +1,13 @@
 import argparse
+import logging
 import os
 from pathlib import Path
-from subprocess import run
+from subprocess import run, PIPE
+
+from tqdm import tqdm
+
+
+logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s - %(message)s')
 
 
 def get_args() -> argparse.Namespace:
@@ -41,6 +47,11 @@ def get_args() -> argparse.Namespace:
     return args
 
 
+def get_num_lines(input_file):
+    result = run(['wc', '-l', str(input_file)], stdout=PIPE, stderr=PIPE)
+    return int(result.stdout.decode('utf-8').split()[0])
+
+
 def main():
     args = get_args()
     input_file_objects = [inp_file.open() for inp_file in args.input_files]
@@ -49,9 +60,10 @@ def main():
     for i, inp_obj in enumerate(input_file_objects):
         lines.append(inp_obj.readline().strip('\n'))
     line_number = 0
+    num_lines = get_num_lines(args.input_files[0])
     with united_file_path.open('w') as united_f:
         while all(lines):
-            for i, inp_obj in enumerate(input_file_objects):
+            for i, inp_obj in tqdm(enumerate(input_file_objects), total=num_lines, unit='line', desc="uniting files"):
                 lines[i] = inp_obj.readline()
             delimiter_in_line = [args.line_delimiter in line for line in lines]
             if any(delimiter_in_line):
@@ -75,9 +87,12 @@ def main():
         out_file.parent.mkdir(parents=True, exist_ok=True)
     output_file_objects = [out_file.open('w') for out_file in args.output_files]
     with shuffled_file_path.open() as f:
-        for tmp_line in f:
+        for line_i, tmp_line in tqdm(enumerate(f), total=num_lines, unit='line', desc="spliting lines"):
             lines = tmp_line.strip().split(args.line_delimiter)
-            assert len(lines) == len(output_file_objects)
+            assert len(lines) == len(output_file_objects), (
+                f"Number of lines {len(lines)} in shuffled file does not equal number of output file objects "
+                f"{output_file_objects}."
+            )
             for i, line in enumerate(lines):
                 output_file_objects[i].write(line + '\n')
     for output_file_object in output_file_objects:
