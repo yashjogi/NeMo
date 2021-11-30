@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -98,6 +99,12 @@ def get_args():
         help="Whether to pass number of words in source sequences to beam search generator. Set this if fixed length " \
         "beam search is used."
     )
+    parser.add_argument(
+        "--capitalization_labels",
+        defalt="OuU",
+        help="A string containing all characters used as capitalization labels. THE FIRST CHARACTER IN A STRING HAS "
+        "TO BE NEUTRAL LABEL."
+    )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
         parser.error("--output_manifest requires --input_manifest")
@@ -136,6 +143,29 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
             query_indices.append(q_i)
             segment_start += step
     return segments, query_indices
+
+
+def adjust_predicted_labels_length(
+    segments: List[str], autoregressive_labels: List[str], capitalization_labels: str
+) -> List[str]:
+    result = []
+    capitalization_pattern = re.compile(f"[{capitalization_labels}]")
+    for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
+        num_words = len(segment.split())
+        num_word_labels = len(capitalization_pattern.findall(segment))
+        if num_words > num_word_labels:
+            if labels[-1] != ' ':
+                labels += ' ' + (capitalization_labels[0] + ' ') * (num_words - num_word_labels)
+        elif num_words < num_word_labels:
+            i = num_word_labels
+            pos = len(labels) - 1
+            while i > num_words:
+                if labels[pos] in capitalization_labels:
+                    i -= 1
+                pos -= 1
+            labels = labels[: pos + 1]
+        result.append(labels)
+    return result
 
 
 def apply_autoregressive_labels(
