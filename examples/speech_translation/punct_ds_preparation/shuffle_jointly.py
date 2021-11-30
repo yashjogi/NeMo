@@ -56,29 +56,24 @@ def get_num_lines(input_file):
 
 def main():
     args = get_args()
-    print("delimiter:", repr(args.line_delimiter))
     input_file_objects = [inp_file.open(buffering=BUFFER_SIZE) for inp_file in args.input_files]
     united_file_path = args.input_files[0].parent / args.united_file_name
     lines = [inp_obj.readline().strip('\n') for inp_obj in input_file_objects]
-    print("lines:", lines)
     line_number = 0
     num_lines = get_num_lines(args.input_files[0])
     progress_bar = tqdm(total=num_lines, unit='line', desc="Uniting files", unit_scale=True)
     with united_file_path.open('w', buffering=BUFFER_SIZE) as united_f:
         while all(lines):
             delimiter_in_line = [args.line_delimiter in line for line in lines]
-            print("lines:", lines)
             if any(delimiter_in_line):
                 raise ValueError(
                     f"Line delimiter {repr(args.line_delimiter)} is present in line number {line_number} in file "
                     f"{args.input_files[delimiter_in_line.index(True)]}."
                 )
-            print("joined:", repr(args.line_delimiter.join(lines)))
             united_f.write(args.line_delimiter.join(lines) + '\n')
             progress_bar.n += 1
             progress_bar.update(0)
-            for i, inp_obj in enumerate(input_file_objects):
-                lines[i] = inp_obj.readline()
+            lines = [inp_obj.readline().strip('\n') for inp_obj in input_file_objects]
     progress_bar.close()
     if any(lines):
         raise ValueError(
