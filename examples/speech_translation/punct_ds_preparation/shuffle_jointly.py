@@ -56,6 +56,7 @@ def get_num_lines(input_file):
 
 def main():
     args = get_args()
+    print("delimiter:", repr(args.line_delimiter))
     input_file_objects = [inp_file.open(buffering=BUFFER_SIZE) for inp_file in args.input_files]
     united_file_path = args.input_files[0].parent / args.united_file_name
     lines = [inp_obj.readline().strip('\n') for inp_obj in input_file_objects]
