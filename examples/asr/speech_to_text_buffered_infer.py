@@ -164,7 +164,10 @@ def main():
         asr_model = nemo_asr.models.EncDecCTCModelBPE.restore_from(restore_path=args.asr_model)
     else:
         logging.info(f"Using NGC cloud ASR model {args.asr_model}")
-        asr_model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained(model_name=args.asr_model)
+        if "contextnet" in args.asr_model or "transducer" in args.asr_model:
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(model_name=args.asr_model)
+        else:
+            asr_model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained(model_name=args.asr_model)
 
     if args.vad_model:
         if args.vad_model.endswith('.nemo'):
