@@ -30,18 +30,8 @@ model:
     num_workers: 8
 
   validation_ds:
-    src_file_name:
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/wiki_dev/input.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/rapid_dev/input.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/news_commentary_dev/input.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/europarl_dev/input.txt
-    tgt_file_name:
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/wiki_dev/autoregressive_labels.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/rapid_dev/autoregressive_labels.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/news_commentary_dev/autoregressive_labels.txt
-      - /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/europarl_dev/autoregressive_labels.txt
+    src_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
+    tgt_file_name: /media/apeganov/DATA/wiki_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
     tokens_in_batch: 2048
     clean: false
     max_seq_length: 512
@@ -163,3 +153,7 @@ exp_manager:
     name: debug_decoder_tips_all_new_features
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
+  checkpoint_callback_params:
+    save_best_model: true
+    monitor: val_CER
+    mode: min
