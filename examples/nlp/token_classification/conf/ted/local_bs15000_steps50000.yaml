@@ -59,7 +59,7 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/train
+    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/train
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: true
@@ -74,11 +74,11 @@ model:
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
     ds_item:
-      - /media/apeganov/DATA/TED_92_128_29.11.2021/IWSLT_tst2019
-      - /media/apeganov/DATA/TED_92_128_29.11.2021/europarl_dev
-      - /media/apeganov/DATA/TED_92_128_29.11.2021/wiki_dev
-      - /media/apeganov/DATA/TED_92_128_29.11.2021/rapid_dev
-      - /media/apeganov/DATA/TED_92_128_29.11.2021/news_commentary_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/IWSLT_tst2019
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/europarl_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/wiki_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/rapid_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/news_commentary_dev
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: false
@@ -91,7 +91,7 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/IWSLT_tst2019
+    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/for_upload/IWSLT_tst2019
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: false
