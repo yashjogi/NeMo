@@ -17,9 +17,9 @@ python punctuation_capitalization_train_evaluate.py --config-path=conf/ted \
     model.validation_ds.ds_item=[/data/IWSLT_tst2019,/data/europarl_dev,/data/wiki_dev,/data/rapid_dev,/data/news_commentary_dev] \
     model.test_ds.ds_item=/data/IWSLT_tst2019 \
     trainer.gpus=1 \
-    model.train_ds.label_info_save_dir=/result/train_label_ids \
-    model.validation_ds.label_info_save_dir=/result/validation_label_ids \
-    model.test_ds.label_info_save_dir=/result/test_label_ids
+    +model.train_ds.label_info_save_dir=/result/train_label_ids \
+    +model.validation_ds.label_info_save_dir=/result/validation_label_ids \
+    +model.test_ds.label_info_save_dir=/result/test_label_ids
 set +e +x
 EOF
 
