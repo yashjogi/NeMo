@@ -26,7 +26,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingSampler,
 )
 from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import build_train_valid_test_datasets
-from nemo.collections.nlp.models.language_modeling.megatron.t5_model import T5Model
+from nemo.collections.nlp.models.language_modeling.megatron.enc_dec_model import EncDecModel
 from nemo.collections.nlp.models.nlp_model import NLPModel
 from nemo.collections.nlp.modules.common.megatron.clip_grads import clip_grad_norm_fp32
 from nemo.collections.nlp.modules.common.megatron.megatron_init import (
@@ -81,7 +81,7 @@ class MegatronT5Model(NLPModel):
             tensor_model_parallel_size=cfg.get('tensor_model_parallel_size', 1),
         )
 
-        self.model = T5Model(
+        self.model = EncDecModel(
             vocab_size=padded_vocab_size,
             hidden_size=cfg.hidden_size,
             max_position_embeddings=cfg.max_position_embeddings,
