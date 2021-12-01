@@ -423,8 +423,15 @@ class MegatronGPTModel(NLPModel):
         if clip_val <= 0:
             return
 
-        parameters = self.model.parameters()
+        parameters = self.get_parameters()
         clip_grad_norm_fp32(parameters=parameters, max_norm=clip_val)
+
+    def get_parameters(self):
+        params = []
+        for param_group in self._optimizer_param_groups:
+            for param in param_group['params']:
+                params.append(param)
+        return params
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:
         request = batch
