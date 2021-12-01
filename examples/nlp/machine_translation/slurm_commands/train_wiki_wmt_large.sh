@@ -6,7 +6,7 @@
 #SBATCH --exclusive
 #SBATCH --mem=0
 #SBATCH --gpus-per-node=16
-#SBATCH -J "ent_aiapps_asr:punctuation_capitalization_on_wiki_with_quotes"  # job name (<< CHANGE ! >>)
+#SBATCH -J "ent_aiapps_asr:punctuation_capitalization_using_NMT_large24x6_bs18000"  # job name (<< CHANGE ! >>)
 #SBATCH --mail-type=FAIL        # only send email on failure
 #SBATCH --overcommit
 #SBATCH --ntasks-per-node=16     # n tasks per machine (one task per gpu) <required>
@@ -31,7 +31,7 @@ EXPNAME="nmt_wiki_large"
 SLURM_ACCOUNT='ent_aiapps'
 USERID='apeganov'
 LUSTRE_ACCOUNT_PREFIX=/gpfs/fs1/projects/${SLURM_ACCOUNT}
-DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_48_65_3.11.2021"
+DATA="${LUSTRE_ACCOUNT_PREFIX}/datasets/data/punctuation_capitalization/wiki_wmt_92_128_29.11.2021"
 RESULTS=${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/results/$PROJECT/$EXPNAME
 CODE="${LUSTRE_ACCOUNT_PREFIX}/users/${USERID}/code/NeMo"
 
@@ -56,12 +56,11 @@ echo "*******STARTING********" \
 	--config-path=/code/examples/nlp/machine_translation/conf/select_batch_size \
 	--config-name=local_large24x6_bs16000 \
 	model.train_ds.use_tarred_dataset=true \
-	model.train_ds.metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
+	model.train_ds.metadata_file="/data/train_autoregressive_tarred_18000/metadata.tokens.18000.json" \
 	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
 	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
 	model.test_ds.text_file="/data/IWSLT_tst2019/input.txt" \
 	model.test_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
-	model.language_model.pretrained_model_name="bert-large-uncased" \
 	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
 	trainer.max_steps=${MAX_STEPS} \
@@ -73,7 +72,7 @@ echo "*******STARTING********" \
 	+exp_manager.resume_if_exists=True \
 	+exp_manager.resume_ignore_no_checkpoint=True \
 	exp_manager.create_checkpoint_callback=True \
-	+exp_manager.checkpoint_callback_params.monitor=val_loss \
+	+exp_manager.checkpoint_callback_params.monitor=val_CER \
 	+exp_manager.checkpoint_callback_params.save_top_k=3 \
 	+exp_manager.checkpoint_callback_params.mode=min \
 	+exp_manager.checkpoint_callback_params.always_save_nemo=False
