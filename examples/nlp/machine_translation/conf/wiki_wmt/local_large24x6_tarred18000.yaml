@@ -20,7 +20,7 @@ model:
   train_ds:
     src_file_name: null
     tgt_file_name: null
-    tokens_in_batch: null
+    tokens_in_batch: 18000
     use_tarred_dataset: true
     metadata_file: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/train_autoregressive_tarred_18000/metadata.tokens.18000.json
     clean: false
