@@ -52,9 +52,9 @@ echo "*******STARTING********" \
 && echo "Starting training" \
 && cd /code/ \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
-  /code/examples/nlp/token_classification/punctuation_capitalization_train.py \
-	--config-path=/code/examples/nlp/token_classification/conf/wiki \
-	--config-name=train_local \
+  /code/examples/nlp/machine_translation/enc_dec_nmt.py \
+	--config-path=/code/examples/nlp/machine_translation/conf/select_batch_size \
+	--config-name=local_large24x6_bs16000 \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_bert_tarred/metadata.punctuation_capitalization.tokens15000.max_seq_length512.bert-base-uncased.json" \
 	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \

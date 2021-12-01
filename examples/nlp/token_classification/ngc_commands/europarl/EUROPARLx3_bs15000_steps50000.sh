@@ -13,7 +13,7 @@ wandb login ${WANDB_API_KEY}
 python punctuation_capitalization_train_evaluate.py --config-path=conf/ted \
     --config-name local_bs15000_steps50000 \
     exp_manager.exp_dir=/result \
-    exp_manager.wandb_logger_kwargs.name=EUROPARLx3_bs15000_steps300000
+    exp_manager.wandb_logger_kwargs.name=EUROPARLx3_bs15000_steps300000 \
     model.train_ds.ds_item=/data/train \
     model.validation_ds.ds_item=[/data/IWSLT_tst2019,/data/europarl_dev,/data/wiki_dev,/data/rapid_dev,/data/news_commentary_dev] \
     model.test_ds.ds_item=/data/IWSLT_tst2019 \
