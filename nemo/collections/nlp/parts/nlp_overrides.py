@@ -149,9 +149,7 @@ class NLPDDPPlugin(DDPPlugin):
     def load_model_state_dict(self, checkpoint: Mapping[str, Any]) -> None:
         # Release strict state dict matching when using Megatron AMP-O2 to skip matching
         # half-precision module wrapper module.
-        self.lightning_module.load_state_dict(
-            checkpoint["state_dict"], strict=self.strict_state_matching
-        )
+        self.lightning_module.load_state_dict(checkpoint["state_dict"], strict=self.strict_state_matching)
 
     def remove_checkpoint(self, filepath: _PATH) -> None:
         # PTL override to accomodate model parallel checkpoints
@@ -348,7 +346,7 @@ class GradScaler(torch.cuda.amp.GradScaler):
                     )
                 else:
                     # Only reset the growth tracker when hysteresis is larger than zero
-                    _growth_tracker.fill_(0.)
+                    _growth_tracker.fill_(0.0)
             else:
                 # When no inf found, follow the native grad scale update rule.
                 # Increment growth_tracker, update scale when growth tracker reaches the interval, and
@@ -370,12 +368,18 @@ class GradScaler(torch.cuda.amp.GradScaler):
         """
         Add hysteresis_tracker to the native functions' state_dict
         """
-        return {"scale": self.get_scale(),
+        return (
+            {
+                "scale": self.get_scale(),
                 "growth_factor": self._growth_factor,
                 "backoff_factor": self._backoff_factor,
                 "growth_interval": self._growth_interval,
                 "_growth_tracker": self._get_growth_tracker(),
-                "_hysteresis_tracker": self._hysteresis_tracker} if self._enabled else {}
+                "_hysteresis_tracker": self._hysteresis_tracker,
+            }
+            if self._enabled
+            else {}
+        )
 
     def load_state_dict(self, state_dict):
         """
@@ -385,8 +389,10 @@ class GradScaler(torch.cuda.amp.GradScaler):
             return
 
         if len(state_dict) == 0:
-            raise RuntimeError("The source state dict is empty, possibly because it was saved "
-                               "from a disabled instance of GradScaler.")
+            raise RuntimeError(
+                "The source state dict is empty, possibly because it was saved "
+                "from a disabled instance of GradScaler."
+            )
 
         self._init_scale = state_dict["scale"]
         if self._scale is not None:
@@ -414,10 +420,7 @@ class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
     """
 
     def __init__(
-        self,
-        precision: Union[str, int],
-        device: str,
-        scaler: Optional[torch.cuda.amp.GradScaler] = None
+        self, precision: Union[str, int], device: str, scaler: Optional[torch.cuda.amp.GradScaler] = None
     ) -> None:
         super().__init__(precision, device, scaler)
 
@@ -429,8 +432,9 @@ class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
         closure: Callable[[], Any],
         **kwargs: Any,
     ) -> None:
-        assert isinstance(optimizer, MasterOptimizerWrapper), \
-            "MegatronHalfPrecisionPlugin supports only the optimizer with master parameters"
+        assert isinstance(
+            optimizer, MasterOptimizerWrapper
+        ), "MegatronHalfPrecisionPlugin supports only the optimizer with master parameters"
 
         if self.scaler is None:
             assert optimizer.fp32_grad_accumulation, "BF16 uses FP32 grad accumulation"
@@ -452,8 +456,8 @@ class MegatronHalfPrecisionPlugin(NativeMixedPrecisionPlugin):
         assert not optimizer.fp32_grad_accumulation, "FP16 uses FP16 grad accumulation"
         closure_result = closure()
 
-        #TODO: Add an option for merged all-reduce
-        
+        # TODO: Add an option for merged all-reduce
+
         # cast fp16 grads to fp32 and copy to main grads, which are used for unscale and param update
         optimizer.copy_model_grads_to_main_grads()
         # `unscale` after the closure is executed but before the `on_before_optimizer_step` hook.
