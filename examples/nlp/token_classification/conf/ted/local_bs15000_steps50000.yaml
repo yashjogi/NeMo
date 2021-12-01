@@ -19,7 +19,7 @@ pretrained_model: null # pretrained Punctuation and Capitalization model from li
 # or your_model.nemo
 trainer:
   gpus: 1 # the number of gpus, 0 for CPU
-  max_steps: 300000 # precedence over max_epochs
+  max_steps: 50000 # precedence over max_epochs
   accumulate_grad_batches: 1 # accumulates grads every k batches
   gradient_clip_val: 0.0
   amp_backend: apex
@@ -33,7 +33,7 @@ trainer:
   progress_bar_refresh_rate: 0
 
 exp_manager:
-  exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
+  exp_dir: nemo_experiments/TEDx5_bs15000_steps50000  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
   name: Punctuation_and_Capitalization  # The name of your model
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   checkpoint_callback_params:
@@ -42,7 +42,7 @@ exp_manager:
     mode: max
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: TED_x4_bs15000_steps300000
+    name: TEDx5_bs15000_steps50000
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
 
@@ -59,7 +59,7 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    ds_item: /media/apeganov/DATA/prepared_TED_48_65_23.11.2021/train
+    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/train
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: true
@@ -73,7 +73,12 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    ds_item: /media/apeganov/DATA/prepared_TED_48_65_23.11.2021/IWSLT_tst2019
+    ds_item:
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/IWSLT_tst2019
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/europarl_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/wiki_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/rapid_dev
+      - /media/apeganov/DATA/TED_92_128_29.11.2021/news_commentary_dev
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: false
@@ -86,7 +91,7 @@ model:
     # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
     # evaluation is needed, specify ds_item, otherwise by default data_dir is used
     use_tarred_dataset: false
-    ds_item: /media/apeganov/DATA/prepared_TED_48_65_23.11.2021/IWSLT_tst2019
+    ds_item: /media/apeganov/DATA/TED_92_128_29.11.2021/IWSLT_tst2019
     text_file: input.txt
     labels_file: bert_labels.txt
     shuffle: false
