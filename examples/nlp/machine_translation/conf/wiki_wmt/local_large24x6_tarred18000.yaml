@@ -24,6 +24,7 @@ model:
     use_tarred_dataset: true
     metadata_file: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/train_autoregressive_tarred_18000/metadata.tokens.18000.json
     clean: false
+    max_seq_length: 4096
     shuffle: true
     drop_last: false
     pin_memory: false
@@ -34,7 +35,7 @@ model:
     tgt_file_name: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
     tokens_in_batch: 2048
     clean: false
-    max_seq_length: 4092
+    max_seq_length: 4096
     shuffle: false
     num_samples: -1
     drop_last: false
@@ -47,7 +48,7 @@ model:
     tgt_file_name: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
     tokens_in_batch: 2048
     clean: false
-    max_seq_length: 4092
+    max_seq_length: 4096
     shuffle: false
     num_samples: -1
     drop_last: false
@@ -87,7 +88,7 @@ model:
     library: nemo
     model_name: null
     pretrained: false
-    max_sequence_length: 4092
+    max_sequence_length: 4096
     num_token_types: 0
     embedding_dropout: 0.1
     learn_positional_encodings: false
@@ -107,7 +108,7 @@ model:
     library: nemo
     model_name: null
     pretrained: false
-    max_sequence_length: 512
+    max_sequence_length: 4096
     num_token_types: 0
     embedding_dropout: 0.1
     learn_positional_encodings: false
