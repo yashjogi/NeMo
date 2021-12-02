@@ -106,6 +106,13 @@ def get_args():
         help="A string containing all characters used as capitalization labels. THE FIRST CHARACTER IN A STRING HAS "
         "TO BE NEUTRAL LABEL."
     )
+    parser.add_argument(
+        "--no_all_upper_label",
+        action="store_true",
+        help="Whether to use 'u' as first character capitalization and 'U' as capitalization of all characters in a "
+        "word. If not set, then 'U' is for capitalization of first character in a word, 'O' for absence of "
+        "capitalization, 'u' is not used.",
+    )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
         parser.error("--output_manifest requires --input_manifest")
@@ -170,6 +177,66 @@ def adjust_predicted_labels_length(
     return result
 
 
+def update_label_counter(
+    counter: Dict[str, List[int]], lbl: str, num_words_in_segment: int, word_ind_in_segment: int
+) -> None:
+    if lbl in counter:
+        counter[lbl][0] += 1
+        counter[lbl][1] += min(word_ind_in_segment + 1, num_words_in_segment - word_ind_in_segment - 1)
+    else:
+        counter[lbl] = [1, min(word_ind_in_segment + 1, num_words_in_segment - word_ind_in_segment - 1)]
+
+
+def get_label_votes(
+    query: str,
+    q_i: int,
+    current_segment_i: int,
+    segment_autoregressive_labels: List[str],
+    query_indices: List[int],
+    step: int,
+    margin: int,
+    capitalization_labels: str,
+) -> Tuple[List[Dict[str, List[int]]], List[Dict[str, List[int]]], int]:
+    capitalization_pattern = re.compile(f"([{capitalization_labels}])")
+    words = query.split()
+    num_words = len(words)
+    punctuation_voting = [{} for _ in range(num_words + 1)]
+    capitalization_voting = [{} for _ in range(num_words)]
+    segment_id_in_query = 0
+    while query_indices[current_segment_i] == q_i:
+        num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
+        the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
+        labels = capitalization_labels.split(segment_autoregressive_labels[current_segment_i])
+        num_processed_words_in_segment = 0
+        for lbl_i, lbl in enumerate(labels):
+            if lbl in capitalization_labels:
+                num_processed_words_in_segment += 1
+            if segment_id_in_query > 0 and num_processed_words_in_segment <= margin != 0:
+                continue
+            if not the_last_segment and num_processed_words_in_segment > num_words_in_segment - margin:
+                break
+            query_word_i = step * current_segment_i + num_processed_words_in_segment - 1
+            if lbl_i % 2:
+                assert lbl in capitalization_labels
+                update_label_counter(
+                    capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
+                )
+            else:
+                assert lbl not in capitalization_labels
+                update_label_counter(
+                    punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
+                )
+        segment_id_in_query += 1
+        current_segment_i += 1
+    return punctuation_voting, capitalization_voting, current_segment_i
+
+
+def select_best_label(votes):
+    votes = sorted(votes.items(), key=lambda x: -x[1][1] / x[1][0])
+    votes = sorted(votes, key=lambda x: -x[1][0])
+    return votes[0][0]
+
+
 def apply_autoregressive_labels(
     queries: List[str],
     segment_autoregressive_labels: List[str],
@@ -178,38 +245,46 @@ def apply_autoregressive_labels(
     step: int,
     margin: int,
     capitalization_labels: str,
+    no_all_upper_label: bool,
 ) -> List[str]:
-    capitalization_pattern = re.compile(f"([{capitalization_labels}])")
     result = []
     current_segment_i = 0
     for q_i, query in enumerate(queries):
+        punctuation_voting, capitalization_voting, current_segment_i = get_label_votes(
+            query,
+            q_i,
+            current_segment_i,
+            segment_autoregressive_labels,
+            query_indices,
+            step,
+            margin,
+            capitalization_labels,
+        )
         words = query.split()
-        num_words = len(words)
-        punctuation_voting = [Counter() for _ in range(num_words + 1)]
-        capitalization_voting = [Counter() for _ in range(num_words)]
-        j = 0
-        while query_indices[j] == q_i:
-            num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[j]))
-            the_last_segment = j * step + num_words_in_segment >= num_words
-            labels = capitalization_labels.split(segment_autoregressive_labels[j])
-            num_processed = 0
-            for lbl_i, lbl in enumerate(labels):
-                if lbl in capitalization_labels:
-                    num_processed += 1
-                if j > 0 and num_processed <= margin != 0:
-                    continue
-                if not the_last_segment and num_processed > num_words_in_segment - margin:
-                    break
-                if lbl_i % 2:
-                    assert lbl in capitalization_labels
-                    if lbl:
-                        capitalization_voting[lbl_i // 2].update([lbl])
+        processed_query = select_best_label(punctuation_voting[0])
+        for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting)):
+            capitalization_label = select_best_label(cv)
+            punctuation_label = select_best_label(cv)
+            error_msg = f"Unexpected capitalization label {repr(capitalization_label)} in word {i} in a query {q_i}."
+            if no_all_upper_label:
+                if capitalization_label == 'U':
+                    processed_query += word.capitalize()
+                elif capitalization_label == 'O':
+                    processed_query += word
                 else:
-                    assert lbl not in capitalization_labels
-                    if lbl:
-                        punctuation_voting[lbl_i // 2].update([lbl])
-
-
+                    raise ValueError(error_msg)
+            else:
+                if capitalization_label == 'U':
+                    processed_query += word.upper()
+                elif capitalization_label == 'u':
+                    processed_query += word.capitalize()
+                elif capitalization_label == 'O':
+                    processed_query += word
+                else:
+                    raise ValueError(error_msg)
+            processed_query += punctuation_label
+        result.append(processed_query)
+    return result
 
 
 def main():
@@ -236,7 +311,16 @@ def main():
         texts = []
         for item in manifest:
             texts.append(item[text_key])
-    segments, query_indices, start_word_i = split_into_segments(texts, args.max_seq_length, args.margin)
+    not_empty_queries, not_empty_indices = [], []
+    empty_queries, empty_indices = [], []
+    for i, text in enumerate(texts):
+        if text.strip():
+            not_empty_queries.append(text)
+            not_empty_indices.append(i)
+        else:
+            empty_queries.append(text)
+            empty_indices.append(i)
+    segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.margin)
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
         decoder=model.decoder.decoder,
@@ -260,18 +344,30 @@ def main():
             log_timing=args.write_timing,
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
         )
-    processed_texts = apply_autoregressive_labels(
-        texts, autoregressive_punctuation_labels, query_indices, start_word_i, args.step, args.margin, args.capitalization_labels
+    processed_queries = apply_autoregressive_labels(
+        texts,
+        autoregressive_punctuation_labels,
+        query_indices,
+        start_word_i,
+        args.step,
+        args.margin,
+        args.capitalization_labels,
+        args.no_all_upper_label,
     )
+    result_texts = [""] * len(texts)
+    for i, processed_query in zip(not_empty_indices, processed_queries):
+        result_texts[i] = processed_query
+    for i, empty_query in zip(empty_indices, empty_queries):
+        result_texts[i] = empty_query
     if args.output_manifest is None:
         args.output_text.parent.mkdir(exist_ok=True, parents=True)
         with args.output_text.open('w') as f:
-            for t in processed_texts:
+            for t in result_texts:
                 f.write(t + '\n')
     else:
         args.output_manifest.parent.mkdir(exist_ok=True, parents=True)
         with args.output_manifest.open('w') as f:
-            for item, t in zip(manifest, processed_texts):
+            for item, t in zip(manifest, result_texts):
                 item[text_key] = t
                 f.write(json.dumps(item) + '\n')
 
