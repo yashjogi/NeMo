@@ -13,10 +13,16 @@ wandb login ${WANDB_API_KEY}
 python punctuation_capitalization_train_evaluate.py --config-path=conf/ted \
     --config-name local_bs15000_steps50000 \
     exp_manager.exp_dir=/result \
+    exp_manager.wandb_logger_kwargs.name=RAPIDx3_bs13500_steps300000 \
     model.train_ds.ds_item=/data/train \
+    model.train_ds.tokens_in_batch=13500 \
     model.validation_ds.ds_item=[/data/IWSLT_tst2019,/data/europarl_dev,/data/wiki_dev,/data/rapid_dev,/data/news_commentary_dev] \
     model.test_ds.ds_item=/data/IWSLT_tst2019 \
     trainer.gpus=1 \
+    trainer.max_steps=200000 \
+    +trainer.val_check_interval=2000 \
+    model.optim.lr=8e-5 \
+    model.optim.sched.warmup_ratio=0.04 \
     +model.train_ds.label_info_save_dir=/result/train_label_ids \
     +model.validation_ds.label_info_save_dir=/result/validation_label_ids \
     +model.test_ds.label_info_save_dir=/result/test_label_ids
@@ -25,8 +31,8 @@ EOF
 
 ngc batch run \
   --instance dgx1v.16g.1.norm \
-  --name "ml-model.bert TED_punctuation_capitalization_" \
+  --name "ml-model.bert RAPIDx3_punctuation_capitalization_bs13500_steps300000" \
   --image "nvcr.io/nvidian/ac-aiapps/speech_translation:latest" \
   --result /result \
-  --datasetid 92254:/data \
+  --datasetid 92289:/data \
   --commandline "${command}"
