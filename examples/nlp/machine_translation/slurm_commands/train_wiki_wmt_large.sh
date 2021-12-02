@@ -57,10 +57,10 @@ echo "*******STARTING********" \
 	--config-name=local_large24x6_bs16000 \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_autoregressive_tarred_18000/metadata.tokens.18000.json" \
-	model.validation_ds.text_file="/data/IWSLT_tst2019/input.txt" \
-	model.validation_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
-	model.test_ds.text_file="/data/IWSLT_tst2019/input.txt" \
-	model.test_ds.labels_file="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.validation_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
+	model.validation_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.test_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
+	model.test_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
 	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
 	trainer.max_steps=${MAX_STEPS} \
