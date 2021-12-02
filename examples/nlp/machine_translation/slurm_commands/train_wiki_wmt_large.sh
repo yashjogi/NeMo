@@ -61,10 +61,10 @@ echo "*******STARTING********" \
 	model.validation_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
 	model.test_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
 	model.test_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
-	+trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
+	trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
 	trainer.max_steps=${MAX_STEPS} \
-	+trainer.val_check_interval=${VAL_CHECK_INTERVAL} \
+	trainer.val_check_interval=${VAL_CHECK_INTERVAL} \
 	exp_manager.create_wandb_logger=true \
 	exp_manager.wandb_logger_kwargs.name=${EXPNAME} \
 	exp_manager.wandb_logger_kwargs.project=${PROJECT} \
@@ -72,9 +72,9 @@ echo "*******STARTING********" \
 	+exp_manager.resume_if_exists=True \
 	+exp_manager.resume_ignore_no_checkpoint=True \
 	exp_manager.create_checkpoint_callback=True \
-	+exp_manager.checkpoint_callback_params.monitor=val_CER \
+	exp_manager.checkpoint_callback_params.monitor=val_CER \
 	+exp_manager.checkpoint_callback_params.save_top_k=3 \
-	+exp_manager.checkpoint_callback_params.mode=min \
+	exp_manager.checkpoint_callback_params.mode=min \
 	+exp_manager.checkpoint_callback_params.always_save_nemo=False
 EOF
 
