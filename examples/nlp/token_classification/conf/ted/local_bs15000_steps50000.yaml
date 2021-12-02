@@ -24,8 +24,7 @@ trainer:
   gradient_clip_val: 0.0
   amp_backend: native
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
-  tpu_cores: 8
-  accelerator: tpu
+  accelerator: gpu
   strategy: ddp
   checkpoint_callback: false  # Provided by exp_manager
   logger: false  # Provided by exp_manager
