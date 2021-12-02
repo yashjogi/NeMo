@@ -1,6 +1,7 @@
 import argparse
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -133,16 +134,17 @@ def load_manifest(manifest: Path) -> List[Dict[str, Union[str, float]]]:
     return result
 
 
-def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tuple[List[str], List[int]]:
-    segments, query_indices = [], []
+def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tuple[List[str], List[int], List[int]]:
+    segments, query_indices, start_word_i = [], [], []
     segment_start = 0
     for q_i, query in enumerate(texts):
         words = query.split()
         while segment_start + max_seq_length < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
+            start_word_i.append(segment_start)
             query_indices.append(q_i)
             segment_start += step
-    return segments, query_indices
+    return segments, query_indices, start_word_i
 
 
 def adjust_predicted_labels_length(
@@ -169,8 +171,44 @@ def adjust_predicted_labels_length(
 
 
 def apply_autoregressive_labels(
-    queries: List[str], segment_autoregressive_labels: List[str], query_indices: List[int], step: int, margin: int
+    queries: List[str],
+    segment_autoregressive_labels: List[str],
+    query_indices: List[int],
+    start_word_i: List[int],
+    step: int,
+    margin: int,
+    capitalization_labels: str,
 ) -> List[str]:
+    capitalization_pattern = re.compile(f"([{capitalization_labels}])")
+    result = []
+    current_segment_i = 0
+    for q_i, query in enumerate(queries):
+        words = query.split()
+        num_words = len(words)
+        punctuation_voting = [Counter() for _ in range(num_words + 1)]
+        capitalization_voting = [Counter() for _ in range(num_words)]
+        j = 0
+        while query_indices[j] == q_i:
+            num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[j]))
+            the_last_segment = j * step + num_words_in_segment >= num_words
+            labels = capitalization_labels.split(segment_autoregressive_labels[j])
+            num_processed = 0
+            for lbl_i, lbl in enumerate(labels):
+                if lbl in capitalization_labels:
+                    num_processed += 1
+                if j > 0 and num_processed <= margin != 0:
+                    continue
+                if not the_last_segment and num_processed > num_words_in_segment - margin:
+                    break
+                if lbl_i % 2:
+                    assert lbl in capitalization_labels
+                    if lbl:
+                        capitalization_voting[lbl_i // 2].update([lbl])
+                else:
+                    assert lbl not in capitalization_labels
+                    if lbl:
+                        punctuation_voting[lbl_i // 2].update([lbl])
+
 
 
 
@@ -198,7 +236,7 @@ def main():
         texts = []
         for item in manifest:
             texts.append(item[text_key])
-    segments, query_indices = split_into_segments(texts, args.max_seq_length, args.margin)
+    segments, query_indices, start_word_i = split_into_segments(texts, args.max_seq_length, args.margin)
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
         decoder=model.decoder.decoder,
@@ -223,7 +261,7 @@ def main():
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
         )
     processed_texts = apply_autoregressive_labels(
-        texts, autoregressive_punctuation_labels, query_indices, args.step, args.margin
+        texts, autoregressive_punctuation_labels, query_indices, start_word_i, args.step, args.margin, args.capitalization_labels
     )
     if args.output_manifest is None:
         args.output_text.parent.mkdir(exist_ok=True, parents=True)
