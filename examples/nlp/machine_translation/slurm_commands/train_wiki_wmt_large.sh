@@ -55,6 +55,7 @@ echo "*******STARTING********" \
   /code/examples/nlp/machine_translation/enc_dec_nmt.py \
 	--config-path=/code/examples/nlp/machine_translation/conf/select_batch_size \
 	--config-name=local_large24x6_bs16000 \
+	model.tgt_character_vocabulary="/data/autoregressive_char_vocabulary.txt" \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_autoregressive_tarred_18000/metadata.tokens.18000.json" \
 	model.validation_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
