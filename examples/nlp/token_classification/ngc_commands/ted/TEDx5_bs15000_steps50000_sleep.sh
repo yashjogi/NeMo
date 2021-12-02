@@ -10,7 +10,7 @@ bash reinstall.sh
 mkdir -p /result/nemo_experiments
 cd examples/nlp/token_classification
 wandb login ${WANDB_API_KEY}
-sleep 3600
+sleep 7200
 set +e +x
 EOF
 
