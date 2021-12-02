@@ -53,8 +53,8 @@ echo "*******STARTING********" \
 && cd /code/ \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
   /code/examples/nlp/machine_translation/enc_dec_nmt.py \
-	--config-path=/code/examples/nlp/machine_translation/conf/select_batch_size \
-	--config-name=local_large24x6_bs16000 \
+	--config-path=/code/examples/nlp/machine_translation/conf/wiki_wmt \
+	--config-name=local_large24x6_tarred18000 \
 	model.tgt_character_vocabulary="/data/autoregressive_char_vocabulary.txt" \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_autoregressive_tarred_18000/metadata.tokens.18000.json" \
