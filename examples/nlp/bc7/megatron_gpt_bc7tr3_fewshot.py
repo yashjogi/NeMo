@@ -49,18 +49,30 @@ def run(model, num_samples, tokens_to_generate, temperature):
         if _ > 2:
             break
 
-    tp, fp, tn, fn = 0, 0, 0, 0
+    tp, fp, fn = 0, 0, 0
     for si in range(len(val_true)):
         true_val = val_true[si]
         pred_val = val_pred[si]
 
         pred_vals = list(set(pred_val.split(',')))
         true_vals = list(set(true_val.split(',')))
+        
+        for pred_vali in pred_vals:
+            if pred_vali in true_vals:
+                tp += 1
+            else:
+                fp += 1
         for true_vali in true_vals:
             if true_vali in pred_vals:
-                tp += 1
-            
-    aa = 1
+                pass
+            else:
+                fn += 1
+
+    prec = tp / (fp + tp)
+    rec = tp / (tp + fn)
+    f1 = 2*(prec*rec)/(prec+rec)
+
+    return prec, rec, f1
 
 if __name__ == "__main__":
 
@@ -69,4 +81,5 @@ if __name__ == "__main__":
     TEMPERATURE = 0.1
 
     # run('nemo_1.3b')
-    run('megatron_530b', NUM_PROMPT_SAMPLES, TOKENS_TO_GENERATE, TEMPERATURE)
+    prec, rec, f1 = run('megatron_530b', NUM_PROMPT_SAMPLES, TOKENS_TO_GENERATE, TEMPERATURE)
+    
