@@ -52,7 +52,7 @@ def load_tsv_convert_to_json(part: str, testing: bool = False) -> str:
         raise('Unsupported partition - option: [train; val]')
 
     df.loc[df['drug']=='-', 'drug'] = 'none'
-    df['drug'] = '"' + df['drug'] + '"'
+    df['drug'] = '{' + df['drug'] + '}'
 
     df2 = df.groupby(['tweet_id', 'text'])['drug'].apply(','.join).reset_index()
 
@@ -70,12 +70,12 @@ def load_tsv_convert_to_json(part: str, testing: bool = False) -> str:
             f.write(json.dumps(jsoni) + '\n')
     
     zero_shot_drug_samples_dict = {}
-    drugnames_list = df[~df["drug"].str.contains("none")]['drug'].unique().tolist()
+    drugnames_list = df[~df['drug'].str.contains("\{none\}")]['drug'].unique().tolist()
     for drni in drugnames_list:
         dfni = df2[df2['drug'].str.contains(drni)]
         zero_shot_drug_samples_dict[drni.lstrip('"').rstrip('"')] = json.loads(dfni[['text','drug']].to_json(orient='records'))
     
-    zero_shot_drug_samples_dict["none"] = json.loads(df2[df2['drug'].str.contains("none")].to_json(orient='records'))
+    zero_shot_drug_samples_dict['\{none\}'] = json.loads(df2[df2['drug'].str.contains('\{none\}')].to_json(orient='records'))
     with open(os.path.join(bc7_tr3_datadir, 'bc7_tr3-fewshot_' + part + '.json'), 'w', encoding='utf-8') as f:
         json.dump(zero_shot_drug_samples_dict, f, indent=2)
 
