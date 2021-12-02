@@ -25,7 +25,7 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="nmt_wiki_large"
+EXPNAME="nmt_wiki_wmt_large24x6_bs18000_steps100000"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
