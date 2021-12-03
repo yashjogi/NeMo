@@ -134,6 +134,10 @@ class MegatronGPTModel(NLPModel):
         return output_tensor
 
     def training_step(self, batch, batch_idx):
+        # currently our dataloaders are producing a micro-batch here, 
+        # but we need this to be a "global batch" which will get split
+        # into micro batches by fwd/bwd function
+        # also need to add fwd/bwd function for non-pipeline case
         tokens, labels, loss_mask, attention_mask, position_ids = self.process_batch(batch)
         if self.cfg.get('pipeline_model_parallel_size', 1) > 1:
             # we zero grads here because we also call backward here
@@ -200,7 +204,7 @@ class MegatronGPTModel(NLPModel):
 
         else:
             super().optimizer_zero_grad(*args, **kwargs)
-
+    
 
     def get_forward_output_and_loss_func(self):
         def fwd_output_and_loss_func(batch, model):
