@@ -49,7 +49,6 @@ class ResetOptimizerStepsCallback(Callback):
             and pl_module.global_step > 0
             and pl_module.global_step % pl_module.optimizer_reset_period == 0
         ):
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!RESETTING OPTIMIZER")
             optimizer.load_state_dict(pl_module.optimizer_reset_state_dict)
 
 
