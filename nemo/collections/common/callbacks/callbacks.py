@@ -50,6 +50,7 @@ class ResetOptimizerStepsCallback(Callback):
             and pl_module.global_step % pl_module.optimizer_reset_period == 0
         ):
             print("(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer:", optimizer)
+            print("(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer type:", type(optimizer))
             if isinstance(pl_module.optimizer_reset_period, list):
                 optimizer.load_state_dict(pl_module.optimizer_reset_state_dict[opt_idx])
             else:
