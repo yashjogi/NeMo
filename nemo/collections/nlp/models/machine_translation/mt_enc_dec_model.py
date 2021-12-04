@@ -174,8 +174,8 @@ class MTEncDecModel(EncDecNLPModel):
             # After this call, the model will have  self.source_processor and self.target_processor objects
             self.setup_pre_and_post_processing_utils(self.src_language, self.tgt_language)
             self.multilingual_ids = [None]
-        self.use_decoder_tips = cfg.use_decoder_tips
-        if cfg.tgt_character_vocabulary is None:
+        self.use_decoder_tips = cfg.get('use_decoder_tips', False)
+        if cfg.get('tgt_character_vocabulary') is None:
             self.tgt_character_vocabulary = None
         else:
             self.tgt_character_vocabulary = load_character_vocabulary(
