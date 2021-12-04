@@ -569,7 +569,7 @@ class ModelPT(LightningModule, Model):
 
         # Return the optimizer with/without scheduler
         # This return allows multiple optimizers or schedulers to be created
-        self.optimizer_reset_period = self._cfg.get('optimizer_reset_period', None)
+        self.optimizer_reset_period = optim_config.get('optimizer_reset_period', None)
         if self.optimizer_reset_period is None:
             self.optimizer_reset_state_dict = None
         else:
