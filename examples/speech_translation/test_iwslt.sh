@@ -83,7 +83,7 @@ if [ "${segmented}" -eq 1 ]; then
       python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
         audio_dir="${f}" \
         output_filename="${split_transcripts}/${talk_id}.manifest" \
-        cuda=true \
+        cuda=0 \
         batch_size=4
     fi
   done
