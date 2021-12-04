@@ -141,6 +141,8 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
         self.agg_loss = AggregatorLoss(num_inputs=2)
         self.optimizer_reset_period = cfg.optimizer_reset_period
         optimizers = self.optimizers()
+        print("(PunctuationCapitalizationModel.__init__)optimizers:", optimizers)
+        print("(PunctuationCapitalizationModel.__init__)optimizers type:", type(optimizers))
         if self.optimizer_reset_period is None:
             self.optimizer_reset_state_dict = None
         else:

@@ -51,6 +51,10 @@ class ResetOptimizerStepsCallback(Callback):
         ):
             print("(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer:", optimizer)
             print("(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer type:", type(optimizer))
+            print(
+                "(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer_reset_state_dict:",
+                pl_module.optimizer_reset_state_dict,
+            )
             if isinstance(pl_module.optimizer_reset_period, list):
                 optimizer.load_state_dict(pl_module.optimizer_reset_state_dict[opt_idx])
             else:
