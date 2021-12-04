@@ -91,7 +91,7 @@ def main():
     order = get_talk_id_order(args.manifest_to_align_with)
     texts_to_process = load_manifest_text(args.manifest_pred, "pred_text")
     texts = [texts_to_process[talk_id] for talk_id in order]
-    max_seq_len = 64
+    max_seq_len = 92
     processed = []
     processed_texts = model.add_punctuation_capitalization(
         texts, batch_size=MAX_NUM_SUBTOKENS_IN_INPUT // max_seq_len, max_seq_length=max_seq_len, step=8, margin=16
