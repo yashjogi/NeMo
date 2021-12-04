@@ -444,7 +444,7 @@ class ModelPT(LightningModule, Model):
                 else:
                     with open_dict(self._cfg.optim):
                         self._cfg.optim = copy.deepcopy(optim_config)
-
+        self.optimizer_reset_period = optim_config.pop('optimizer_reset_period', None)
         # Setup optimizer and scheduler
         if optim_config is not None and isinstance(optim_config, DictConfig):
             optim_config = OmegaConf.to_container(optim_config, resolve=True)
@@ -569,7 +569,6 @@ class ModelPT(LightningModule, Model):
 
         # Return the optimizer with/without scheduler
         # This return allows multiple optimizers or schedulers to be created
-        self.optimizer_reset_period = optim_config.get('optimizer_reset_period', None)
         if self.optimizer_reset_period is None:
             self.optimizer_reset_state_dict = None
         else:
