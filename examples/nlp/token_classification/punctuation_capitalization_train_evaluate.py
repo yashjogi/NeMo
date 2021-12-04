@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from copy import deepcopy
 
 import pytorch_lightning as pl
 import torch
@@ -84,11 +85,11 @@ def main(cfg: DictConfig) -> None:
     torch.manual_seed(42)
     cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
     callbacks_config = cfg.trainer.get('callbacks')
-    if callbacks_config is None:
-        callbacks = None
-    else:
-        callbacks = instantiate_callbacks(callbacks_config)
-    trainer = pl.Trainer(**cfg.trainer, callbacks=callbacks)
+    callbacks = None if callbacks_config is None else instantiate_callbacks(callbacks_config)
+    trainer_config = deepcopy(cfg.trainer.deepcopy)
+    del trainer_config.callbacks
+
+    trainer = pl.Trainer(**trainer_config, callbacks=callbacks)
     exp_manager(trainer, cfg.get("exp_manager", None))
     if not cfg.do_training and not cfg.do_testing:
         raise ValueError("At least one of config parameters `do_training` and `do_testing` has to `true`.")
