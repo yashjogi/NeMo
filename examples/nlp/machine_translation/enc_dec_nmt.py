@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional
 
@@ -19,6 +20,7 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer
 
+from nemo.collections.common.callbacks.callbacks import instantiate_callbacks
 from nemo.collections.nlp.data.machine_translation.preproc_mt_data import MTDataPreproc
 from nemo.collections.nlp.models.machine_translation.mt_enc_dec_config import MTEncDecModelConfig
 from nemo.collections.nlp.models.machine_translation.mt_enc_dec_model import MTEncDecModel
@@ -115,9 +117,12 @@ def main(cfg: MTEncDecConfig) -> None:
     logging.info(f'Config: {OmegaConf.to_yaml(cfg)}')
 
     # training is managed by PyTorch Lightning
-    trainer_cfg = OmegaConf.to_container(cfg.trainer)
+    trainer_cfg = deepcopy(OmegaConf.to_container(cfg.trainer))
     trainer_cfg.pop('plugins', None)
-    trainer = Trainer(plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes)], **trainer_cfg)
+    callbacks_config = trainer_cfg.pop('callbacks')
+    callbacks = None if callbacks_config is None else instantiate_callbacks(callbacks_config)
+
+    trainer = Trainer(plugins=[NLPDDPPlugin(num_nodes=cfg.trainer.num_nodes)], **trainer_cfg, callbacks=callbacks)
 
     # tokenizers will be trained and and tarred training data will be created if needed
     # model config is then updated
