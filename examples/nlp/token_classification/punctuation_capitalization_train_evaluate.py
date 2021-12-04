@@ -18,6 +18,7 @@ import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig, OmegaConf
 
+from nemo.collections.common.callbacks.callbacks import instantiate_callbacks
 from nemo.collections.nlp.models import PunctuationCapitalizationModel
 from nemo.collections.nlp.models.token_classification.punctuation_capitalization_config import (
     PunctuationCapitalizationConfig,
@@ -82,7 +83,12 @@ Set `do_training` to `false` and `do_testing` to `true` to perform evaluation wi
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(42)
     cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
-    trainer = pl.Trainer(**cfg.trainer)
+    callbacks_config = cfg.trainer.get('callbacks')
+    if callbacks_config is None:
+        callbacks = None
+    else:
+        callbacks = instantiate_callbacks(callbacks_config)
+    trainer = pl.Trainer(**cfg.trainer, callbacks=callbacks)
     exp_manager(trainer, cfg.get("exp_manager", None))
     if not cfg.do_training and not cfg.do_testing:
         raise ValueError("At least one of config parameters `do_training` and `do_testing` has to `true`.")
