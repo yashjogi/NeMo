@@ -44,7 +44,11 @@ class ResetOptimizerStepsCallback(Callback):
     def on_before_optimizer_step(
         self, trainer: Trainer, pl_module: LightningModule, optimizer: torch.optim.Optimizer, opt_idx: int
     ) -> None:
-        if pl_module.global_step > 0 and pl_module.global_step % pl_module.optimizer_reset_period == 0:
+        if (
+            pl_module.optimizer_reset_period is not None
+            and pl_module.global_step > 0
+            and pl_module.global_step % pl_module.optimizer_reset_period == 0
+        ):
             optimizer.load_state_dict(pl_module.optimizer_reset_state_dict)
 
 

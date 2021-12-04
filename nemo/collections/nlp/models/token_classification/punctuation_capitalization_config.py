@@ -211,6 +211,8 @@ class PunctuationCapitalizationModelConfig:
     <https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/core/core.html#optimizers>`_ section in
     documentation and `primer <https://github.com/NVIDIA/NeMo/blob/main/tutorials/00_NeMo_Primer.ipynb>_ tutorial."""
 
+    optimizer_reset_period: Optional[int] = None
+
 
 @dataclass
 class PunctuationCapitalizationConfig(NemoConfig):

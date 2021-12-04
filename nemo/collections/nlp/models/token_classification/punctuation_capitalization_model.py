@@ -139,6 +139,15 @@ class PunctuationCapitalizationModel(NLPModel, Exportable):
 
         self.loss = CrossEntropyLoss(logits_ndim=3)
         self.agg_loss = AggregatorLoss(num_inputs=2)
+        self.optimizer_reset_period = cfg.optimizer_reset_period
+        optimizers = self.optimizers()
+        if self.optimizer_reset_period is None:
+            self.optimizer_reset_state_dict = None
+        else:
+            if isinstance(optimizers, list):
+                self.optimizer_reset_state_dict = [opt.state_dict() for opt in optimizers]
+            else:
+                self.optimizer_reset_state_dict = optimizers.state_dict()
 
     @typecheck()
     def forward(
