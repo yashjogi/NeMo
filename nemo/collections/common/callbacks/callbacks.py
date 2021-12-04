@@ -49,7 +49,11 @@ class ResetOptimizerStepsCallback(Callback):
             and pl_module.global_step > 0
             and pl_module.global_step % pl_module.optimizer_reset_period == 0
         ):
-            optimizer.load_state_dict(pl_module.optimizer_reset_state_dict)
+            print("(ResetOptimizerStepsCallback.on_before_optimizer_step)optimizer:", optimizer)
+            if isinstance(pl_module.optimizer_reset_period, list):
+                optimizer.load_state_dict(pl_module.optimizer_reset_state_dict[opt_idx])
+            else:
+                optimizer.load_state_dict(pl_module.optimizer_reset_state_dict)
 
 
 def instantiate_callbacks(callback_configs: List[DictConfig]) -> List[Callback]:
