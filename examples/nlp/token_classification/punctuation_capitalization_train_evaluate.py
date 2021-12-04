@@ -87,7 +87,8 @@ def main(cfg: DictConfig) -> None:
     callbacks_config = cfg.trainer.get('callbacks')
     callbacks = None if callbacks_config is None else instantiate_callbacks(callbacks_config)
     trainer_config = deepcopy(cfg.trainer.callbacks)
-    del trainer_config.callbacks
+    if callbacks_config is not None:
+        del trainer_config.callbacks
 
     trainer = pl.Trainer(**trainer_config, callbacks=callbacks)
     exp_manager(trainer, cfg.get("exp_manager", None))
