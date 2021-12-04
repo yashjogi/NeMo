@@ -86,7 +86,7 @@ def main(cfg: DictConfig) -> None:
     cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
     callbacks_config = cfg.trainer.get('callbacks')
     callbacks = None if callbacks_config is None else instantiate_callbacks(callbacks_config)
-    trainer_config = deepcopy(cfg.trainer.deepcopy)
+    trainer_config = deepcopy(cfg.trainer.callbacks)
     del trainer_config.callbacks
 
     trainer = pl.Trainer(**trainer_config, callbacks=callbacks)
