@@ -573,7 +573,7 @@ class ModelPT(LightningModule, Model):
         if self.optimizer_reset_period is None:
             self.optimizer_reset_state_dict = None
         else:
-            self.optimizer_reset_state_dict = self._optmizer.state_dict()
+            self.optimizer_reset_state_dict = self._optimizer.state_dict()
         return self._optimizer, self._scheduler
 
     def configure_optimizers(self):
