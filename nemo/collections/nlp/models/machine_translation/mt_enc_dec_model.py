@@ -222,7 +222,7 @@ class MTEncDecModel(EncDecNLPModel):
             config_dict=decoder_cfg_dict,
             encoder=False,
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
-            encoder_token_embedding=self.encoder._embedding.token_embedding,
+            encoder_token_embedding=self.encoder._embedding.token_embedding if self.use_decoder_tips else None,
             detach_decoder_tips=cfg.get('detach_decoder_tips', False),
             sum_replacement_with_original_embeddings=cfg.get('sum_replacement_with_original_embeddings', True),
         )
