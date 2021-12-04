@@ -184,7 +184,7 @@ class MTEncDecModel(EncDecNLPModel):
                 )
             )
 
-    def __init__(self, cfg: MTEncDecModelConfig, trainer: Trainer = None):
+    def __init__(self, cfg: DictConfig, trainer: Trainer = None):
         self.pre_super(cfg, trainer)
 
         # TODO: Why is this base constructor call so late in the game?
@@ -223,7 +223,7 @@ class MTEncDecModel(EncDecNLPModel):
             encoder=False,
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
             encoder_token_embedding=self.encoder._embedding.token_embedding,
-            detach_decoder_tips=cfg.detach_decoder_tips,
+            detach_decoder_tips=cfg.get('detach_decoder_tips', False),
             sum_replacement_with_original_embeddings=cfg.sum_replacement_with_original_embeddings,
         )
 
