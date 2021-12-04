@@ -100,7 +100,7 @@ else
   python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
     audio_dir="${audio_dir}" \
     output_filename="${transcript_no_numbers}" \
-    cuda=true \
+    cuda=0 \
     batch_size=1
 fi
 
