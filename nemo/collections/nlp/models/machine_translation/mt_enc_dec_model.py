@@ -224,7 +224,7 @@ class MTEncDecModel(EncDecNLPModel):
             pre_ln_final_layer_norm=decoder_cfg_dict.get('pre_ln_final_layer_norm', False),
             encoder_token_embedding=self.encoder._embedding.token_embedding,
             detach_decoder_tips=cfg.get('detach_decoder_tips', False),
-            sum_replacement_with_original_embeddings=cfg.sum_replacement_with_original_embeddings,
+            sum_replacement_with_original_embeddings=cfg.get('sum_replacement_with_original_embeddings', True),
         )
 
         # validate hidden_size of encoder and decoder
