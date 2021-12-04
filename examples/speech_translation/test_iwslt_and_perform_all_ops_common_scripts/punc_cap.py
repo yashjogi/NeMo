@@ -16,7 +16,7 @@ LONG_NUMBER = re.compile(r"[1-9][0-9]{3,}")
 PUNCTUATION = re.compile("[.,?]")
 DECIMAL = re.compile(f"[0-9]+{PUNCTUATION.pattern}? point({PUNCTUATION.pattern}? [0-9])+", flags=re.I)
 
-MAX_NUM_SUBTOKENS_IN_INPUT = 4096
+MAX_NUM_SUBTOKENS_IN_INPUT = 8192
 
 
 def get_args():
