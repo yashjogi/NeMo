@@ -84,7 +84,7 @@ Set `do_training` to `false` and `do_testing` to `true` to perform evaluation wi
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(42)
     cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
-    trainer_config = deepcopy(cfg.trainer)
+    trainer_config = deepcopy(OmegaConf.to_container(cfg.trainer))
     callbacks_config = trainer_config.pop('callbacks')
     callbacks = None if callbacks_config is None else instantiate_callbacks(callbacks_config)
     trainer = pl.Trainer(**trainer_config, callbacks=callbacks)
