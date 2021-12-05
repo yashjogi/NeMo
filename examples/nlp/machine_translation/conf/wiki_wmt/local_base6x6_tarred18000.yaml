@@ -18,13 +18,14 @@ model:
   tgt_character_vocabulary: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/autoregressive_char_vocabulary.txt
 
   train_ds:
-    src_file_name: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
-    tgt_file_name: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/IWSLT_tst2019/autoregressive_labels.txt
+    src_file_name: null
+    tgt_file_name: null
     tokens_in_batch: 18000
+    use_tarred_dataset: true
+    metadata_file: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/train_autoregressive_tarred_18000/metadata.tokens.18000.json
     clean: false
     max_seq_length: 4096
-    shuffle: false
-    num_samples: -1
+    shuffle: true
     drop_last: false
     pin_memory: false
     num_workers: 8
@@ -66,7 +67,7 @@ model:
       name: InverseSquareRootAnnealing
       min_lr: 0.0
       last_epoch: -1
-      warmup_ratio: 0.03
+      warmup_ratio: 0.1
 
   encoder_tokenizer:
     library: yttm
@@ -87,14 +88,14 @@ model:
     library: nemo
     model_name: null
     pretrained: false
-    max_sequence_length: 4096
+    max_sequence_length: 512
     num_token_types: 0
     embedding_dropout: 0.1
     learn_positional_encodings: false
-    hidden_size: 1024
-    num_layers: 24
-    inner_size: 4096
-    num_attention_heads: 16
+    hidden_size: 512
+    num_layers: 6
+    inner_size: 2048
+    num_attention_heads: 8
     ffn_dropout: 0.1
     attn_score_dropout: 0.1
     attn_layer_dropout: 0.1
@@ -107,14 +108,14 @@ model:
     library: nemo
     model_name: null
     pretrained: false
-    max_sequence_length: 4096
+    max_sequence_length: 512
     num_token_types: 0
     embedding_dropout: 0.1
     learn_positional_encodings: false
-    hidden_size: 1024
-    inner_size: 4096
+    hidden_size: 512
+    inner_size: 2048
     num_layers: 6
-    num_attention_heads: 16
+    num_attention_heads: 8
     ffn_dropout: 0.1
     attn_score_dropout: 0.1
     attn_layer_dropout: 0.1
@@ -132,14 +133,15 @@ model:
 trainer:
   gpus: 1
   num_nodes: 1
-  max_steps: 100000
+  max_steps: 300000
   amp_backend: native
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: gpu
   checkpoint_callback: False
   logger: False
   log_every_n_steps: 50  # Interval of logging.
-  check_val_every_n_epoch: 1000
+  check_val_every_n_epoch: 1
+  val_check_interval: 2000
   progress_bar_refresh_rate: 0
 
 exp_manager:
@@ -148,7 +150,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: debug_local_nmt_wiki_wmt_large24x6_bs18000_steps100000_train_on_dev
+    name: local_nmt_wiki_wmt_large24x6_bs18000_steps300000
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
   checkpoint_callback_params:
