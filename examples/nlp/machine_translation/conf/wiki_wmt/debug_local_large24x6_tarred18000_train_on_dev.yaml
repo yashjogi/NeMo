@@ -57,7 +57,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.001
+    lr: 0.00001
     betas:
       - 0.9
       - 0.98
@@ -132,13 +132,13 @@ model:
 trainer:
   gpus: 1
   num_nodes: 1
-  max_steps: 300000
+  max_steps: 100000
   amp_backend: native
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: gpu
   checkpoint_callback: False
   logger: False
-  log_every_n_steps: 50  # Interval of logging.
+  log_every_n_steps: 1000  # Interval of logging.
   check_val_every_n_epoch: 50
   progress_bar_refresh_rate: 0
 
@@ -148,7 +148,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: debug_local_nmt_wiki_wmt_large24x6_bs18000_steps20000_train_on_dev
+    name: debug_local_nmt_wiki_wmt_large24x6_bs18000_steps100000_train_on_dev
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
   checkpoint_callback_params:
