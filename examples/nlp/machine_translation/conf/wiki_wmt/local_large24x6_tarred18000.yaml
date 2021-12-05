@@ -58,7 +58,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.00001
+    lr: 0.000007
     betas:
       - 0.9
       - 0.98
@@ -67,7 +67,7 @@ model:
       name: InverseSquareRootAnnealing
       min_lr: 0.0
       last_epoch: -1
-      warmup_ratio: 0.1
+      warmup_ratio: 0.15
 
   encoder_tokenizer:
     library: yttm
@@ -133,7 +133,7 @@ model:
 trainer:
   gpus: 1
   num_nodes: 1
-  max_steps: 300000
+  max_steps: 400000
   amp_backend: native
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: gpu
