@@ -28,7 +28,6 @@ model:
     drop_last: false
     pin_memory: false
     num_workers: 8
-    add_src_num_words_to_batch: true
 
   validation_ds:
     src_file_name: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/IWSLT_tst2019/input.txt
