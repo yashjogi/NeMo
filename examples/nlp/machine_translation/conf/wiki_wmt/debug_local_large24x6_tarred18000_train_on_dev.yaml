@@ -141,7 +141,6 @@ trainer:
   logger: False
   log_every_n_steps: 50  # Interval of logging.
   check_val_every_n_epoch: 1
-  val_check_interval: 2000
   progress_bar_refresh_rate: 0
 
 exp_manager:
@@ -150,7 +149,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: local_nmt_wiki_wmt_large24x6_bs18000_steps300000
+    name: debug_local_nmt_wiki_wmt_large24x6_bs18000_steps20000_train_on_dev
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
   checkpoint_callback_params:
