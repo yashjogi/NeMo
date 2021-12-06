@@ -17,6 +17,7 @@
 import io
 import json
 import pickle
+import random
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, List, Optional
@@ -501,7 +502,7 @@ class TarredTranslationDataset(IterableDataset):
 
         else:
             raise ValueError(f"Invalid shard strategy ! Allowed values are : {valid_shard_strategies}")
-
+        random.shuffle(text_tar_filepaths)
         self.tarpath = text_tar_filepaths
 
         # Put together WebDataset
