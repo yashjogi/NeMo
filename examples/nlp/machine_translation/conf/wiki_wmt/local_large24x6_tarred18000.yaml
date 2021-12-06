@@ -58,7 +58,7 @@ model:
 
   optim:
     name: adam
-    lr: 0.000007
+    lr: 0.000004
     betas:
       - 0.9
       - 0.98
