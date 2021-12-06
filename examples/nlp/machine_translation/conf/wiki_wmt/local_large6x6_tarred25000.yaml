@@ -22,7 +22,7 @@ model:
     tgt_file_name: null
     tokens_in_batch: 18000
     use_tarred_dataset: true
-    metadata_file: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/train_autoregressive_tarred_13000/metadata.tokens.13000.json
+    metadata_file: /media/apeganov/DATA/wiki_wmt_92_128_29.11.2021/for_upload/train_autoregressive_tarred_25000/metadata.tokens.25000.json
     clean: false
     max_seq_length: 4096
     shuffle: true
@@ -150,7 +150,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: local_nmt_wiki_wmt_large6x6_bs13000_steps400000
+    name: local_nmt_wiki_wmt_large6x6_bs50000_steps400000
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
   checkpoint_callback_params:
