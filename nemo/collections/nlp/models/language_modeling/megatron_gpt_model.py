@@ -38,9 +38,9 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
     get_ltor_masks_and_position_ids,
 )
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
-from nemo.core.optim import MasterOptimizerWrapper
-from nemo.core.optim import prepare_lr_scheduler
+from nemo.core.optim import MasterOptimizerWrapper, prepare_lr_scheduler
 from nemo.utils import AppState, logging
+
 
 class MegatronGPTModel(NLPModel):
     """
@@ -318,9 +318,7 @@ class MegatronGPTModel(NLPModel):
             sched_config = self._cfg.optim.sched
             sched_config['max_steps'] = self._trainer.max_steps
             self._scheduler = prepare_lr_scheduler(
-                optimizer=self._optimizer,
-                scheduler_config=sched_config,
-                train_dataloader=self._train_dl
+                optimizer=self._optimizer, scheduler_config=sched_config, train_dataloader=self._train_dl
             )
 
         if self._scheduler is None:
