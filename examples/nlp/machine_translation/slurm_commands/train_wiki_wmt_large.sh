@@ -59,9 +59,9 @@ echo "*******STARTING********" \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_autoregressive_tarred_13000/metadata.tokens.13000.json" \
 	model.validation_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
-	model.validation_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.validation_ds.tgt_file_name="/data/IWSLT_tst2019/autoregressive_labels.txt" \
 	model.test_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
-	model.test_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
+	model.test_ds.tgt_file_name="/data/IWSLT_tst2019/autoregressive_labels.txt" \
 	model.encoder_tokenizer.tokenizer_model="/data/input.BPE.25000.model" \
 	model.decoder_tokenizer.tokenizer_model="/data/autoregressive_labels.BPE.10.model" \
 	trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
