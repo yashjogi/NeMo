@@ -25,7 +25,7 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="nmt_wiki_wmt_large24x6_bs204000_steps400000_lr3e-4"
+EXPNAME="nmt_wiki_wmt_large24x6_bs204000_steps400000_lr3e-4_cross"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
@@ -54,7 +54,7 @@ echo "*******STARTING********" \
 && CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 python \
   /code/examples/nlp/machine_translation/enc_dec_nmt.py \
 	--config-path=/code/examples/nlp/machine_translation/conf/wiki_wmt \
-	--config-name=local_large24x6_tarred18000 \
+	--config-name=local_large24x6_tarred13000_cross \
 	model.tgt_character_vocabulary="/data/cross_char_vocabulary.txt" \
 	model.train_ds.use_tarred_dataset=true \
 	model.train_ds.metadata_file="/data/train_cross_tarred_13000/metadata.tokens.13000.json" \
