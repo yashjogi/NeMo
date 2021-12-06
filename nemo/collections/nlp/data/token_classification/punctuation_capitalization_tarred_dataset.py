@@ -16,6 +16,7 @@ import json
 import multiprocessing as mp
 import os
 import pickle
+import random
 import re
 import shutil
 from collections import deque
@@ -900,6 +901,7 @@ class BertPunctuationCapitalizationTarredDataset(IterableDataset):
             "Partitioning tarred dataset: process (%d) taking shards [%d, %d)", global_rank, begin_idx, end_idx
         )
         self.tar_files = self.tar_files[begin_idx:end_idx]
+        random.shuffle(self.tar_files)
         self.length = self.metadata['num_batches'] // world_size
         self._dataset = wds.WebDataset(urls=self.tar_files, nodesplitter=None).decode(
             wds.handle_extension('.pyd', decode_pyd)
