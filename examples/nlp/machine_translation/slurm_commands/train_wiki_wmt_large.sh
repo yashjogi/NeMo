@@ -19,13 +19,13 @@ WANDB="${wandb}" # replace with your own WandB API key
 # total_tokens = max_steps * global_batch_size_in_tokens
 # global_batch_size_in_tokens = micro_batch_size * data_parallel_size * accumulate_grad_batches * seq_length
 # data_parallel_size = num_nodes * num_gpus_per_node (no model parallel)
-MAX_STEPS=100000
+MAX_STEPS=400000
 VAL_CHECK_INTERVAL=2000
 LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="nmt_wiki_wmt_large24x6_bs18000_steps100000"
+EXPNAME="nmt_wiki_wmt_large24x6_bs204000_steps400000"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
@@ -57,7 +57,7 @@ echo "*******STARTING********" \
 	--config-name=local_large24x6_tarred18000 \
 	model.tgt_character_vocabulary="/data/autoregressive_char_vocabulary.txt" \
 	model.train_ds.use_tarred_dataset=true \
-	model.train_ds.metadata_file="/data/train_autoregressive_tarred_18000/metadata.tokens.18000.json" \
+	model.train_ds.metadata_file="/data/train_autoregressive_tarred_13000/metadata.tokens.13000.json" \
 	model.validation_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
 	model.validation_ds.tgt_file_name="/data/IWSLT_tst2019/bert_labels.txt" \
 	model.test_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
