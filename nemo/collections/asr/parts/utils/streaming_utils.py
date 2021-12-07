@@ -479,6 +479,7 @@ class FrameBatchVAD:
         samples = get_samples(audio_filepath, offset, duration)
         self.pad_end_len = int(delay * model_stride_in_secs * self.vad_model._cfg.sample_rate)
         samples = np.pad(samples, (0, self.pad_end_len))
+        print(samples.shape)
 
         frame_reader = AudioFeatureIterator(samples, self.frame_len, self.raw_preprocessor, self.vad_model.device)
         self.set_frame_reader(frame_reader)
