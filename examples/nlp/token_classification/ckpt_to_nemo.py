@@ -65,8 +65,7 @@ def main():
         cfg = update_model_config(default_cfg, cfg)
         cls = MTEncDecModel
     else:
-        default_cfg = PunctuationCapitalizationConfig()
-        cfg = update_model_config(default_cfg, cfg)
+        cfg = OmegaConf.merge(OmegaConf.structured(PunctuationCapitalizationConfig()), cfg)
         cls = PunctuationCapitalizationModel
     model = cls(cfg.model)
     ckpt = torch.load(args.ckpt)
