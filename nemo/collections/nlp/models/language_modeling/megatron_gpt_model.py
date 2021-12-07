@@ -22,6 +22,7 @@ from apex.transformer.pipeline_parallel.schedules.common import build_model, _ge
 from apex.transformer.pipeline_parallel.schedules.fwd_bwd_pipelining_without_interleaving import (
     forward_backward_pipelining_without_interleaving,
 )
+from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.trainer.trainer import Trainer
 
@@ -69,6 +70,7 @@ class MegatronGPTModel(NLPModel):
             tensor_model_parallel_size=cfg.get('tensor_model_parallel_size', 1),
             pipeline_model_parallel_size=cfg.get('pipeline_model_parallel_size', 1),
             micro_batch_size=cfg.get('micro_batch_size'),
+            global_batch_size=cfg.get('global_batch_size'),
             seed=self.cfg.get('seed', 1234),
         )
 
@@ -134,7 +136,7 @@ class MegatronGPTModel(NLPModel):
         return output_tensor
 
     def training_step(self, batch, batch_idx):
-        # currently our dataloaders are producing a micro-batch here, 
+        # currently our dataloaders are producing a micro-batch here,
         # but we need this to be a "global batch" which will get split
         # into micro batches by fwd/bwd function
         # also need to add fwd/bwd function for non-pipeline case
@@ -180,7 +182,12 @@ class MegatronGPTModel(NLPModel):
             lr = self._optimizer.param_groups[0]['lr']
             self.log('lr', lr, rank_zero_only=True)
             self.log('global_step', self.trainer.global_step, prog_bar=True, rank_zero_only=True)
-            self.log('consumed_samples', self.compute_consumed_samples(self.trainer.global_step), prog_bar=True, rank_zero_only=True)
+            self.log(
+                'consumed_samples',
+                self.compute_consumed_samples(self.trainer.global_step),
+                prog_bar=True,
+                rank_zero_only=True,
+            )
             self._reduced_loss_buffer = []
         return loss
 
@@ -193,7 +200,7 @@ class MegatronGPTModel(NLPModel):
             return
         else:
             super().backward(*args, **kwargs)
-    
+
     def optimizer_zero_grad(self, *args, **kwargs):
         """ LightningModule hook to zero grad.
             We want this to do nothing when using pipeline parallel as we are calling
@@ -204,7 +211,6 @@ class MegatronGPTModel(NLPModel):
 
         else:
             super().optimizer_zero_grad(*args, **kwargs)
-    
 
     def get_forward_output_and_loss_func(self):
         def fwd_output_and_loss_func(batch, model):
@@ -250,15 +256,14 @@ class MegatronGPTModel(NLPModel):
 
         if outputs is not None:
             averaged_loss = torch.stack(outputs).mean()
-        
+
         else:
             averaged_loss = torch.tensor(0.0).cuda()
-        
+
         torch.distributed.broadcast(averaged_loss, get_last_rank())
 
         self.log('val_loss', averaged_loss, prog_bar=True, rank_zero_only=True)
         self.log('consumed_samples', self.compute_consumed_samples(self.trainer.global_step), rank_zero_only=True)
-        
 
     def test_step(self, batch, batch_idx):
         return self.validation_step(batch, batch_idx)
@@ -378,7 +383,9 @@ class MegatronGPTModel(NLPModel):
 
         # inject model parallel rank into resume path
         if self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path is not None:
-            self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path = inject_model_parallel_rank(self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path)
+            self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path = inject_model_parallel_rank(
+                self.trainer.checkpoint_connector.resume_from_checkpoint_fit_path
+            )
 
         # TODO: consider adding a ModelPT guard to check if model is being restored.
         # allowing restored models to optionally setup datasets
