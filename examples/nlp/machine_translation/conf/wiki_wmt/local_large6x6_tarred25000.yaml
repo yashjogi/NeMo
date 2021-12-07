@@ -157,3 +157,4 @@ exp_manager:
     save_best_model: true
     monitor: val_CER
     mode: min
+    save_top_k: 5
