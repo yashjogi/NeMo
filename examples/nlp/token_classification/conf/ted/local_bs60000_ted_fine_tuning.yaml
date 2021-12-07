@@ -14,11 +14,11 @@
 
 # Punctuation and capitalization model with pretrained BERT-like models
 
-pretrained_model: /home/apeganov/NWInf_results/autoregressive_punctuation_capitalization/evelina_wiki_wmt_base_lr1e-4_steps150000/Punctuation_and_Capitalization.nemo # pretrained Punctuation and Capitalization model from list_available_models(), for example:
+pretrained_model: /home/apeganov/NWInf_results/autoregressive_punctuation_capitalization/evelina_wiki_wmt_base_lr1e-4_steps150000/checkpoints/Punctuation_and_Capitalization.nemo # pretrained Punctuation and Capitalization model from list_available_models(), for example:
 # punctuation_en_bert or punctuation_en_distilbert
 # or your_model.nemo
 trainer:
-  gpus: 1 # the number of gpus, 0 for CPU
+  gpus: [0,1] # the number of gpus, 0 for CPU
   max_steps: 50000 # precedence over max_epochs
   accumulate_grad_batches: 1 # accumulates grads every k batches
   gradient_clip_val: 0.0
