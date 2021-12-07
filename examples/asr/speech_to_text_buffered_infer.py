@@ -101,9 +101,12 @@ def get_wer_feat(mfst, asr, frame_len, tokens_per_chunk, delay, vad_delay, prepr
                 asr.read_audio_file(row['audio_filepath'], offset=0, duration=None, 
                                     delay=delay, model_stride_in_secs=model_stride_in_secs)
                 hyp = asr.transcribe(tokens_per_chunk, delay)
+                hyp_clean = clean_label(hyp)
                 # print(hyp)
-                hyps.append(hyp)
-                refs.append(row['text'])
+                hyps.append(hyp_clean)
+                ref_clean = clean_label(row['text'])
+                refs.append(ref_clean)
+                
                 total_durations_to_asr.append(row['duration'])
                 speech_segments = "ALL"
                 total_speech_segments.append(speech_segments)
