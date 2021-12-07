@@ -26,6 +26,68 @@ from nemo.core.classes import IterableDataset
 from nemo.core.neural_types import LengthsType, NeuralType
 import librosa
 
+def clean_label(_str, num_to_words=True):
+    """
+    Remove unauthorized characters in a string, lower it and remove unneeded spaces
+    Parameters
+    ----------
+    _str : the original string
+    Returns
+    -------
+    string
+    """
+    replace_with_space = [char for char in '/?*\",.:=?_{|}~¨«·»¡¿„…‧‹›≪≫!:;ː→']
+    replace_with_blank = [char for char in '`¨´‘’“”`ʻ‘’“"‘”']
+    replace_with_apos = [char for char in '‘’ʻ‘’‘']
+    _str = _str.strip()
+    _str = _str.lower()
+    for i in replace_with_blank:
+        _str = _str.replace(i, "")
+    for i in replace_with_space:
+        _str = _str.replace(i, " ")
+    for i in replace_with_apos:
+        _str = _str.replace(i, "'")
+    if num_to_words:
+        _str = convert_num_to_words(_str)
+    return " ".join(_str.split())
+
+   
+def convert_num_to_words(_str):
+    """
+    Convert digits to corresponding words
+    Parameters
+    ----------
+    _str : the original string
+    Returns
+    -------
+    string
+    """
+    num_to_words = ["zero", "one", "two", "three", "four", "five",
+                    "six", "seven", "eight", "nine"]
+    _str = _str.strip()
+    words = _str.split()
+    out_str = ""
+    num_word = []
+    for word in words:
+        if word.isnumeric():
+            num = int(word)
+            while(num):
+                digit = num % 10
+                digit_word = num_to_words[digit]
+                num_word.append(digit_word)
+                num = int(num / 10)
+                if not(num):
+                    num_str = ""
+                    num_word = num_word[::-1]
+                    for ele in num_word:
+                        num_str += ele + " "
+                    out_str += num_str + " "
+                    num_word.clear()
+        else:
+            out_str += word + " "
+    out_str = out_str.strip()
+    return out_str
+
 class AudioFeatureIterator(IterableDataset):
     def __init__(self, samples, frame_len, preprocessor, device):
         self._samples = samples
