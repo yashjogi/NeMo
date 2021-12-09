@@ -1,8 +1,5 @@
-name: megatron_gpt
-restore_from_path: null # used when starting from a .nemo file
-
 trainer:
-  gpus: 1
+  gpus: [1,2]
   num_nodes: 1
   accelerator: ddp
   precision: 16
@@ -20,12 +17,12 @@ trainer:
 
 exp_manager:
   explicit_log_dir: null
-  exp_dir: null
-  name: megatron_gpt
-  create_wandb_logger: False
+  exp_dir: /raid/purnendu/finetuned_saved/nemo_experiments_3/
+  name: megatron_gpt_squadv2_renew1
+  create_wandb_logger: True
   wandb_logger_kwargs:
-    project: null
-    name: null
+    project: nemo_megatron_gpt_finetuning_squad
+    name: purnendu
   resume_if_exists: True
   resume_ignore_no_checkpoint: True
   create_checkpoint_callback: True
@@ -38,8 +35,11 @@ exp_manager:
     model_parallel_size: ${model.tensor_model_parallel_size}
 
 
+
 model:
-  # model parallelism 
+  nemo_file_path: /raid/purnendu/finetuned_saved/nemo_experiments_3/ # after each training run save .nemo file to this location
+
+  # model parallelism
   micro_batch_size: 4
   tensor_model_parallel_size: 1
 
@@ -64,7 +64,7 @@ model:
     type: 'GPT2BPETokenizer'
     model: null
     vocab_file: null
-    merge_file: null 
+    merge_file: null
 
   # precision
   native_amp_init_scale: 4294967296 # 2 ** 32
@@ -80,28 +80,25 @@ model:
 
   # not implemented in NeMo yet
   activations_checkpoint_method: null # 'uniform', 'block'
-  activations_checkpoint_num_layers: 1 
+  activations_checkpoint_num_layers: 1
 
   data:
-    # Path to data must be specified by the user.
-    # can override from the CLI: "model.data.data_prefix=[.5,/raid/data/pile/my-gpt3_00_text_document,.5,/raid/data/pile/my-gpt3_01_text_document]",
-    # Or see example below: 
-    # data_prefix: 
-    #   - .5
-    #   - /raid/data/pile/my-gpt3_00_text_document
-    #   - .5
-    #   - /raid/data/pile/my-gpt3_01_text_document
-    data_prefix: ???
+    # data_prefix
+      # weight
+      # path
+    data_prefix:
+      - 1
+      - /NeMo/workspace/1-nemo-dev/tokenized_data/squadv2_3/squadv2_flanned_1_final_text_document
     data_impl: mmap
     splits_string: 900,50,50
-    seq_length: ${model.encoder_seq_length}
+    seq_length:  ${model.encoder_seq_length}
     skip_warmup: True
     num_workers: 0
     dataloader_type: single # cyclic
     reset_position_ids: False # Reset position ids after end-of-document token
     reset_attention_mask: False # Reset attention mask after end-of-document token
     eod_mask_loss: False # Mask loss for the end of document tokens
-  
+
   optim:
     name: fused_adam
     lr: 2e-4
