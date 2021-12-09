@@ -133,7 +133,7 @@ model:
 trainer:
   gpus: 1
   num_nodes: 1
-  max_steps: 200000
+  max_steps: 400000
   amp_backend: native
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
   accelerator: gpu
@@ -150,7 +150,7 @@ exp_manager:
   create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
   create_wandb_logger: true
   wandb_logger_kwargs:
-    name: local_nmt_wiki_wmt_large6x6_bs50000_steps400000
+    name: local_nmt_wiki_wmt_base_bs50000_steps400000
     project: autoregressive_punctuation_capitalization
     entity: anton_peganov
   checkpoint_callback_params:
