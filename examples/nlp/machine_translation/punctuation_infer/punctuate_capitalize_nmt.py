@@ -229,7 +229,7 @@ def get_label_votes(
     punctuation_voting = [{} for _ in range(num_words + 1)]
     capitalization_voting = [{} for _ in range(num_words)]
     segment_id_in_query = 0
-    while query_indices[current_segment_i] == q_i:
+    while current_segment_i < len(query_indices) and query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
         the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
