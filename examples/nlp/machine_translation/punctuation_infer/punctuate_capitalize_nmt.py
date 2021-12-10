@@ -233,7 +233,6 @@ def get_label_votes(
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
         the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
-        print(f"Labels for segment {current_segment_i}:", labels)
         num_processed_words_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             if lbl in capitalization_labels:
@@ -262,10 +261,12 @@ def get_label_votes(
         segment_id_in_query += 1
         current_segment_i += 1
     print("punctuation_voting:", punctuation_voting)
+    print("capitalization_voting:", capitalization_voting)
     return punctuation_voting, capitalization_voting, current_segment_i
 
 
 def select_best_label(votes):
+    print("(select_best_label)votes:", votes)
     votes = sorted(votes.items(), key=lambda x: -x[1][1] / x[1][0])
     votes = sorted(votes, key=lambda x: -x[1][0])
     return votes[0][0]
