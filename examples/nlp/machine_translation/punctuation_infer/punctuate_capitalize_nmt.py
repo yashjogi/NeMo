@@ -233,6 +233,7 @@ def get_label_votes(
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
         the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
+        print(f"Labels for segment {current_segment_i}:", labels)
         num_processed_words_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             if lbl in capitalization_labels:
@@ -357,8 +358,8 @@ def main():
             empty_queries.append(text)
             empty_indices.append(i)
     segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.margin)
-    for s, qi, swi in zip(segments, query_indices, start_word_i):
-        print(qi, swi, repr(s))
+    # for s, qi, swi in zip(segments, query_indices, start_word_i):
+    #     print(qi, swi, repr(s))
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
         decoder=model.decoder.decoder,
