@@ -109,7 +109,7 @@ class MegatronGPTModel(NLPModel):
             onnx_safe=cfg.get('onnx_safe', False),
         )
 
-        self.megatron_amp_o2 = cfg.get('megatron_amp_o2', False)
+        self.megatron_amp_o2 = cfg.get('megatron_amp_O2', False)
         if self.megatron_amp_o2:
             # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
             self.model.cuda(torch.cuda.current_device())
@@ -300,7 +300,7 @@ class MegatronGPTModel(NLPModel):
             self._test_dl = self.build_pretraining_data_loader(self._test_ds, consumed_samples)
 
     def configure_optimizers(self):
-        self.setup_optimization(delayed_sched_init=self.megatron_amp_o2)
+        self.setup_optimization()
 
         # Wrap the baseline optimizer with the optimizer class with master parameters
         if self.megatron_amp_o2 and self._optimizer is not None:
