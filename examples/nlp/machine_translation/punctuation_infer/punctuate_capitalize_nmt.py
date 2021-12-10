@@ -242,7 +242,7 @@ def get_label_votes(
                 break
             query_word_i = step * current_segment_i + num_processed_words_in_segment - 1
             if lbl_i % 2:
-                assert lbl in capitalization_labels, (
+                assert not lbl or lbl in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels."
                 )
@@ -250,7 +250,7 @@ def get_label_votes(
                     capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
                 )
             else:
-                assert lbl not in capitalization_labels, (
+                assert not lbl or lbl not in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
                     f"capitalization labels whereas labels with even indices have to be punctuation labels."
                 )
@@ -368,7 +368,7 @@ def main():
         decoder_word_ids=model.decoder_tokenizer.word_ids,
     )
     autoregressive_punctuation_labels = []
-    for i in tqdm(range(0, len(segments), args.batch_size), unit='segment', desc="Calculating labels for segments"):
+    for i in tqdm(range(0, len(segments), args.batch_size), unit='batch', desc="Calculating labels for segments"):
         autoregressive_punctuation_labels += model.translate(
             text=segments[i : i + args.batch_size],
             source_lang=args.lang,
