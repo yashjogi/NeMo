@@ -126,6 +126,11 @@ def get_args():
         "capitalization, 'u' is not used.",
     )
     parser.add_argument(
+        "--lang",
+        default='en',
+        help="Whether to perform punctuation normalization and for which language.",
+    )
+    parser.add_argument(
         "--save_labels_instead_of_text",
         "-B",
         action="store_true",
@@ -359,8 +364,8 @@ def main():
     for i in range(0, len(segments), args.batch_size):
         autoregressive_punctuation_labels += model.translate(
             text=segments[i : i + args.batch_size],
-            source_lang=args.source_lang,
-            target_lang=args.target_lang,
+            source_lang=args.lang,
+            target_lang=args.lang,
             return_beam_scores=args.write_scores,
             log_timing=args.write_timing,
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
