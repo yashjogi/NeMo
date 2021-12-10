@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from nemo.collections.nlp.models.machine_translation import MTEncDecModel
 from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGenerator
+from nemo.utils import logging
 
 
 def get_args():
@@ -297,6 +298,8 @@ def apply_autoregressive_labels(
         processed_query = select_best_label(punctuation_voting[0])
         united = processed_query
         for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting)):
+            logging.info("cv:", cv)
+            logging.info('pv:', pv)
             capitalization_label = select_best_label(cv)
             punctuation_label = select_best_label(cv)
             error_msg = f"Unexpected capitalization label {repr(capitalization_label)} in word {i} in a query {q_i}."
