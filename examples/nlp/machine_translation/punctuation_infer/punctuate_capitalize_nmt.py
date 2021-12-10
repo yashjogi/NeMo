@@ -261,6 +261,7 @@ def get_label_votes(
                 )
         segment_id_in_query += 1
         current_segment_i += 1
+    print("punctuation_voting:", punctuation_voting)
     return punctuation_voting, capitalization_voting, current_segment_i
 
 
