@@ -1,7 +1,6 @@
 import argparse
 import json
 import re
-from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -88,6 +87,18 @@ def get_args():
         "--batch_size", "-b", type=int, default=128, help="Number of segments which are processed simultaneously.",
     )
     parser.add_argument(
+        "--beam_size", type=int, default=4, help="Number of rays for beam search."
+    )
+    parser.add_argument(
+        "--len_pen", type=float, default=0.6, help="Length penalty for beam search."
+    )
+    parser.add_argument(
+        "--max_delta_length",
+        type=int,
+        default=512,
+        help="Maximum difference of lengths of source and target sequences for beam search",
+    )
+    parser.add_argument(
         "--device",
         "-d",
         choices=['cpu', 'cuda'],
@@ -112,6 +123,13 @@ def get_args():
         help="Whether to use 'u' as first character capitalization and 'U' as capitalization of all characters in a "
         "word. If not set, then 'U' is for capitalization of first character in a word, 'O' for absence of "
         "capitalization, 'u' is not used.",
+    )
+    parser.add_argument(
+        "--save_labels_instead_of_text",
+        "-B",
+        action="store_true",
+        help="If this option is set, then punctuation and capitalization labels are saved instead text with restored "
+        "punctuation and capitalization. Labels are saved in autoregressive format.",
     )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
@@ -246,8 +264,9 @@ def apply_autoregressive_labels(
     margin: int,
     capitalization_labels: str,
     no_all_upper_label: bool,
-) -> List[str]:
-    result = []
+) -> Tuple[List[str], List[str]]:
+    processed_queries = []
+    united_labels = []
     current_segment_i = 0
     for q_i, query in enumerate(queries):
         punctuation_voting, capitalization_voting, current_segment_i = get_label_votes(
@@ -261,7 +280,9 @@ def apply_autoregressive_labels(
             capitalization_labels,
         )
         words = query.split()
+        # Leading punctuation
         processed_query = select_best_label(punctuation_voting[0])
+        united = processed_query
         for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting)):
             capitalization_label = select_best_label(cv)
             punctuation_label = select_best_label(cv)
@@ -283,8 +304,10 @@ def apply_autoregressive_labels(
                 else:
                     raise ValueError(error_msg)
             processed_query += punctuation_label
-        result.append(processed_query)
-    return result
+            united += capitalization_label + punctuation_label
+        processed_queries.append(processed_query)
+        united_labels.append(united)
+    return processed_queries, united_labels
 
 
 def main():
@@ -344,7 +367,7 @@ def main():
             log_timing=args.write_timing,
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
         )
-    processed_queries = apply_autoregressive_labels(
+    processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_punctuation_labels,
         query_indices,
@@ -355,19 +378,22 @@ def main():
         args.no_all_upper_label,
     )
     result_texts = [""] * len(texts)
-    for i, processed_query in zip(not_empty_indices, processed_queries):
+    result_labels = [""] * len(texts)
+    for i, processed_query, labels in zip(not_empty_indices, processed_queries, united_labels):
         result_texts[i] = processed_query
+        result_labels[i] = labels
     for i, empty_query in zip(empty_indices, empty_queries):
         result_texts[i] = empty_query
+        result_labels[i] = empty_query
     if args.output_manifest is None:
         args.output_text.parent.mkdir(exist_ok=True, parents=True)
         with args.output_text.open('w') as f:
-            for t in result_texts:
+            for t in (result_labels if args.save_labels_instead_of_text else result_texts):
                 f.write(t + '\n')
     else:
         args.output_manifest.parent.mkdir(exist_ok=True, parents=True)
         with args.output_manifest.open('w') as f:
-            for item, t in zip(manifest, result_texts):
+            for item, t in zip(manifest, result_labels if args.save_labels_instead_of_text else result_texts):
                 item[text_key] = t
                 f.write(json.dumps(item) + '\n')
 
