@@ -60,6 +60,7 @@ def get_args():
         "-P",
         type=Path,
         help=f"Path to .nemo checkpoint of `MTEncDecModel`. No more than one of parameters ",
+        required=True,
     )
     parser.add_argument(
         "--max_seq_length",
@@ -312,10 +313,7 @@ def apply_autoregressive_labels(
 
 def main():
     args = get_args()
-    if args.pretrained_name is None:
-        model = MTEncDecModel.restore_from(args.model_path)
-    else:
-        model = MTEncDecModel.from_pretrained(args.pretrained_name)
+    model = MTEncDecModel.restore_from(args.model_path)
     if args.device is None:
         if torch.cuda.is_available():
             model = model.cuda()
