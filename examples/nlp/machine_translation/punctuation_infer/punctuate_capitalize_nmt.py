@@ -366,8 +366,8 @@ def main():
             text=segments[i : i + args.batch_size],
             source_lang=args.lang,
             target_lang=args.lang,
-            return_beam_scores=args.write_scores,
-            log_timing=args.write_timing,
+            return_beam_scores=False,
+            log_timing=False,
             add_src_num_words_to_batch=args.add_src_num_words_to_batch,
         )
     processed_queries, united_labels = apply_autoregressive_labels(
