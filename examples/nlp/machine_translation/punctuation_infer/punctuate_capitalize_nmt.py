@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import torch
+from tqdm import tqdm
 
 from nemo.collections.nlp.models.machine_translation import MTEncDecModel
 from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGenerator
@@ -230,7 +231,7 @@ def get_label_votes(
     while query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
         the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
-        labels = capitalization_labels.split(segment_autoregressive_labels[current_segment_i])
+        labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
         num_processed_words_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             if lbl in capitalization_labels:
@@ -241,12 +242,18 @@ def get_label_votes(
                 break
             query_word_i = step * current_segment_i + num_processed_words_in_segment - 1
             if lbl_i % 2:
-                assert lbl in capitalization_labels
+                assert lbl in capitalization_labels, (
+                    f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
+                    f"punctuation labels whereas labels with odd indices have to be capitalization labels."
+                )
                 update_label_counter(
                     capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
                 )
             else:
-                assert lbl not in capitalization_labels
+                assert lbl not in capitalization_labels, (
+                    f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
+                    f"capitalization labels whereas labels with even indices have to be punctuation labels."
+                )
                 update_label_counter(
                     punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
                 )
@@ -361,7 +368,7 @@ def main():
         decoder_word_ids=model.decoder_tokenizer.word_ids,
     )
     autoregressive_punctuation_labels = []
-    for i in range(0, len(segments), args.batch_size):
+    for i in tqdm(range(0, len(segments), args.batch_size), unit='segment', desc="Calculating labels for segments"):
         autoregressive_punctuation_labels += model.translate(
             text=segments[i : i + args.batch_size],
             source_lang=args.lang,
