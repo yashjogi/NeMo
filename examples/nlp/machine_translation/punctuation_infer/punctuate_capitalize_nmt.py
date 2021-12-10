@@ -368,7 +368,7 @@ def main():
             target_lang=args.lang,
             return_beam_scores=False,
             log_timing=False,
-            add_src_num_words_to_batch=args.add_src_num_words_to_batch,
+            add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
