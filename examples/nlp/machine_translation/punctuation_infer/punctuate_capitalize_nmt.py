@@ -113,7 +113,7 @@ def get_args():
     )
     parser.add_argument(
         "--capitalization_labels",
-        defalt="OuU",
+        default="OuU",
         help="A string containing all characters used as capitalization labels. THE FIRST CHARACTER IN A STRING HAS "
         "TO BE NEUTRAL LABEL."
     )
