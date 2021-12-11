@@ -172,7 +172,7 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
     segment_start = 0
     for q_i, query in enumerate(texts):
         words = query.split()
-        while segment_start + max_seq_length < len(words):
+        while segment_start + max_seq_length - step < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
             start_word_i.append(segment_start)
             query_indices.append(q_i)
@@ -258,6 +258,10 @@ def get_label_votes(
                 update_label_counter(
                     punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
                 )
+        assert num_processed_words_in_segment == num_words_in_segment, (
+            f"Number of processed labels {num_processed_words_in_segment} in segment {current_segment_i} is not "
+            f"equal number of words in {num_words_in_segment}."
+        )
         segment_id_in_query += 1
         current_segment_i += 1
     print("punctuation_voting:", punctuation_voting)
