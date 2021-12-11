@@ -245,7 +245,11 @@ def get_label_votes(
                 num_processed_labels_in_segment += 1
             if segment_id_in_query > 0 and num_processed_labels_in_segment <= margin != 0:
                 continue
-            if not last_segment_in_query and num_processed_labels_in_segment > num_words_in_segment - margin:
+            if (
+                not last_segment_in_query
+                and num_processed_labels_in_segment > num_words_in_segment - margin
+                or step * current_segment_i + num_processed_labels_in_segment > num_words
+            ):
                 break
             query_word_i = step * current_segment_i + num_processed_labels_in_segment - 1
             if lbl_i % 2:
