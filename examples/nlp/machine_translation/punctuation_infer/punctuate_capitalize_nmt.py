@@ -177,6 +177,8 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
             start_word_i.append(segment_start)
             query_indices.append(q_i)
             segment_start += step
+        print("(split_into_segments)Number of words:", len(words))
+        print("(split_into_segments)len(segments):", len(segments))
     return segments, query_indices, start_word_i
 
 
@@ -274,6 +276,7 @@ def get_label_votes(
         )
         segment_id_in_query += 1
         current_segment_i += 1
+    print("current_segment_i after query processing:", current_segment_i)
     print("punctuation_voting:", punctuation_voting)
     print("Number of non empty votes:", len(list(filter(lambda x: x, punctuation_voting))))
     print("Number of empty votes:", len(list(filter(lambda x: not x, punctuation_voting))))
