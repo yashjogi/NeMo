@@ -190,7 +190,9 @@ def adjust_predicted_labels_length(
         num_word_labels = len(capitalization_pattern.findall(segment))
         if num_words > num_word_labels:
             if labels[-1] != ' ':
-                labels += ' ' + (capitalization_labels[0] + ' ') * (num_words - num_word_labels)
+                labels += (
+                    '' if labels[-1] == ' ' else ' '
+                ) + (capitalization_labels[0] + ' ') * (num_words - num_word_labels)
         elif num_words < num_word_labels:
             i = num_word_labels
             pos = len(labels) - 1
@@ -200,6 +202,7 @@ def adjust_predicted_labels_length(
                 pos -= 1
             labels = labels[: pos + 1]
         result.append(labels)
+        assert num_words == len(capitalization_pattern.findall(segment))
     return result
 
 
