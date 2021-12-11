@@ -235,7 +235,7 @@ def get_label_votes(
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
         num_processed_words_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
-            if lbl % 2:
+            if lbl_i % 2:
                 num_processed_words_in_segment += 1
             if segment_id_in_query > 0 and num_processed_words_in_segment <= margin != 0:
                 continue
