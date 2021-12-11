@@ -274,7 +274,11 @@ def get_label_votes(
         segment_id_in_query += 1
         current_segment_i += 1
     print("punctuation_voting:", punctuation_voting)
+    print("Number of non empty votes:", len(list(filter(lambda x: x, punctuation_voting))))
+    print("Number of empty votes:", len(list(filter(lambda x: not x, punctuation_voting))))
     print("capitalization_voting:", capitalization_voting)
+    print("Number of non empty votes:", len(list(filter(lambda x: x, capitalization_voting))))
+    print("Number of empty votes:", len(list(filter(lambda x: not x, capitalization_voting))))
     return punctuation_voting, capitalization_voting, current_segment_i
 
 
