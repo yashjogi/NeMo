@@ -381,7 +381,7 @@ def main():
         else:
             empty_queries.append(text)
             empty_indices.append(i)
-    segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.margin)
+    segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.step)
     # for s, qi, swi in zip(segments, query_indices, start_word_i):
     #     print(qi, swi, repr(s))
     model.beam_search = BeamSearchSequenceGenerator(
