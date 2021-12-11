@@ -234,24 +234,24 @@ def get_label_votes(
     segment_id_in_query = 0
     while current_segment_i < len(query_indices) and query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
-        the_last_segment = segment_id_in_query * step + num_words_in_segment >= num_words
+        last_segment_in_query = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
-        num_processed_words_in_segment = 0
+        num_processed_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             if lbl_i % 2:
-                num_processed_words_in_segment += 1
-            if segment_id_in_query > 0 and num_processed_words_in_segment <= margin != 0:
+                num_processed_labels_in_segment += 1
+            if segment_id_in_query > 0 and num_processed_labels_in_segment <= margin != 0:
                 continue
-            if not the_last_segment and num_processed_words_in_segment > num_words_in_segment - margin:
+            if not last_segment_in_query and num_processed_labels_in_segment > num_words_in_segment - margin:
                 break
-            query_word_i = step * current_segment_i + num_processed_words_in_segment - 1
+            query_word_i = step * current_segment_i + num_processed_labels_in_segment - 1
             if lbl_i % 2:
                 assert not lbl or lbl in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels."
                 )
                 update_label_counter(
-                    capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
+                    capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_labels_in_segment - 1
                 )
             else:
                 assert not lbl or lbl not in capitalization_labels, (
@@ -259,10 +259,15 @@ def get_label_votes(
                     f"capitalization labels whereas labels with even indices have to be punctuation labels."
                 )
                 update_label_counter(
-                    punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_words_in_segment - 1
+                    punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_labels_in_segment - 1
                 )
-        assert num_processed_words_in_segment == num_words_in_segment, (
-            f"Number of processed labels {num_processed_words_in_segment} in segment {current_segment_i} is not "
+        assert (
+            len(labels) > 0
+            and lbl_i == len(labels) - 1
+            or num_processed_labels_in_segment - 1 == num_words_in_segment - (
+                margin if segment_id_in_query > 0 else 0
+            ) - (margin if last_segment_in_query else 0)), (
+            f"Number of processed labels {num_processed_labels_in_segment} in segment {current_segment_i} is not "
             f"equal number of words in {num_words_in_segment}."
         )
         segment_id_in_query += 1
@@ -289,6 +294,7 @@ def apply_autoregressive_labels(
     capitalization_labels: str,
     no_all_upper_label: bool,
 ) -> Tuple[List[str], List[str]]:
+    assert len(segment_autoregressive_labels) == len(query_indices)
     processed_queries = []
     united_labels = []
     current_segment_i = 0
