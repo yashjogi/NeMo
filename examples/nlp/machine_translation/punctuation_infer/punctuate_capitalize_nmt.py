@@ -226,6 +226,7 @@ def get_label_votes(
     margin: int,
     capitalization_labels: str,
 ) -> Tuple[List[Dict[str, List[int]]], List[Dict[str, List[int]]], int]:
+    print("Number of segments:", len(segment_autoregressive_labels))
     capitalization_pattern = re.compile(f"([{capitalization_labels}])")
     words = query.split()
     num_words = len(words)
