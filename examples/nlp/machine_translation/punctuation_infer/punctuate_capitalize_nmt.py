@@ -265,10 +265,11 @@ def get_label_votes(
             len(labels) > 0
             and lbl_i == len(labels) - 1
             or num_processed_labels_in_segment - 1 == num_words_in_segment - (
-                margin if segment_id_in_query > 0 else 0
-            ) - (margin if last_segment_in_query else 0)), (
+                margin if not last_segment_in_query else 0)
+        ), (
             f"Number of processed labels {num_processed_labels_in_segment} in segment {current_segment_i} is not "
-            f"equal number of words in {num_words_in_segment}."
+            f"equal number of words (minus right margin) "
+            f"{num_words_in_segment - (margin if not last_segment_in_query else 0)}."
         )
         segment_id_in_query += 1
         current_segment_i += 1
