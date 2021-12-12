@@ -29,15 +29,17 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--line_delimiter",
         required=True,
-        help="It has to a character which does not occur in any of input files."
+        help="It has to be a character which does not occur in any of input files, e.g. tabulation '\\t'."
     )
     parser.add_argument(
         "--united_file_name",
         default="united_lines.txt",
+        help="Temporary file where united lines from all input files are stored before shuffling with `shuf` util.",
     )
     parser.add_argument(
         "--shuffled_file_name",
         default="shuffled_lines.txt",
+        help="Temporary file where united lines from all input files after shuffling with `shuf` util.",
     )
     args = parser.parse_args()
     for i, f in enumerate(args.input_files):
