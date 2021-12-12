@@ -1164,7 +1164,9 @@ def write_dataset_fast(
                             autoregressive_text += c
     autoregressive_text = autoregressive_text.rstrip(' ')
     if not only_first_punctuation_character_after_word_in_autoregressive:
-        wrong_characters = re.compile('[^' + ''.join(allowed_punctuation | set(' \nUOu/.,+-')) + ']+')
+        allowed = allowed_punctuation | set(' \nUOu/.,+-')
+        allowed.remove('-')
+        wrong_characters = re.compile('[^' + ''.join(allowed) + '-]+')
         autoregressive_text = wrong_characters.sub('', autoregressive_text)
     with ar_fn.open('w') as af:
         af.write(autoregressive_text)
