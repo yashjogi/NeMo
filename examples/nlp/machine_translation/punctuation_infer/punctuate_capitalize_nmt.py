@@ -237,8 +237,13 @@ def get_label_votes(
     segment_id_in_query = 0
     while current_segment_i < len(query_indices) and query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
+        print(
+            "current_segment_i, num_words_in_segment, segment_id_in_query * step:",
+            current_segment_i, num_words_in_segment, segment_id_in_query * step
+        )
         last_segment_in_query = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
+        print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             if lbl_i % 2:
@@ -258,7 +263,10 @@ def get_label_votes(
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels."
                 )
                 update_label_counter(
-                    capitalization_voting[query_word_i], lbl, num_words_in_segment, num_processed_capit_labels_in_segment - 1
+                    capitalization_voting[query_word_i],
+                    lbl,
+                    num_words_in_segment,
+                    num_processed_capit_labels_in_segment - 1,
                 )
             else:
                 assert not lbl or lbl not in capitalization_labels, (
