@@ -1,0 +1,14 @@
+python prepare_big_data_for_punctuation_capitalization_task_simple.py \
+  --output_dir /media/apeganov/DATA/punctuation_and_capitalization/all_punc_no_u/rapid_x3_92_128_12.12.2021 \
+  --corpus_types rapid \
+  --create_model_input \
+  --bert_labels \
+  --autoregressive_labels \
+  --sequence_length_range 92 128 \
+  --allowed_punctuation '.,?"-;:!()' \
+  --no_label_if_all_characters_are_upper_case \
+  --input_files ~/data/rapid/RAPID_2019.de-en.xlf \
+  --num_jobs 24 \
+  --num_passes_through_dataset 3 \
+  --dev_size 10000 \
+  --test_size 0

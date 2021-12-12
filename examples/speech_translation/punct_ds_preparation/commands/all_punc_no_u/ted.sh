@@ -1,5 +1,5 @@
 python prepare_big_data_for_punctuation_capitalization_task_simple.py \
-  --output_dir /media/apeganov/DATA/TEDx5_all_92_128_29.11.2021 \
+  --output_dir /media/apeganov/DATA/punctuation_and_capitalization/all_punc_no_u/TEDx5_92_128_12.12.2021 \
   --corpus_types TED \
   --create_model_input \
   --bert_labels \

@@ -1,0 +1,13 @@
+python prepare_big_data_for_punctuation_capitalization_task_simple.py \
+  --output_dir /media/apeganov/DATA/punctuation_and_capitalization/all/news_commentary_x3_92_128_12.12.2021 \
+  --corpus_types news-commentary \
+  --create_model_input \
+  --bert_labels \
+  --autoregressive_labels \
+  --sequence_length_range 92 128 \
+  --allowed_punctuation '.,?"-;:!()' \
+  --input_files ~/data/news-commentary/v16/training-monolingual/news-commentary-v16.en \
+  --num_jobs 24 \
+  --num_passes_through_dataset 3 \
+  --dev_size 10000 \
+  --test_size 0
