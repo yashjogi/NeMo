@@ -24,6 +24,9 @@ logging.basicConfig(level="INFO", format='%(levelname)s -%(asctime)s - %(name)s 
 
 random.seed(42)
 
+# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# If you update following regex you need to update analogous regex in
+# examples/nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py
 WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua838\ufdfc\ufe69\uff04\uffe0\uffe1' \
     '\uffe5\uffe6°' \
     + ''.join(
@@ -41,6 +44,9 @@ NEWS_COMMENTARY_LOCATION_LINE = re.compile(r"^[A-Z0-9 ]+ – ")
 WORD_WITH_PRECEDING_AND_FOLLOWING_PUNCTUATION = re.compile(rf"[^{WC}]*\b[{WC}]+(?:[-.][{WC}]+)*(?:'[{WC}]+)?\b[^{WC}]*")
 # For splitting text into words and punctuation
 WORD = re.compile(f"((?:(?<=[ \n\"()])[+-]|^[+-])\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[.,/'][{WC}]+)*)")
+# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# If you update following regex you need to update analogous regex in
+# examples/nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py
 WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
     f"((?<=[ \n\"()])[+-]\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[,./'][{WC}]+)*)"
     f"([^{WC}]*[ \n\"()](?=[+-]\\d)|[^{WC}]*)"

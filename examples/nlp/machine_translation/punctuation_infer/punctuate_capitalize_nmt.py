@@ -1,6 +1,7 @@
 import argparse
 import json
 import re
+from itertools import chain
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -10,6 +11,26 @@ from tqdm import tqdm
 from nemo.collections.nlp.models.machine_translation import MTEncDecModel
 from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGenerator
 from nemo.utils import logging
+
+# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# If you update following regex you need to update analogous regex in
+# examples/speech_translation/punct_ds_preparation/prepare_small_data_for_punctuation_capitalization.py
+WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua838\ufdfc\ufe69\uff04\uffe0\uffe1' \
+    '\uffe5\uffe6°' \
+    + ''.join(
+        [
+            chr(i) for i in chain(
+                *[list(r) for r in [range(0x0a2, 0x0a6), range(0x20a1, 0x20c0), range(0x11fdd, 0x11fe1)]]
+            )
+        ]
+    )
+# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# If you update following regex you need to update analogous regex in
+# examples/speech_translation/punct_ds_preparation/prepare_small_data_for_punctuation_capitalization.py
+WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
+    f"((?<=[ \n\"()])[+-]\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[,./'][{WC}]+)*)"
+    f"([^{WC}]*[ \n\"()](?=[+-]\\d)|[^{WC}]*)"
+)
 
 
 def get_args():
@@ -171,7 +192,7 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
     segments, query_indices, start_word_i = [], [], []
     segment_start = 0
     for q_i, query in enumerate(texts):
-        words = query.split()
+        words = [m.group(1) for m in WORD_WITH_FOLLOWING_PUNCTUATION.finditer(query)]
         while segment_start + max_seq_length - step < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
             start_word_i.append(segment_start)
@@ -245,6 +266,8 @@ def get_label_votes(
         )
         last_segment_in_query = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
+        if current_segment_i > 0:
+            labels = labels[1:]
         print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
