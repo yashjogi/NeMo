@@ -1,0 +1,13 @@
+python prepare_big_data_for_punctuation_capitalization_task_simple.py \
+  --output_dir /media/apeganov/DATA/TEDx5_all_92_128_29.11.2021 \
+  --corpus_types TED \
+  --create_model_input \
+  --bert_labels \
+  --autoregressive_labels \
+  --sequence_length_range 92 128 \
+  --allowed_punctuation '.,?"-;:!()' \
+  --no_label_if_all_characters_are_upper_case \
+  --num_passes_through_dataset 5 \
+  --dev_size 0 \
+  --test_size 0 \
+  --input_files ~/data/TED_Talks/en-ja/train.tags.en-ja.en
