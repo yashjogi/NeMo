@@ -4,4 +4,4 @@ python text_to_punc_cap_dataset.py \
   --create_model_input \
   --bert_labels \
   --autoregressive_labels \
-  --allowed_punctuation ',.?'
+  --allowed_punctuation '.,?"-;:!()'
