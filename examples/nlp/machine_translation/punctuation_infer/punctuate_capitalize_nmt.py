@@ -179,6 +179,8 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
             segment_start += step
         print("(split_into_segments)Number of words:", len(words))
         print("(split_into_segments)len(segments):", len(segments))
+        print("(split_into_segmets)len(words):", len(words))
+        print("(split_into_segments)len(segments[-1]):", len(segments[-1]))
     return segments, query_indices, start_word_i
 
 
