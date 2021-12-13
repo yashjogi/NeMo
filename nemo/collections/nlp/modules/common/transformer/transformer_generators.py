@@ -312,7 +312,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         Kwargs:
             all remaining parameters of GreedySequenceGenerator class
         """
-        print("(BeamSearchSequenceGenerator.__init__)kwargs:", kwargs)
         super().__init__(embedding, decoder, log_softmax, **kwargs)
         self.beam_size = beam_size
         self.len_pen = len_pen
@@ -326,7 +325,6 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         if num_generated_words is None:
             scores, prefixes = torch.topk(log_probs, self.beam_size, dim=-1)
             return scores, prefixes, None
-        print("Fixed beam search is used.")
         pad_mask = pad_mask[:, 0].gt(0)
         n = log_probs.shape[0]
         # 2 is for pad and eos tokens which may be removed
