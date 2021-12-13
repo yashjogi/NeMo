@@ -451,7 +451,9 @@ def main():
         num_labels_in_segment = len(capitalization_pattern.findall(labels))
         if num_words_in_segment != num_labels_in_segment:
             print(i)
+            print(num_words_in_segment)
             print(repr(segment))
+            print(num_labels_in_segment)
             print(repr(labels))
             print()
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
@@ -461,7 +463,9 @@ def main():
         num_labels_in_segment = len(capitalization_pattern.findall(labels))
         if num_words_in_segment != num_labels_in_segment:
             print(i)
+            print(num_words_in_segment)
             print(repr(segment))
+            print(num_labels_in_segment)
             print(repr(labels))
             print()
 
