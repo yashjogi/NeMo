@@ -386,7 +386,7 @@ def apply_autoregressive_labels(
             # logging.info(f"cv: {cv}")
             # logging.info(f'pv: {pv}')
             capitalization_label = select_best_label(cv)
-            punctuation_label = select_best_label(cv)
+            punctuation_label = select_best_label(pv)
             error_msg = f"Unexpected capitalization label {repr(capitalization_label)} in word {i} in a query {q_i}."
             if no_all_upper_label:
                 if capitalization_label == 'U':
