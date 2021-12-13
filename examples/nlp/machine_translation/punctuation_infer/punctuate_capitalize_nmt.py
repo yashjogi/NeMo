@@ -212,7 +212,7 @@ def adjust_predicted_labels_length(
     capitalization_pattern = re.compile(f"[{capitalization_labels}]")
     for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
         num_words = len(segment.split())
-        num_word_labels = len(capitalization_pattern.findall(segment))
+        num_word_labels = len(capitalization_pattern.findall(labels))
         if num_words > num_word_labels:
             new_labels = labels
             new_labels += (
@@ -232,7 +232,8 @@ def adjust_predicted_labels_length(
         assert num_words == len(
             capitalization_pattern.findall(new_labels)
         ), (
-            f"Could not adjust number of labels for segment {i}.\nSegment: {repr(segment)}\nold_labels: "
+            f"Could not adjust number of labels for segment {i}.\n"
+            f"num_words: {num_words}\nnum_word_labels: {num_word_labels}\nSegment: {repr(segment)}\nold_labels: "
             f"{repr(labels)}\nnew_labels: {repr(new_labels)}"
         )
     return result
