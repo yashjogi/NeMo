@@ -214,10 +214,10 @@ def adjust_predicted_labels_length(
         num_words = len(segment.split())
         num_word_labels = len(capitalization_pattern.findall(segment))
         if num_words > num_word_labels:
-            if labels[-1] != ' ':
-                labels += (
-                    '' if labels[-1] == ' ' else ' '
-                ) + (capitalization_labels[0] + ' ') * (num_words - num_word_labels)
+            new_labels = labels
+            new_labels += (
+                '' if labels[-1] == ' ' else ' '
+            ) + (capitalization_labels[0] + ' ') * (num_words - num_word_labels)
         elif num_words < num_word_labels:
             i = num_word_labels
             pos = len(labels) - 1
@@ -225,9 +225,16 @@ def adjust_predicted_labels_length(
                 if labels[pos] in capitalization_labels:
                     i -= 1
                 pos -= 1
-            labels = labels[: pos + 1]
-        result.append(labels)
-        assert num_words == len(capitalization_pattern.findall(labels))
+            new_labels = labels[: pos + 1]
+        else:
+            new_labels = labels
+        result.append(new_labels)
+        assert num_words == len(
+            capitalization_pattern.findall(new_labels)
+        ), (
+            f"Could not adjust number of labels for segment {i}.\nSegment: {repr(segment)}\nold_labels: "
+            f"{repr(labels)}\nnew_labels: {repr(new_labels)}"
+        )
     return result
 
 
