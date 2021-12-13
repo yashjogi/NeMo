@@ -248,15 +248,15 @@ def get_label_votes(
     segment_id_in_query = 0
     while current_segment_i < len(query_indices) and query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
-        print(
-            "current_segment_i, num_words_in_segment, segment_id_in_query * step:",
-            current_segment_i, num_words_in_segment, segment_id_in_query * step
-        )
+        # print(
+        #     "current_segment_i, num_words_in_segment, segment_id_in_query * step:",
+        #     current_segment_i, num_words_in_segment, segment_id_in_query * step
+        # )
         last_segment_in_query = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
         if current_segment_i > 0:
             labels = labels[1:]
-        print("len(labels):", len(labels))
+        # print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             capitalization_label_expected = (
@@ -447,16 +447,11 @@ def main():
             log_timing=False,
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
-    capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
     for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
-        num_words_in_segment = len(segment.split())
-        num_labels_in_segment = len(capitalization_pattern.findall(labels))
-        if num_words_in_segment != num_labels_in_segment:
-            print(i)
-            print(segment)
-            print(labels)
+        print(i)
+        print(segment)
+        print(labels)
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
-
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
