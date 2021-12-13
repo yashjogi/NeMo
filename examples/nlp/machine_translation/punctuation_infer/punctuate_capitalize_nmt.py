@@ -292,8 +292,8 @@ def get_label_votes(
                 and num_processed_capit_labels_in_segment > num_words_in_segment - margin
             ):
                 break
-            assert num_words <= step * current_segment_i + num_processed_capit_labels_in_segment, (
-                f"Number of detected capitalization labels"
+            assert num_words >= step * current_segment_i + num_processed_capit_labels_in_segment, (
+                f"Number of detected capitalization labels "
                 f"{step * current_segment_i + num_processed_capit_labels_in_segment} is greater than number of words "
                 f"in a query {q_i}.\nnum_words={num_words}\ncurrent_segment_ids={current_segment_i}\nlabels={labels}"
             )
