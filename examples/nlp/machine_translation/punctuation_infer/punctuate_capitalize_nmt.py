@@ -130,7 +130,6 @@ def get_args():
     )
     parser.add_argument(
         "--lang",
-        default='en',
         help="Whether to perform punctuation normalization and for which language.",
     )
     parser.add_argument(
