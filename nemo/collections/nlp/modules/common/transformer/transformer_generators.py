@@ -312,7 +312,7 @@ class BeamSearchSequenceGenerator(GreedySequenceGenerator):
         Kwargs:
             all remaining parameters of GreedySequenceGenerator class
         """
-
+        print("(BeamSearchSequenceGenerator.__init__)kwargs:", kwargs)
         super().__init__(embedding, decoder, log_softmax, **kwargs)
         self.beam_size = beam_size
         self.len_pen = len_pen
