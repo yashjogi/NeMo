@@ -5,6 +5,6 @@ python punctuate_capitalize_nmt.py \
     --max_seq_length 128 \
     --step 8 \
     --margin 16 \
-    --batch_size 16 \
+    --batch_size 32 \
     --no_all_upper_label \
     --add_source_num_words_to_batch
