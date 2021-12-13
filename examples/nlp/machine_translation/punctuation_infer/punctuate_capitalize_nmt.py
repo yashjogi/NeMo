@@ -227,7 +227,7 @@ def adjust_predicted_labels_length(
                 pos -= 1
             labels = labels[: pos + 1]
         result.append(labels)
-        assert num_words == len(capitalization_pattern.findall(segment))
+        assert num_words == len(capitalization_pattern.findall(labels))
     return result
 
 
