@@ -293,7 +293,8 @@ def get_label_votes(
             if lbl_i % 2:
                 assert not lbl or lbl in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
-                    f"punctuation labels whereas labels with odd indices have to be capitalization labels."
+                    f"punctuation labels whereas labels with odd indices have to be capitalization labels.\n"
+                    f"labels: {repr(labels)}"
                 )
                 update_label_counter(
                     capitalization_voting[query_word_i],
