@@ -12,26 +12,6 @@ from nemo.collections.nlp.models.machine_translation import MTEncDecModel
 from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGenerator
 from nemo.utils import logging
 
-# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# If you update following regex you need to update analogous regex in
-# examples/speech_translation/punct_ds_preparation/prepare_small_data_for_punctuation_capitalization.py
-WC = '\\w$\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\ua838\ufdfc\ufe69\uff04\uffe0\uffe1' \
-    '\uffe5\uffe6°' \
-    + ''.join(
-        [
-            chr(i) for i in chain(
-                *[list(r) for r in [range(0x0a2, 0x0a6), range(0x20a1, 0x20c0), range(0x11fdd, 0x11fe1)]]
-            )
-        ]
-    )
-# ATTENTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# If you update following regex you need to update analogous regex in
-# examples/speech_translation/punct_ds_preparation/prepare_small_data_for_punctuation_capitalization.py
-WORD_WITH_FOLLOWING_PUNCTUATION = re.compile(
-    f"((?<=[ \n\"()])[+-]\\d+(?:[.,/]\\d+)*[{WC}']*|[{WC}]+(?:[,./'][{WC}]+)*)"
-    f"([^{WC}]*[ \n\"()](?=[+-]\\d)|[^{WC}]*)"
-)
-
 
 def get_args():
     parser = argparse.ArgumentParser(
