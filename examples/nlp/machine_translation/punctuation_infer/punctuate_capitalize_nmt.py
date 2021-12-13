@@ -192,7 +192,7 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
     segments, query_indices, start_word_i = [], [], []
     segment_start = 0
     for q_i, query in enumerate(texts):
-        words = [m.group(1) for m in WORD_WITH_FOLLOWING_PUNCTUATION.finditer(query)]
+        words = query.split()
         while segment_start + max_seq_length - step < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
             start_word_i.append(segment_start)
@@ -435,9 +435,9 @@ def main():
         max_delta_length=args.max_delta_length,
         decoder_word_ids=model.decoder_tokenizer.word_ids,
     )
-    autoregressive_punctuation_labels = []
+    autoregressive_labels = []
     for i in tqdm(range(0, len(segments), args.batch_size), unit='batch', desc="Calculating labels for segments"):
-        autoregressive_punctuation_labels += model.translate(
+        autoregressive_labels += model.translate(
             text=segments[i : i + args.batch_size],
             source_lang=args.lang,
             target_lang=args.lang,
@@ -445,9 +445,29 @@ def main():
             log_timing=False,
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
+    capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
+    for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
+        num_words_in_segment = segment.split()
+        num_labels_in_segment = len(capitalization_pattern.findall(labels))
+        if num_words_in_segment != num_labels_in_segment:
+            print(i)
+            print(repr(segment))
+            print(repr(labels))
+            print()
+    autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
+    print("AFTER ADJUSTMENT")
+    for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
+        num_words_in_segment = segment.split()
+        num_labels_in_segment = len(capitalization_pattern.findall(labels))
+        if num_words_in_segment != num_labels_in_segment:
+            print(i)
+            print(repr(segment))
+            print(repr(labels))
+            print()
+
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
-        autoregressive_punctuation_labels,
+        autoregressive_labels,
         query_indices,
         start_word_i,
         args.step,
