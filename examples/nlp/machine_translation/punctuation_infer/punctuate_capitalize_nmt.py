@@ -447,11 +447,18 @@ def main():
             log_timing=False,
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
+    autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
+    capitalization_pattern = re.compile(f"[({args.capitalization_labels})]")
     for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
+        words = segment.split()
+        label_sep = capitalization_pattern.split(labels)
+        res = label_sep[0]
+        for i, (word, lbl) in enumerate(zip(words, label_sep[1:])):
+            res += lbl if i % 2 else (word.capitalize() if lbl == 'U' else word)
         print(i)
         print(segment)
         print(labels)
-    autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
+        print(res)
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
