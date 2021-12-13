@@ -279,7 +279,7 @@ def get_label_votes(
         print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
-            if lbl_i % 2:
+            if lbl_i % 2 and current_segment_i == 0 or lbl_i % 2 == 0 and current_segment_i > 0:
                 num_processed_capit_labels_in_segment += 1
             if segment_id_in_query > 0 and num_processed_capit_labels_in_segment <= margin != 0:
                 continue
@@ -296,7 +296,7 @@ def get_label_votes(
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels.\n"
                     f"labels: {repr(labels)}\n"
                     f"segment_autoregressive_labels[{current_segment_i}]="
-                    f"{segment_autoregressive_labels[current_segment_i]}"
+                    f"{repr(segment_autoregressive_labels[current_segment_i])}"
                 )
                 update_label_counter(
                     capitalization_voting[query_word_i],
@@ -310,7 +310,7 @@ def get_label_votes(
                     f"capitalization labels whereas labels with even indices have to be punctuation labels.\n"
                     f"labels={labels}\n"
                     f"segment_autoregressive_labels[{current_segment_i}]="
-                    f"{segment_autoregressive_labels[current_segment_i]}"
+                    f"{repr(segment_autoregressive_labels[current_segment_i])}"
                 )
                 update_label_counter(
                     punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_capit_labels_in_segment - 1
