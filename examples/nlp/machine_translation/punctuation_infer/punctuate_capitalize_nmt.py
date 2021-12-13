@@ -169,18 +169,14 @@ def load_manifest(manifest: Path) -> List[Dict[str, Union[str, float]]]:
 
 def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tuple[List[str], List[int], List[int]]:
     segments, query_indices, start_word_i = [], [], []
-    segment_start = 0
     for q_i, query in enumerate(texts):
+        segment_start = 0
         words = query.split()
         while segment_start + max_seq_length - step < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
             start_word_i.append(segment_start)
             query_indices.append(q_i)
             segment_start += step
-        print("(split_into_segments)Number of words:", len(words))
-        print("(split_into_segments)len(segments):", len(segments))
-        print("(split_into_segmets)len(words):", len(words))
-        print("(split_into_segments)len(segments[-1]):", len(segments[-1].split()))
     return segments, query_indices, start_word_i
 
 
@@ -238,7 +234,6 @@ def get_label_votes(
     margin: int,
     capitalization_labels: str,
 ) -> Tuple[List[Dict[str, List[int]]], List[Dict[str, List[int]]], int]:
-    print("Number of segments:", len(segment_autoregressive_labels))
     capitalization_pattern = re.compile(f"([{capitalization_labels}])")
     words = query.split()
     num_words = len(words)
@@ -247,15 +242,10 @@ def get_label_votes(
     segment_id_in_query = 0
     while current_segment_i < len(query_indices) and query_indices[current_segment_i] == q_i:
         num_words_in_segment = len(capitalization_pattern.findall(segment_autoregressive_labels[current_segment_i]))
-        # print(
-        #     "current_segment_i, num_words_in_segment, segment_id_in_query * step:",
-        #     current_segment_i, num_words_in_segment, segment_id_in_query * step
-        # )
         last_segment_in_query = segment_id_in_query * step + num_words_in_segment >= num_words
         labels = capitalization_pattern.split(segment_autoregressive_labels[current_segment_i])
         if current_segment_i > 0:
             labels = labels[1:]
-        # print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
             capitalization_label_expected = (
@@ -315,18 +305,10 @@ def get_label_votes(
         )
         segment_id_in_query += 1
         current_segment_i += 1
-    print("current_segment_i after query processing:", current_segment_i)
-    print("punctuation_voting:", punctuation_voting)
-    print("Number of non empty votes:", len(list(filter(lambda x: x, punctuation_voting))))
-    print("Number of empty votes:", len(list(filter(lambda x: not x, punctuation_voting))))
-    print("capitalization_voting:", capitalization_voting)
-    print("Number of non empty votes:", len(list(filter(lambda x: x, capitalization_voting))))
-    print("Number of empty votes:", len(list(filter(lambda x: not x, capitalization_voting))))
     return punctuation_voting, capitalization_voting, current_segment_i
 
 
 def select_best_label(votes):
-    # print("(select_best_label)votes:", votes)
     votes = sorted(votes.items(), key=lambda x: -x[1][1] / x[1][0])
     votes = sorted(votes, key=lambda x: -x[1][0])
     return votes[0][0]
@@ -421,8 +403,6 @@ def main():
             empty_queries.append(text)
             empty_indices.append(i)
     segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.step)
-    # for s, qi, swi in zip(segments, query_indices, start_word_i):
-    #     print(qi, swi, repr(s))
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
         decoder=model.decoder.decoder,
@@ -447,19 +427,19 @@ def main():
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
-    capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
-    for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
-        words = segment.split()
-        label_sep = capitalization_pattern.split(labels)
-        res = label_sep[0]
-        for j, lbl in enumerate(label_sep[1:]):
-            res += lbl if j % 2 else (words[j // 2].capitalize() if lbl == 'U' else words[j // 2])
-        if i < 30:
-            print(i)
-            print(segment)
-            print(labels)
-            print(label_sep)
-            print(res)
+    # capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
+    # for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
+    #     words = segment.split()
+    #     label_sep = capitalization_pattern.split(labels)
+    #     res = label_sep[0]
+    #     for j, lbl in enumerate(label_sep[1:]):
+    #         res += lbl if j % 2 else (words[j // 2].capitalize() if lbl == 'U' else words[j // 2])
+    #     if i < 30:
+    #         print(i)
+    #         print(segment)
+    #         print(labels)
+    #         print(label_sep)
+    #         print(res)
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
