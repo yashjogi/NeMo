@@ -453,12 +453,13 @@ def main():
         words = segment.split()
         label_sep = capitalization_pattern.split(labels)
         res = label_sep[0]
-        for i, (word, lbl) in enumerate(zip(words, label_sep[1:])):
-            res += lbl if i % 2 else (word.capitalize() if lbl == 'U' else word)
-        print(i)
-        print(segment)
-        print(labels)
-        print(res)
+        for j, (word, lbl) in enumerate(zip(words, label_sep[1:])):
+            res += lbl if j % 2 else (word.capitalize() if lbl == 'U' else word)
+        if i < 30:
+            print(i)
+            print(segment)
+            print(labels)
+            print(res)
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
