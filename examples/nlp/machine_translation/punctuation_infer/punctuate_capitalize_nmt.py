@@ -279,19 +279,27 @@ def get_label_votes(
         print("len(labels):", len(labels))
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
-            if lbl_i % 2 and current_segment_i == 0 or lbl_i % 2 == 0 and current_segment_i > 0:
+            capitalization_label_expected = (
+                lbl_i % 2 and current_segment_i == 0
+                or lbl_i % 2 == 0 and current_segment_i > 0
+            )
+            if capitalization_label_expected:
                 num_processed_capit_labels_in_segment += 1
             if segment_id_in_query > 0 and num_processed_capit_labels_in_segment <= margin != 0:
                 continue
             if (
                 not last_segment_in_query
                 and num_processed_capit_labels_in_segment > num_words_in_segment - margin
-                or step * current_segment_i + num_processed_capit_labels_in_segment > num_words
             ):
                 break
+            assert num_words <= step * current_segment_i + num_processed_capit_labels_in_segment, (
+                f"Number of detected capitalization labels"
+                f"{step * current_segment_i + num_processed_capit_labels_in_segment} is greater than number of words "
+                f"in a query {q_i}.\nnum_words={num_words}\ncurrent_segment_ids={current_segment_i}\nlabels={labels}"
+            )
             query_word_i = step * current_segment_i + num_processed_capit_labels_in_segment - 1
-            if lbl_i % 2:
-                assert not lbl or lbl in capitalization_labels, (
+            if capitalization_label_expected:
+                assert lbl in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels.\n"
                     f"labels: {repr(labels)}\n"
