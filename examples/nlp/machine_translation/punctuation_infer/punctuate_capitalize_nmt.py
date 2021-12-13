@@ -447,7 +447,7 @@ def main():
         )
     capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
     for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
-        num_words_in_segment = segment.split()
+        num_words_in_segment = len(segment.split())
         num_labels_in_segment = len(capitalization_pattern.findall(labels))
         if num_words_in_segment != num_labels_in_segment:
             print(i)
@@ -459,7 +459,7 @@ def main():
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
     print("AFTER ADJUSTMENT")
     for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
-        num_words_in_segment = segment.split()
+        num_words_in_segment = len(segment.split())
         num_labels_in_segment = len(capitalization_pattern.findall(labels))
         if num_words_in_segment != num_labels_in_segment:
             print(i)
