@@ -294,7 +294,9 @@ def get_label_votes(
                 assert not lbl or lbl in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
                     f"punctuation labels whereas labels with odd indices have to be capitalization labels.\n"
-                    f"labels: {repr(labels)}"
+                    f"labels: {repr(labels)}\n"
+                    f"segment_autoregressive_labels[{current_segment_i}]="
+                    f"{segment_autoregressive_labels[current_segment_i]}"
                 )
                 update_label_counter(
                     capitalization_voting[query_word_i],
@@ -305,7 +307,10 @@ def get_label_votes(
             else:
                 assert not lbl or lbl not in capitalization_labels, (
                     f"A label {repr(lbl)} with index {lbl_i} from segment {current_segment_i} belongs to "
-                    f"capitalization labels whereas labels with even indices have to be punctuation labels."
+                    f"capitalization labels whereas labels with even indices have to be punctuation labels.\n"
+                    f"labels={labels}\n"
+                    f"segment_autoregressive_labels[{current_segment_i}]="
+                    f"{segment_autoregressive_labels[current_segment_i]}"
                 )
                 update_label_counter(
                     punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_capit_labels_in_segment - 1
