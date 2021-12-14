@@ -148,7 +148,7 @@ if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
     upper_label=" "
   fi
   python ../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
-    --input_text ${transcript} \
+    --input_manifest ${transcript} \
     --output_text "${punc_dir}/${asr_model_name}.txt" \
     --model_path "${punctuation_model}" \
     --max_seq_length 128 \
