@@ -64,6 +64,11 @@ def get_args():
         "`--output_manifest` and `--output_text` should be provided.",
     )
     parser.add_argument(
+        "--output_labels",
+        type=Path,
+        help="Path to file with output labels. If not provided, then labels are not saved.",
+    )
+    parser.add_argument(
         "--model_path",
         "-P",
         type=Path,
@@ -138,13 +143,6 @@ def get_args():
         help="Whether to perform punctuation normalization and for which language.",
     )
     parser.add_argument(
-        "--save_labels_instead_of_text",
-        "-B",
-        action="store_true",
-        help="If this option is set, then punctuation and capitalization labels are saved instead text with restored "
-        "punctuation and capitalization. Labels are saved in autoregressive format.",
-    )
-    parser.add_argument(
         "--make_queries_contain_intact_sentences",
         action="store_true",
         help="If this option is set, then 1) leading punctuation is removed, 2) first word is made upper case if it is"
@@ -164,7 +162,7 @@ def get_args():
             f"`max_seq_length - 2 * margin >= step` whereas `--max_seq_length={args.max_seq_length}`, "
             f"`--margin={args.margin}`, `--step={args.step}`."
         )
-    for name in ["input_manifest", "input_text", "output_manifest", "output_text", "model_path"]:
+    for name in ["input_manifest", "input_text", "output_manifest", "output_text", "model_path", 'output_labels']:
         if getattr(args, name) is not None:
             setattr(args, name, getattr(args, name).expanduser())
     return args
@@ -489,14 +487,18 @@ def main():
     if args.output_manifest is None:
         args.output_text.parent.mkdir(exist_ok=True, parents=True)
         with args.output_text.open('w') as f:
-            for t in (result_labels if args.save_labels_instead_of_text else result_texts):
+            for t in result_texts:
                 f.write(t + '\n')
     else:
         args.output_manifest.parent.mkdir(exist_ok=True, parents=True)
         with args.output_manifest.open('w') as f:
-            for item, t in zip(manifest, result_labels if args.save_labels_instead_of_text else result_texts):
+            for item, t in zip(manifest, result_texts):
                 item[text_key] = t
                 f.write(json.dumps(item) + '\n')
+    if args.output_labels is not None:
+        with args.output_labels.open('w') as f:
+            for t in result_labels:
+                f.write(t + '\n')
 
 
 if __name__ == "__main__":
