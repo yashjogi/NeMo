@@ -29,10 +29,9 @@ from nemo.collections.nlp.models.duplex_text_normalization.duplex_tagger import 
 from nemo.collections.nlp.models.duplex_text_normalization.duplex_decoder import ONNXDuplexDecoderModel
 
 
-__all__ = ['DuplexTextNormalizationModel', 'ONNXDuplexTextNormalizationModel']
+__all__ = ['DuplexTextNormalizationModel', 'ONNXDuplexTextNormalizationModel', 'post_process_punct']
 
 
-@experimental
 class DuplexTextNormalizationModel(nn.Module):
     """
     DuplexTextNormalizationModel is a wrapper class that can be used to
@@ -280,7 +279,7 @@ class DuplexTextNormalizationModel(nn.Module):
                     # detokenize the output with Moses and fix punctuation marks to match the input
                     # for interactive inference or inference from a file
                     cur_output_str = self.decoder.processor.detokenize(cur_words)
-                    cur_output_str = post_process_punct(input=original_sents[ix], nn_output=cur_output_str)
+                    cur_output_str = post_process_punct(input=original_sents[ix], normalized_text=cur_output_str)
                 final_outputs.append(cur_output_str)
             except IndexError:
                 logging.warning(f"Input sent is too long and will be skipped - {original_sents[ix]}")

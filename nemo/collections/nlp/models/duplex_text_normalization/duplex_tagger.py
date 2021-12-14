@@ -13,9 +13,7 @@
 # limitations under the License.
 
 from time import perf_counter
-from typing import List, Optional
-from typing import Dict
-
+from typing import Dict, List, Optional
 
 import torch
 from omegaconf import DictConfig
@@ -31,6 +29,7 @@ from nemo.collections.nlp.metrics.classification_report import ClassificationRep
 from nemo.collections.nlp.models.duplex_text_normalization.utils import has_numbers
 from nemo.core.classes.common import typecheck
 from nemo.collections.nlp.models.nlp_model import NLPModel
+<<<<<<< HEAD
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.classes.exportable import Exportable
 from nemo.core.neural_types import ChannelType, MaskType, NeuralType, LogitsType
@@ -43,6 +42,11 @@ from onnxruntime import (
 
 
 __all__ = ['DuplexTaggerModel', 'ONNXDuplexTaggerModel']
+=======
+from nemo.core.classes.common import PretrainedModelInfo, typecheck
+from nemo.core.neural_types import ChannelType, LogitsType, MaskType, NeuralType
+from nemo.utils import logging
+>>>>>>> origin/main
 
 
 
@@ -61,6 +65,25 @@ class DuplexTaggerModel(NLPModel):
     def output_types(self) -> Optional[Dict[str, NeuralType]]:
         return {"logits": NeuralType(('B', 'T', 'D'), LogitsType())}
 
+
+    @property
+    def input_types(self) -> Optional[Dict[str, NeuralType]]:
+        return {
+            "input_ids": NeuralType(('B', 'T'), ChannelType()),
+            "attention_mask": NeuralType(('B', 'T'), MaskType(), optional=True),
+        }
+
+    @property
+    def output_types(self) -> Optional[Dict[str, NeuralType]]:
+        return {"logits": NeuralType(('B', 'T', 'D'), LogitsType())}
+
+    @property
+    def input_module(self):
+        return self
+
+    @property
+    def output_module(self):
+        return self
 
     def __init__(self, cfg: DictConfig, trainer: Trainer = None):
         self._tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer, add_prefix_space=True)
@@ -83,6 +106,7 @@ class DuplexTaggerModel(NLPModel):
         # Language
         self.lang = cfg.get('lang', None)
 
+<<<<<<< HEAD
 
     @property
     def input_module(self):
@@ -95,6 +119,11 @@ class DuplexTaggerModel(NLPModel):
     @typecheck()
     def forward(self, input_ids, attention_mask):
         logits =  self.model(input_ids=input_ids, attention_mask=attention_mask).logits
+=======
+    @typecheck()
+    def forward(self, input_ids, attention_mask):
+        logits = self.model(input_ids=input_ids, attention_mask=attention_mask).logits
+>>>>>>> origin/main
         return logits
 
     # Training
@@ -396,6 +425,13 @@ class DuplexTaggerModel(NLPModel):
             List of available pre-trained models.
         """
         result = []
+        result.append(
+            PretrainedModelInfo(
+                pretrained_model_name="neural_text_normalization_t5",
+                location="https://api.ngc.nvidia.com/v2/models/nvidia/nemo/neural_text_normalization_t5/versions/1.5.0/files/neural_text_normalization_t5_tagger.nemo",
+                description="Text Normalization model's tagger model.",
+            )
+        )
         return result
 
 
