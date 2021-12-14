@@ -385,7 +385,7 @@ def apply_autoregressive_labels(
             processed_query = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', processed_query.strip())
             united = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', united.strip())
             if processed_query[0].islower():
-                processed_query = processed_query.capitalize()
+                processed_query = processed_query[0].upper() + processed_query[1:]
                 if united[0] == 'O':
                     united = ('U' if no_all_upper_label else 'u') + united[1:]
             if processed_query[-1] not in '.?!':
@@ -452,19 +452,6 @@ def main():
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
-    # capitalization_pattern = re.compile(f"([{args.capitalization_labels}])")
-    # for i, (segment, labels) in enumerate(zip(segments, autoregressive_labels)):
-    #     words = segment.split()
-    #     label_sep = capitalization_pattern.split(labels)
-    #     res = label_sep[0]
-    #     for j, lbl in enumerate(label_sep[1:]):
-    #         res += lbl if j % 2 else (words[j // 2].capitalize() if lbl == 'U' else words[j // 2])
-    #     if i < 30:
-    #         print(i)
-    #         print(segment)
-    #         print(labels)
-    #         print(label_sep)
-    #         print(res)
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,

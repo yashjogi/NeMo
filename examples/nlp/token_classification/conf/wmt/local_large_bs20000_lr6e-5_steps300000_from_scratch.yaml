@@ -1,0 +1,193 @@
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Punctuation and capitalization model with pretrained BERT-like models
+do_testing: true
+pretrained_model: null # pretrained Punctuation and Capitalization model from list_available_models(), for example:
+# punctuation_en_bert or punctuation_en_distilbert
+# or your_model.nemo
+trainer:
+  gpus: 1 # the number of gpus, 0 for CPU
+  max_steps: 100000 # precedence over max_epochs
+  accumulate_grad_batches: 1 # accumulates grads every k batches
+  gradient_clip_val: 0.0
+  amp_backend: native
+  precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0
+  accelerator: ddp
+  checkpoint_callback: false  # Provided by exp_manager
+  logger: false  # Provided by exp_manager
+  log_every_n_steps: 50  # Interval of logging.
+  check_val_every_n_epoch: 1
+  progress_bar_refresh_rate: 0
+
+exp_manager:
+  exp_dir: nemo_experiments  # exp_dir for your experiment, if None, defaults to "./nemo_experiments"
+  name: Punctuation_and_Capitalization  # The name of your model
+  create_checkpoint_callback: true  # Whether you want exp_manager to create a model checkpoint callback
+  checkpoint_callback_params:
+    save_best_model: true
+    monitor: val_punct_f1
+    mode: max
+  create_wandb_logger: true
+  wandb_logger_kwargs:
+    name: evelina_large_wmt_bs10000_steps100000_from_scratch
+    project: autoregressive_punctuation_capitalization
+    entity: anton_peganov
+
+model:
+  class_labels:
+    punct_labels_file: punct_label_ids.csv
+    capit_labels_file: capit_label_ids.csv
+  common_dataset_parameters:
+    ignore_extra_tokens: false
+    ignore_start_end: true  # TODO: try false
+    pad_label: 'O'
+
+  train_ds:
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    use_tarred_dataset: true
+    ds_item: /media/apeganov/DATA/punctuation_and_capitalization/simplest/wmt_92_128_14.12.2021/for_upload/train_bert_tarred_10000
+    tar_metadata_file: metadata.punctuation_capitalization.tokens10000.max_seq_length512.bert-large-uncased.json
+    shuffle: true
+    num_samples: -1
+    persistent_workers: true
+    pin_memory: true
+    n_jobs: null
+    label_info_save_dir: tmp_dir
+
+  validation_ds:
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    use_tarred_dataset: false
+    ds_item: /media/apeganov/DATA/punctuation_and_capitalization/simplest/wmt_92_128_14.12.2021/for_upload/IWSLT_tst2019
+    text_file: input.txt
+    labels_file: bert_labels.txt
+    shuffle: false
+    num_samples: -1
+    tokens_in_batch: 4092
+    persistent_workers: true
+    pin_memory: true
+
+  test_ds:
+    # if evaluation data is not in the model.dataset.data_dir as the training data or multiple datasets are used for
+    # evaluation is needed, specify ds_item, otherwise by default data_dir is used
+    use_tarred_dataset: false
+    ds_item: /media/apeganov/DATA/punctuation_and_capitalization/simplest/wmt_92_128_14.12.2021/for_upload/IWSLT_tst2019
+    text_file: input.txt
+    labels_file: bert_labels.txt
+    shuffle: false
+    num_samples: -1
+    tokens_in_batch: 4092
+    persistent_workers: true
+    pin_memory: true
+
+  tokenizer:
+    tokenizer_name: ${model.language_model.pretrained_model_name} # or sentencepiece
+    vocab_file: null # path to vocab file
+    tokenizer_model: null # only used if tokenizer is sentencepiece
+    special_tokens: null
+
+  language_model:
+    pretrained_model_name: bert-large-uncased
+    lm_checkpoint: null
+    config_file: null # json file, precedence over config
+    config:
+      add_cross_attention: false
+      architectures:
+      - BertForMaskedLM
+      attention_probs_dropout_prob: 0.1
+      bad_words_ids: null
+      bos_token_id: null
+      chunk_size_feed_forward: 0
+      decoder_start_token_id: null
+      diversity_penalty: 0.0
+      do_sample: false
+      early_stopping: false
+      encoder_no_repeat_ngram_size: 0
+      eos_token_id: null
+      finetuning_task: null
+      forced_bos_token_id: null
+      forced_eos_token_id: null
+      gradient_checkpointing: false
+      hidden_act: gelu
+      hidden_dropout_prob: 0.1
+      hidden_size: 1024
+      id2label:
+        0: LABEL_0
+        1: LABEL_1
+      initializer_range: 0.02
+      intermediate_size: 4096
+      is_decoder: false
+      is_encoder_decoder: false
+      label2id:
+        LABEL_0: 0
+        LABEL_1: 1
+      layer_norm_eps: 1.0e-12
+      length_penalty: 1.0
+      max_length: 20
+      max_position_embeddings: 512
+      min_length: 0
+      model_type: bert
+      no_repeat_ngram_size: 0
+      num_attention_heads: 16
+      num_beam_groups: 1
+      num_beams: 1
+      num_hidden_layers: 24
+      num_return_sequences: 1
+      output_attentions: false
+      output_hidden_states: false
+      output_scores: false
+      pad_token_id: 0
+      position_embedding_type: absolute
+      prefix: null
+      problem_type: null
+      pruned_heads: { }
+      remove_invalid_values: false
+      repetition_penalty: 1.0
+      return_dict: true
+      return_dict_in_generate: false
+      sep_token_id: null
+      task_specific_params: null
+      temperature: 1.0
+      tie_encoder_decoder: false
+      tie_word_embeddings: true
+      tokenizer_class: null
+      top_k: 50
+      top_p: 1.0
+      torch_dtype: null
+      torchscript: false
+      transformers_version: 4.6.0.dev0
+      type_vocab_size: 2
+      use_bfloat16: false
+      use_cache: true
+      vocab_size: 30522
+
+  optim:
+    name: adam
+    lr: 1e-4
+    weight_decay: 0.00
+
+    sched:
+      name: InverseSquareRootAnnealing
+      min_lr: 0.0
+      last_epoch: -1
+      warmup_ratio: 0.1
+
+hydra:
+  run:
+    dir: .
+  job_logging:
+    root:
+      handlers: null
