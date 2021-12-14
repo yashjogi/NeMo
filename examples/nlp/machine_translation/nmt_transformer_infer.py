@@ -182,6 +182,10 @@ def main():
         help="Required for fixed length beam search.",
         action="store_true",
     )
+    parser.add_argument(
+        "--cuda_device",
+        type=int,
+    )
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     logging.info("Attempting to initialize from .nemo file")
@@ -203,7 +207,7 @@ def main():
     all_timing = []
 
     if torch.cuda.is_available():
-        models = [model.cuda() for model in models]
+        models = [model.to(f'cuda:{args.cuda_device}') for model in models]
 
     if args.lm_model is not None:
         lm_model = nemo_nlp.models.language_modeling.TransformerLMModel.restore_from(restore_path=args.lm_model).eval()
