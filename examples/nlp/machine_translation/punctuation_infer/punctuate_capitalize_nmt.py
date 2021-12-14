@@ -13,6 +13,9 @@ from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGe
 from nemo.utils import logging
 
 
+LSTRIP_PATTERN = re.compile('^[^a-zA-Z]+')
+
+
 def get_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -370,6 +373,11 @@ def apply_autoregressive_labels(
                     raise ValueError(error_msg)
             processed_query += punctuation_label
             united += capitalization_label + punctuation_label
+        processed_query = LSTRIP_PATTERN.sub('', processed_query)
+        united = LSTRIP_PATTERN.sub('', united)
+        if processed_query[0].islower():
+            processed_query = processed_query.capitalize()
+            united = ('U' if no_all_upper_label else 'u') + united[1:]
         processed_queries.append(processed_query)
         united_labels.append(united)
     return processed_queries, united_labels
