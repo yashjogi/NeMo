@@ -382,8 +382,8 @@ def apply_autoregressive_labels(
             processed_query += punctuation_label
             united += capitalization_label + punctuation_label
         if make_queries_contain_intact_sentences:
-            processed_query = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', processed_query)
-            united = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', united)
+            processed_query = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', processed_query.strip())
+            united = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', united.strip())
             if processed_query[0].islower():
                 processed_query = processed_query.capitalize()
                 if united[0] == 'O':
