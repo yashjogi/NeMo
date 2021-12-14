@@ -31,6 +31,7 @@ bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   ~/iwslt_2019_test_result \
   0 \
   1 \
+  1 \
   1
 MULTILINE-COMMENT
 
@@ -146,7 +147,7 @@ if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
   else
     upper_label=" "
   fi
-  python ../../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
+  python ../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
     --input_text ${transcript} \
     --output_text "${punc_dir}/${asr_model_name}.txt" \
     --model_path "${punctuation_model}" \
