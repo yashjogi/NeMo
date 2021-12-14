@@ -13,7 +13,9 @@ from nemo.collections.nlp.modules.common.transformer import BeamSearchSequenceGe
 from nemo.utils import logging
 
 
-LSTRIP_PATTERN = re.compile('^[^a-zA-Z]+')
+LEFT_PUNCTUATION_STRIP_PATTERN = re.compile('^[^a-zA-Z]+')
+RIGHT_PUNCTUATION_STRIP_PATTERN = re.compile('[^a-zA-Z]$')
+
 
 
 def get_args():
@@ -141,6 +143,13 @@ def get_args():
         action="store_true",
         help="If this option is set, then punctuation and capitalization labels are saved instead text with restored "
         "punctuation and capitalization. Labels are saved in autoregressive format.",
+    )
+    parser.add_argument(
+        "--make_queries_contain_intact_sentences",
+        action="store_true",
+        help="If this option is set, then 1) leading punctuation is removed, 2) first word is made upper case if it is"
+        "not yet upper case, 3) if trailing punctuation does not make sentence end, then trailing punctuation is "
+        "removed and dot is added.",
     )
     args = parser.parse_args()
     if args.input_manifest is None and args.output_manifest is not None:
@@ -329,6 +338,7 @@ def apply_autoregressive_labels(
     margin: int,
     capitalization_labels: str,
     no_all_upper_label: bool,
+    make_queries_contain_intact_sentences: bool,
 ) -> Tuple[List[str], List[str]]:
     assert len(segment_autoregressive_labels) == len(query_indices)
     processed_queries = []
@@ -373,11 +383,17 @@ def apply_autoregressive_labels(
                     raise ValueError(error_msg)
             processed_query += punctuation_label
             united += capitalization_label + punctuation_label
-        processed_query = LSTRIP_PATTERN.sub('', processed_query)
-        united = LSTRIP_PATTERN.sub('', united)
-        if processed_query[0].islower():
-            processed_query = processed_query.capitalize()
-            united = ('U' if no_all_upper_label else 'u') + united[1:]
+        if make_queries_contain_intact_sentences:
+            processed_query = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', processed_query)
+            united = LEFT_PUNCTUATION_STRIP_PATTERN.sub('', united)
+            if processed_query[0].islower():
+                processed_query = processed_query.capitalize()
+                if united[0] == 'O':
+                    united = ('U' if no_all_upper_label else 'u') + united[1:]
+            if processed_query[-1] not in '.?!':
+                processed_query = RIGHT_PUNCTUATION_STRIP_PATTERN.sub('', processed_query) + '.'
+            if united[-1] not in '.?!':
+                united = RIGHT_PUNCTUATION_STRIP_PATTERN.sub('', united) + '.'
         processed_queries.append(processed_query)
         united_labels.append(united)
     return processed_queries, united_labels
@@ -460,6 +476,7 @@ def main():
         args.margin,
         args.capitalization_labels,
         args.no_all_upper_label,
+        args.make_queries_contain_intact_sentences,
     )
     result_texts = [""] * len(texts)
     result_labels = [""] * len(texts)
