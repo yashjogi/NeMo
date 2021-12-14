@@ -18,7 +18,11 @@ Parameters of the script are
   segmented: whether segment input audio before transcription using markup provided in dataset. 1 - segment,
     0 - do not segment
   mwerSegmenter: whether use mwerSegmenter for BLEU calculation. 1 - use mwerSegmenter, 0 - do not use
-
+  use_nmt_for_punctuation_and_capitalization: whether use NMT model for restoring punctuation and capitalization
+    0 - use BERT model.
+  no_all_upper_label: If 1, then only 2 capitalization labels U and O are used. If 0, then 'u' is for only first
+    character capitalization, 'U' for all characters capitalization, and 'O' for no capitalization. This parameter
+    is required only for NMT punctuation and capitalization.
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
@@ -26,6 +30,7 @@ bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   ~/checkpoints/wmt21_en_de_backtranslated_24x6_averaged.nemo \
   ~/iwslt_2019_test_result \
   0 \
+  1 \
   1
 MULTILINE-COMMENT
 
@@ -39,6 +44,8 @@ translation_model="$4"
 output_dir="$(realpath "$5")"
 segmented="$6"  # 1 or 0
 mwerSegmenter="$7"  # 1 or 0
+use_nmt_for_punctuation_and_capitalization="$8"  # 1 or 0
+no_all_upper_label="$9"  # 1 or 0
 
 
 audio_dir="${dataset_dir}/wavs"
@@ -133,10 +140,29 @@ if [ "${segmented}" -eq 1 ]; then
 else
   punc_dir="${output_dir}/punc_transcripts_not_segmented_input"
 fi
-python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
-  -m "${punctuation_model}" \
-  -p "${transcript}" \
-  -o "${punc_dir}/${asr_model_name}.txt"
+if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
+  if [ "${no_all_upper_label}" -eq 1 ]; then
+    upper_label="--no_all_upper_label"
+  else
+    upper_label=" "
+  fi
+  python ../../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
+    --input_text ${transcript} \
+    --output_text "${punc_dir}/${asr_model_name}.txt" \
+    --model_path "${punctuation_model}" \
+    --max_seq_length 128 \
+    --step 8 \
+    --margin 16 \
+    --batch_size 42 \
+    --add_source_num_words_to_batch \
+    --make_queries_contain_intact_sentences \
+    "${upper_label}"
+else
+  python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
+    -m "${punctuation_model}" \
+    -p "${transcript}" \
+    -o "${punc_dir}/${asr_model_name}.txt"
+fi
 
 
 printf "\n\nTranslating..\n"
