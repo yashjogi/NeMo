@@ -193,7 +193,13 @@ def main():
     for model_path in args.model.split(','):
         if not model_path.endswith('.nemo'):
             raise NotImplementedError(f"Only support .nemo files, but got: {model_path}")
-        model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=model_path).eval()
+        if torch.cuda.is_available():
+            device = torch.device(f'cuda:{args.cuda_device}')
+        else:
+            device = None
+        model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(
+            restore_path=model_path, map_location=device
+        ).eval()
         models.append(model)
 
     if (len(models) > 1) and (args.write_timing):
