@@ -143,22 +143,31 @@ else
 fi
 if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
   if [ "${no_all_upper_label}" -eq 1 ]; then
-    upper_label="--no_all_upper_label"
+    python ../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
+      --input_manifest ${transcript} \
+      --output_text "${punc_dir}/${asr_model_name}.txt" \
+      --model_path "${punctuation_model}" \
+      --max_seq_length 128 \
+      --step 8 \
+      --margin 16 \
+      --batch_size 42 \
+      --add_source_num_words_to_batch \
+      --make_queries_contain_intact_sentences \
+      --manifest_to_align_with "${en_ground_truth_manifest}" \
+      --no_all_upper_label
   else
-    upper_label=" "
+    python ../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
+      --input_manifest ${transcript} \
+      --output_text "${punc_dir}/${asr_model_name}.txt" \
+      --model_path "${punctuation_model}" \
+      --max_seq_length 128 \
+      --step 8 \
+      --margin 16 \
+      --batch_size 42 \
+      --add_source_num_words_to_batch \
+      --make_queries_contain_intact_sentences \
+      --manifest_to_align_with "${en_ground_truth_manifest}"
   fi
-  python ../nlp/machine_translation/punctuation_infer/punctuate_capitalize_nmt.py \
-    --input_manifest ${transcript} \
-    --output_text "${punc_dir}/${asr_model_name}.txt" \
-    --model_path "${punctuation_model}" \
-    --max_seq_length 128 \
-    --step 8 \
-    --margin 16 \
-    --batch_size 42 \
-    --add_source_num_words_to_batch \
-    --make_queries_contain_intact_sentences \
-    --manifest_to_align_with "${en_ground_truth_manifest}" \
-    "${upper_label}"
 else
   python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
     -m "${punctuation_model}" \
