@@ -157,6 +157,7 @@ if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
     --batch_size 42 \
     --add_source_num_words_to_batch \
     --make_queries_contain_intact_sentences \
+    --manifest_to_align_with "${en_ground_truth_manifest}" \
     "${upper_label}"
 else
   python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \

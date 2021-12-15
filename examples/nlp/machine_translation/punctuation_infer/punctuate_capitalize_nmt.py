@@ -3,7 +3,7 @@ import json
 import re
 from itertools import chain
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from nemo.utils import logging
 
 LEFT_PUNCTUATION_STRIP_PATTERN = re.compile('^[^a-zA-Z]+')
 RIGHT_PUNCTUATION_STRIP_PATTERN = re.compile('[^a-zA-Z]$')
-
+TALK_ID_COMPILED_PATTERN = re.compile(r"[1-9][0-9]*(?=\.wav$)")
 
 
 def get_args():
@@ -55,6 +55,14 @@ def get_args():
         "'pred_text' elements if 'pred_text' key is present in the input manifest. Otherwise text with restored "
         "punctuation and capitalization will be saved in 'text' elements. Exactly one parameter of `--output_manifest` "
         "and `--output_text` should be provided.",
+    )
+    parser.add_argument(
+        "--manifest_to_align_with",
+        "-a",
+        required=True,
+        type=Path,
+        help="Works for IWSLT dataset if input is passed in `--input_manifest`. The order of output texts will be"
+        "same as in `--manifest_to_align_with`.",
     )
     output.add_argument(
         "--output_text",
@@ -162,19 +170,61 @@ def get_args():
             f"`max_seq_length - 2 * margin >= step` whereas `--max_seq_length={args.max_seq_length}`, "
             f"`--margin={args.margin}`, `--step={args.step}`."
         )
-    for name in ["input_manifest", "input_text", "output_manifest", "output_text", "model_path", 'output_labels']:
+    for name in [
+        "input_manifest",
+        "input_text",
+        "output_manifest",
+        "output_text",
+        "model_path",
+        'output_labels',
+        'manifest_to_align_with'
+    ]:
         if getattr(args, name) is not None:
             setattr(args, name, getattr(args, name).expanduser())
     return args
 
 
-def load_manifest(manifest: Path) -> List[Dict[str, Union[str, float]]]:
-    result = []
+def load_manifest(
+    manifest: Path, manifest_to_align_with: Optional[Path]
+) -> Tuple[List[Dict[str, Union[str, float]]], List[str], str]:
+    manifest_data, texts = [], []
+    with manifest.open() as f:
+        if manifest_to_align_with is None:
+            for i, line in enumerate(f):
+                data = json.loads(line)
+                manifest_data.append(data)
+        else:
+            order = []
+            with manifest_to_align_with.open() as align_f:
+                for i, line in enumerate(align_f):
+                    data = json.loads(line)
+                    m = TALK_ID_COMPILED_PATTERN.search(data["audio_filepath"])
+                    if m is None:
+                        raise ValueError(f"Talk id is not identified in file {manifest} for line {i}")
+                    order.append(m.group(0))
+            manifest_data_by_talks = {}
+            for i, line in enumerate(f):
+                data = json.loads(line)
+                manifest_data.append(data)
+                m = TALK_ID_COMPILED_PATTERN.search(data["audio_filepath"])
+                if m is None:
+                    raise ValueError(f"Talk id is not identified in file {manifest} for line {i}")
+                manifest_data_by_talks[m.group(0)] = data
+            manifest_data = [manifest_data_by_talks[talk_id] for talk_id in order]
+    text_key = "pred_text" if "pred_text" in manifest_data[0] else "text"
+    return manifest_data, [d[text_key] for d in manifest_data], text_key
+
+
+def get_talk_id_order(manifest):
+    talk_ids = []
     with manifest.open() as f:
         for i, line in enumerate(f):
             data = json.loads(line)
-            result.append(data)
-    return result
+            m = TALK_ID_COMPILED_PATTERN.search(data["audio_filepath"])
+            if m is None:
+                raise ValueError(f"Talk id is not identified in file {manifest} for line {i}")
+            talk_ids.append(m.group(0))
+    return talk_ids
 
 
 def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tuple[List[str], List[int], List[int]]:
@@ -413,11 +463,7 @@ def main():
             for line in f:
                 texts.append(line.strip())
     else:
-        manifest = load_manifest(args.input_manifest)
-        text_key = "pred_text" if "pred_text" in manifest[0] else "text"
-        texts = []
-        for item in manifest:
-            texts.append(item[text_key])
+        manifest, texts, text_key = load_manifest(args.input_manifest, args.manifest_to_align_with)
     not_empty_queries, not_empty_indices = [], []
     empty_queries, empty_indices = [], []
     for i, text in enumerate(texts):
