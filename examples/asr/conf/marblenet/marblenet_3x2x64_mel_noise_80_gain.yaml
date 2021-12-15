@@ -5,6 +5,7 @@ model:
   repeat: 2
   dropout: 0.0
   kernel_size_factor: 1.0
+  n_filter: 64
 
   labels: ['background', 'speech']
 
@@ -88,7 +89,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [13]
         stride: [1]
@@ -98,7 +99,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [15]
         stride: [1]
@@ -108,7 +109,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [17]
         stride: [1]

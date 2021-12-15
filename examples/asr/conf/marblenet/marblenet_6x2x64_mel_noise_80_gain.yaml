@@ -5,7 +5,8 @@ model:
   repeat: 2
   dropout: 0.0
   kernel_size_factor: 1.0
-
+  n_filter: 64
+  
   labels: ['background', 'speech']
 
   train_ds:
@@ -33,6 +34,11 @@ model:
         min_snr_db: 0
         max_snr_db: 30
         max_gain_db: 300.0
+        norm: True
+      gain:
+        prob: 0.5
+        min_gain_dbfs: -10.0
+        max_gain_dbfs: 10.0
         norm: True
         
   validation_ds:
@@ -83,7 +89,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [13]
         stride: [1]
@@ -93,7 +99,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [15]
         stride: [1]
@@ -103,7 +109,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
 
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [17]
         stride: [1]
@@ -113,7 +119,7 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
         
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [19]
         stride: [1]
@@ -123,9 +129,19 @@ model:
         separable: true
         kernel_size_factor: ${model.kernel_size_factor}
         
-      - filters: 64
+      - filters: ${model.n_filter}
         repeat: ${model.repeat}
         kernel: [21]
+        stride: [1]
+        dilation: [1]
+        dropout: ${model.dropout}
+        residual: true
+        separable: true
+        kernel_size_factor: ${model.kernel_size_factor}
+        
+      - filters: ${model.n_filter}
+        repeat: ${model.repeat}
+        kernel: [23]
         stride: [1]
         dilation: [1]
         dropout: ${model.dropout}
@@ -150,7 +166,6 @@ model:
         dilation: [1]
         dropout: ${model.dropout}
         residual: false
-
   decoder:
     _target_: nemo.collections.asr.modules.ConvASRDecoderClassification
     feat_in: *enc_final_filters
