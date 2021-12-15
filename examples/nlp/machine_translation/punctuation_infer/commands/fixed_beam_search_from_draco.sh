@@ -4,7 +4,7 @@ model_path="/home/apeganov/NWInf_results/autoregressive_punctuation_capitalizati
 mkdir -p "$(dirname "${output}")"
 python nmt_transformer_infer.py \
     --model=${model_path} \
-    --srctext="${ds_path}/test/input.txt" \
+    --srctext="${ds_path}/for_upload/IWSLT_tst2019/input.txt" \
     --tgtout="${output}" \
     --word_tokens u U O \
     --add_src_num_words_to_batch \
