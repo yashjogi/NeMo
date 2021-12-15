@@ -1,4 +1,4 @@
-ds_path=/home/apeganov/NeMo/examples/speech_translation/prepared_punctuation_data_all_punctuation
+ds_path=/media/apeganov/DATA/punctuation_and_capitalization/simplest/wiki_wmt_92_128_29.11.2021
 output="${ds_path}/predictions/aayn_base_fixed_beam_search_job2308718/pred.txt"
 mkdir -p "$(dirname "${output}")"
 python nmt_transformer_infer.py \
