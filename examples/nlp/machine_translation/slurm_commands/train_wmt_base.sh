@@ -6,7 +6,7 @@
 #SBATCH --exclusive
 #SBATCH --mem=0
 #SBATCH --gpus-per-node=16
-#SBATCH -J "ent_aiapps_asr:punctuation_capitalization_using_NMT_base_bs400000"  # job name (<< CHANGE ! >>)
+#SBATCH -J "ent_aiapps_asr:punctuation_capitalization_using_NMT_base_bs800000_steps300000"  # job name (<< CHANGE ! >>)
 #SBATCH --mail-type=FAIL        # only send email on failure
 #SBATCH --overcommit
 #SBATCH --ntasks-per-node=16     # n tasks per machine (one task per gpu) <required>
@@ -19,13 +19,13 @@ WANDB="${wandb}" # replace with your own WandB API key
 # total_tokens = max_steps * global_batch_size_in_tokens
 # global_batch_size_in_tokens = micro_batch_size * data_parallel_size * accumulate_grad_batches * seq_length
 # data_parallel_size = num_nodes * num_gpus_per_node (no model parallel)
-MAX_STEPS=200000
+MAX_STEPS=300000
 VAL_CHECK_INTERVAL=2000
 LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="nmt_wmt_base_bs800000_steps200000_lr2e-4"
+EXPNAME="nmt_wmt_base_bs800000_steps300000_lr2e-4"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
