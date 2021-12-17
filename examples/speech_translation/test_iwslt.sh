@@ -26,7 +26,7 @@ Parameters of the script are
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
-  punctuation_en_bert \
+  punctuation_en_nmt \
   ~/checkpoints/wmt21_en_de_backtranslated_24x6_averaged.nemo \
   ~/iwslt_2019_test_result \
   0 \

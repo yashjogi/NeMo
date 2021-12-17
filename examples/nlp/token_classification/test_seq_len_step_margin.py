@@ -53,6 +53,7 @@ def get_args():
     parser.add_argument("--cpu", help="Whether to perform computations on CPU.", action="store_true")
     parser.add_argument("--num_subtokens_in_input", "-N", default=17000, type=int)
     parser.add_argument("--num_subtokens_step", "-S", default=500, type=int)
+    parser.add_argument("--cuda_device", type=int, default=0)
     args = parser.parse_args()
     args.labels = args.labels.expanduser()
     args.source_text = args.source_text.expanduser()
@@ -197,14 +198,14 @@ def main():
         texts = [line.strip() for line in f]
     with args.labels.open() as f:
         labels_text = f.read()
-    if args.model_path is None:
-        model = PunctuationCapitalizationModel.from_pretrained(args.pretrained_name)
-    else:
-        model = PunctuationCapitalizationModel.restore_from(args.model_path)
     if args.cpu:
-        model = model.cpu()
+        device = torch.device('cpu')
     else:
-        model = model.cuda()
+        device = torch.device(f'cuda:{args.cuda_device}')
+    if args.model_path is None:
+        model = PunctuationCapitalizationModel.from_pretrained(args.pretrained_name, map_location=device)
+    else:
+        model = PunctuationCapitalizationModel.restore_from(args.model_path, map_location=device)
     if args.continue_from is None:
         result = {"punctuation": {"margin": {}}, "capitalization": {"margin": {}}}
         best = deepcopy(EMPTY_BEST)
