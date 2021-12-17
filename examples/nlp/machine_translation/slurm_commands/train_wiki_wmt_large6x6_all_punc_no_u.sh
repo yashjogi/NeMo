@@ -63,7 +63,7 @@ echo "*******STARTING********" \
 	model.test_ds.src_file_name="/data/IWSLT_tst2019/input.txt" \
 	model.test_ds.tgt_file_name="/data/IWSLT_tst2019/autoregressive_labels.txt" \
 	model.encoder_tokenizer.tokenizer_model="/data/input.BPE.25000.model" \
-	model.decoder_tokenizer.tokenizer_model="/data/autoregressive_labels.BPE.18.model" \
+	model.decoder_tokenizer.tokenizer_model="/data/autoregressive_labels.BPE.17.model" \
 	model.decoder_tokenizer.word_tokens=[u,O,U] \
 	trainer.num_nodes=${SLURM_JOB_NUM_NODES} \
 	trainer.gpus=${SLURM_NTASKS_PER_NODE} \
