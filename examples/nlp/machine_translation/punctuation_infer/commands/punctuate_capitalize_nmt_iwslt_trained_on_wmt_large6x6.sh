@@ -19,5 +19,6 @@ python compute_metrics.py \
     --hyp ${pred_labels} \
     --ref "${work_dir}/labels_iwslt_en_text.txt" \
     --output "${output_dir}/wmt_large6x6_bs400000_steps300000_lr2e-4_autoregressive_labels_scores.json" \
-    --normalize_punctuation_in_hyp
+    --normalize_punctuation_in_hyp \
+    --reference_evelina_data_format
 set +e
