@@ -59,7 +59,6 @@ def get_args():
     parser.add_argument(
         "--manifest_to_align_with",
         "-a",
-        required=True,
         type=Path,
         help="Works for IWSLT dataset if input is passed in `--input_manifest`. The order of output texts will be"
         "same as in `--manifest_to_align_with`.",
