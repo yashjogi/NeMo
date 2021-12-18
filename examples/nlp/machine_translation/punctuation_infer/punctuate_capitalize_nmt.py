@@ -307,6 +307,8 @@ def get_label_votes(
             labels = labels[1:]
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
+            if lbl_i < 5 and q_i == 3:
+                print("lbl_i, lbl, punctuation_voting, capitalization_voting:", lbl_i, lbl, punctuation_voting[:5], capitalization_voting[:5])
             capitalization_label_expected = (
                 lbl_i % 2 and segment_id_in_query == 0
                 or lbl_i % 2 == 0 and segment_id_in_query > 0
@@ -352,7 +354,10 @@ def get_label_votes(
                     f"{repr(segment_autoregressive_labels[current_segment_i])}"
                 )
                 update_label_counter(
-                    punctuation_voting[query_word_i], lbl, num_words_in_segment, num_processed_capit_labels_in_segment - 1
+                    punctuation_voting[query_word_i],
+                    lbl,
+                    num_words_in_segment,
+                    word_ind_in_segment=num_processed_capit_labels_in_segment - 1,
                 )
         assert (
             len(labels) > 0
