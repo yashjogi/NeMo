@@ -1,5 +1,5 @@
 set -e
-work_dir="~/data/iwslt/IWSLT-SLT/eval/en-de/IWSLT.tst2019/for_testing_punctuation_model"
+work_dir="~/data/iwslt/IWSLT-SLT/eval/en-de/IWSLT.tst2019/for_testing_punctuation_model2"
 output_dir="${work_dir}/nmt"
 pred_labels="${output_dir}/wmt_large6x6_bs400000_steps300000_lr2e-4_autoregressive_labels_no_overlapping.txt"
 python punctuate_capitalize_nmt.py \
