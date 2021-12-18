@@ -13,7 +13,8 @@ python punctuate_capitalize_nmt.py \
     --margin 0 \
     --batch_size 256 \
     --no_all_upper_label \
-    --add_source_num_words_to_batch
+    --add_source_num_words_to_batch \
+    --make_queries_contain_intact_sentences
 
 python compute_metrics.py \
     --hyp ${output_labels} \

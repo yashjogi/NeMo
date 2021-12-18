@@ -307,8 +307,6 @@ def get_label_votes(
             labels = labels[1:]
         num_processed_capit_labels_in_segment = 0
         for lbl_i, lbl in enumerate(labels):
-            if lbl_i < 5 and q_i == 3:
-                print("lbl_i, lbl, punctuation_voting, capitalization_voting:", lbl_i, lbl, punctuation_voting[:5], capitalization_voting[:5])
             capitalization_label_expected = (
                 lbl_i % 2 and segment_id_in_query == 0
                 or lbl_i % 2 == 0 and segment_id_in_query > 0
