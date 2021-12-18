@@ -354,7 +354,7 @@ def get_label_votes(
                     f"{repr(segment_autoregressive_labels[current_segment_i])}"
                 )
                 update_label_counter(
-                    punctuation_voting[query_word_i],
+                    punctuation_voting[0 if lbl_i == 0 and segment_id_in_query == 0 else query_word_i + 1],
                     lbl,
                     num_words_in_segment,
                     word_ind_in_segment=num_processed_capit_labels_in_segment - 1,
@@ -411,7 +411,7 @@ def apply_autoregressive_labels(
         # Leading punctuation
         processed_query = select_best_label(punctuation_voting[0])
         united = processed_query
-        for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting)):
+        for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting[1:])):
             # logging.info(f"cv: {cv}")
             # logging.info(f'pv: {pv}')
             capitalization_label = select_best_label(cv)
