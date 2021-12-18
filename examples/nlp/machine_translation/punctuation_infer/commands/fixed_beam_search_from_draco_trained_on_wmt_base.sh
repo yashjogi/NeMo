@@ -1,5 +1,5 @@
 set -e
-ds_path=/media/apeganov/DATA/punctuation_and_capitalization/simplest/wmt_92_128_29.11.2021
+ds_path=/media/apeganov/DATA/punctuation_and_capitalization/simplest/wmt_92_128_14.12.2021
 output="${ds_path}/preds/nmt_wmt_base_bs800000_steps300000_lr2e-4/preds.txt"
 model_path="/home/apeganov/NWInf_results/autoregressive_punctuation_capitalization/nmt_wmt_base_bs800000_steps300000_lr2e-4/checkpoints/AAYNLarge6x6.nemo"
 mkdir -p "$(dirname "${output}")"
