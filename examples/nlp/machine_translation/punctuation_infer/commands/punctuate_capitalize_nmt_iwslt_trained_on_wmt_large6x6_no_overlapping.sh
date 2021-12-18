@@ -7,8 +7,8 @@ python punctuate_capitalize_nmt.py \
     --output_text "${output_dir}/wmt_large6x6_bs400000_steps300000_lr2e-4_text_no_overlapping.txt" \
     --output_labels "${pred_labels}" \
     --model_path ~/NWInf_results/autoregressive_punctuation_capitalization/nmt_wmt_large6x6_bs400000_steps300000_lr2e-4/checkpoints/AAYNLarge6x6.nemo \
-    --max_seq_length 128 \
-    --step 96 \
+    --max_seq_length 64 \
+    --step 32 \
     --margin 16 \
     --batch_size 36 \
     --no_all_upper_label \
