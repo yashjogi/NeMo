@@ -236,6 +236,10 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
             start_word_i.append(segment_start)
             query_indices.append(q_i)
             segment_start += step
+        if segment_start < len(words):
+            segments.append(' '.join(words[segment_start:]))
+            start_word_i.append(segment_start)
+            query_indices.append(q_i)
     return segments, query_indices, start_word_i
 
 
