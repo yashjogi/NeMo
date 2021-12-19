@@ -410,6 +410,7 @@ def apply_autoregressive_labels(
         processed_query = select_best_label(punctuation_voting[0])
         united = processed_query
         for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting[1:])):
+            print("word, cv, pv:", repr(word), cv, pv)
             # logging.info(f"cv: {cv}")
             # logging.info(f'pv: {pv}')
             capitalization_label = select_best_label(cv)
@@ -500,6 +501,12 @@ def main():
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
+    print("Segments and labels:")
+    for s_i, (s, lbl) in enumerate(zip(segments, autoregressive_labels)):
+        print(s_i)
+        print(s)
+        print(lbl)
+        print()
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
