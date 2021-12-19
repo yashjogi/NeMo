@@ -74,7 +74,7 @@ if __name__ == "__main__":
     if args.input is None:
         print("Loading data:", args.input_manifest)
         manifest_items = load_manifest(args.input_manifest)
-        data = [item[args.text_key] for item in manifest_items]
+        data = [item[args.manifest_text_key] for item in manifest_items]
     else:
         print("Loading data: " + args.input)
         data = load_file(args.input)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     normalizer_prediction = normalizer.normalize_list(data, verbose=args.verbose)
     if args.output is None:
         for item, processed_text in zip(manifest_items, normalizer_prediction):
-            item[args.text_key] = processed_text
+            item[args.manifest_text_key] = processed_text
         write_manifest(manifest_items, args.output_manifest)
         print(f"- Normalized. Writing out to {args.output_manifest}")
     else:
