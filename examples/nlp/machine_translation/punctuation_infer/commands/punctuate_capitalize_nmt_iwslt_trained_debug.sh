@@ -8,9 +8,9 @@ python punctuate_capitalize_nmt.py \
     --output_text "${output_text}" \
     --output_labels "${output_labels}" \
     --model_path "${model_path}" \
-    --max_seq_length 20 \
+    --max_seq_length 45 \
     --step 10 \
-    --margin 1 \
+    --margin 3 \
     --batch_size 256 \
     --no_all_upper_label \
     --add_source_num_words_to_batch \

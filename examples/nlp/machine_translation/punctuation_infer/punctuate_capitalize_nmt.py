@@ -416,13 +416,15 @@ def apply_autoregressive_labels(
         # Leading punctuation
         processed_query = select_best_label(punctuation_voting[0])
         united = processed_query
-        for i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting[1:])):
-            print("word, cv, pv:", repr(word), cv, pv)
+        for word_i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting[1:])):
+            print("q_i, word_i, word, cv, pv:", q_i, word_i, repr(word), cv, pv)
             # logging.info(f"cv: {cv}")
             # logging.info(f'pv: {pv}')
             capitalization_label = select_best_label(cv)
             punctuation_label = select_best_label(pv)
-            error_msg = f"Unexpected capitalization label {repr(capitalization_label)} in word {i} in a query {q_i}."
+            error_msg = (
+                f"Unexpected capitalization label {repr(capitalization_label)} in word {word_i} in a query {q_i}."
+            )
             if no_all_upper_label:
                 if capitalization_label == 'U':
                     processed_query += word.capitalize()
