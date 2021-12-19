@@ -476,6 +476,7 @@ def main():
         else:
             empty_queries.append(text)
             empty_indices.append(i)
+    print("len(not_empty_queries):", len(not_empty_queries))
     segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.step)
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
