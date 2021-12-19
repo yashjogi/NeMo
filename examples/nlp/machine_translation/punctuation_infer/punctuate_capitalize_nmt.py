@@ -417,7 +417,6 @@ def apply_autoregressive_labels(
         processed_query = select_best_label(punctuation_voting[0])
         united = processed_query
         for word_i, (word, cv, pv) in enumerate(zip(words, capitalization_voting, punctuation_voting[1:])):
-            print("q_i, word_i, word, cv, pv:", q_i, word_i, repr(word), cv, pv)
             # logging.info(f"cv: {cv}")
             # logging.info(f'pv: {pv}')
             capitalization_label = select_best_label(cv)
@@ -485,9 +484,7 @@ def main():
         else:
             empty_queries.append(text)
             empty_indices.append(i)
-    print("len(not_empty_queries):", len(not_empty_queries))
     segments, query_indices, start_word_i = split_into_segments(not_empty_queries, args.max_seq_length, args.step)
-    print("len(segments):", len(segments))
     model.beam_search = BeamSearchSequenceGenerator(
         embedding=model.decoder.embedding,
         decoder=model.decoder.decoder,
@@ -512,12 +509,6 @@ def main():
             add_src_num_words_to_batch=args.add_source_num_words_to_batch,
         )
     autoregressive_labels = adjust_predicted_labels_length(segments, autoregressive_labels, args.capitalization_labels)
-    print("Segments and labels:")
-    for s_i, (s, lbl) in enumerate(zip(segments, autoregressive_labels)):
-        print(s_i)
-        print(s)
-        print(lbl)
-        print()
     processed_queries, united_labels = apply_autoregressive_labels(
         texts,
         autoregressive_labels,
