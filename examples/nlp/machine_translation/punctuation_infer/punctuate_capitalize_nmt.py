@@ -231,12 +231,14 @@ def split_into_segments(texts: List[str], max_seq_length: int, step: int) -> Tup
     for q_i, query in enumerate(texts):
         segment_start = 0
         words = query.split()
+        if len(words) == 0:
+            raise ValueError(f"Query number {q_i} contains 0 words.")
         while segment_start + max_seq_length - step < len(words):
             segments.append(' '.join(words[segment_start : segment_start + max_seq_length]))
             start_word_i.append(segment_start)
             query_indices.append(q_i)
             segment_start += step
-        if segment_start < len(words):
+        if segment_start == 0:
             segments.append(' '.join(words[segment_start:]))
             start_word_i.append(segment_start)
             query_indices.append(q_i)
@@ -374,6 +376,7 @@ def get_label_votes(
         )
         segment_id_in_query += 1
         current_segment_i += 1
+    assert len(words) == 0 or query_word_i == len(words) - 1
     return punctuation_voting, capitalization_voting, current_segment_i
 
 
