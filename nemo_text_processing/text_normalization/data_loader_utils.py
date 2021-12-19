@@ -16,7 +16,7 @@
 import json
 import re
 from collections import defaultdict, namedtuple
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 EOS_TYPE = "EOS"
 PUNCT_TYPE = "PUNCT"
@@ -238,3 +238,48 @@ def pre_process(text: str) -> str:
     # remove extra space
     text = re.sub(r' +', ' ', text)
     return text
+
+
+def load_file(file_path: str) -> List[str]:
+    """
+    Load given text file into list of string.
+
+    Args:
+        file_path: file path
+
+    Returns: flat list of string
+    """
+    res = []
+    with open(file_path, 'r') as fp:
+        for line in fp:
+            res.append(line)
+    return res
+
+
+def write_file(file_path: str, data: List[str]):
+    """
+    Writes out list of string to file.
+
+    Args:
+        file_path: file path
+        data: list of string
+
+    """
+    with open(file_path, 'w') as fp:
+        for line in data:
+            fp.write(line + '\n')
+
+
+def load_manifest(manifest_path: str) -> List[Dict[str, Union[str, float]]]:
+    result = []
+    with open(manifest_path) as f:
+        for i, line in enumerate(f):
+            data = json.loads(line)
+            result.append(data)
+    return result
+
+
+def write_manifest(manifest_items: List[Dict[str, Union[str, float]]], output_manifest_path: str) -> None:
+    with open(output_manifest_path, 'w') as f:
+        for item in manifest_items:
+            f.write(json.dumps(item) + '\n')

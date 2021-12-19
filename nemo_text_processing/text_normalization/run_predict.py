@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from typing import List
 
+from nemo_text_processing.text_normalization.data_loader_utils import (
+    load_file, load_manifest, write_file, write_manifest
+)
 from nemo_text_processing.text_normalization.normalize import Normalizer
 
 
@@ -23,57 +26,66 @@ Runs normalization prediction on text data
 '''
 
 
-def load_file(file_path: str) -> List[str]:
-    """
-    Load given text file into list of string.
-
-    Args: 
-        file_path: file path
-
-    Returns: flat list of string
-    """
-    res = []
-    with open(file_path, 'r') as fp:
-        for line in fp:
-            res.append(line)
-    return res
-
-
-def write_file(file_path: str, data: List[str]):
-    """
-    Writes out list of string to file.
-
-    Args:
-        file_path: file path
-        data: list of string
-        
-    """
-    with open(file_path, 'w') as fp:
-        for line in data:
-            fp.write(line + '\n')
-
-
 def parse_args():
-    parser = ArgumentParser()
-    parser.add_argument("--input", help="input file path", required=True, type=str)
+    parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+    input_ = parser.add_mutually_exclusive_group(required=True)
+    input_.add_argument(
+        "--input", help="Path to input text file. Mutually exclusive with `--input_manifest` parameter."
+    )
+    input_.add_argument(
+        "--input_manifest",
+        help="Path to manifest file in NeMo format"
+        "https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/asr/speaker_recognition/datasets.html"
+        "?highlight=manifest#all-other-datasets. Mutually exclusive with `--input` parameter. Texts for processing "
+        "are passed in the manifest under `--manifest_text_key`.",
+    )
     parser.add_argument("--language", help="language", choices=['en'], default="en", type=str)
-    parser.add_argument("--output", help="output file path", required=True, type=str)
+    output = parser.add_mutually_exclusive_group(required=True)
+    output.add_argument("--output", help="Path to output text file. Mutually exclusive with `--output_manifest`.")
+    output.add_argument(
+        "--output_manifest",
+        help="Path to output manifest file in NeMo format"
+        "https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/asr/speaker_recognition/datasets.html"
+        "?highlight=manifest#all-other-datasets. Mutually exclusive with `--output` parameter. To save results "
+        "in `--output_manifest` you need to pass input text in `--input_manifest`.",
+    )
+    parser.add_argument(
+        "--manifest_text_key",
+        help="The key in ASR manifest which contains text for processing. If processed text is saved in "
+        "`--output_manifest`, then it is saved under `--manifest_text_key`.",
+        default="text",
+    )
     parser.add_argument(
         "--input_case", help="input capitalization", choices=["lower_cased", "cased"], default="cased", type=str
     )
     parser.add_argument("--verbose", help="print meta info for debugging", action='store_true')
-    return parser.parse_args()
+    parsed_args = parser.parse_args()
+    if parsed_args.output_manifest is not None and parsed_args.input_manifest is None:
+        parser.error(
+            "If you provide `--output_manifest` argument you should also provide `--input_manifest` argument."
+        )
+    return parsed_args
 
 
 if __name__ == "__main__":
     args = parse_args()
-    file_path = args.input
     normalizer = Normalizer(input_case=args.input_case, lang=args.language)
 
-    print("Loading data: " + file_path)
-    data = load_file(file_path)
+    if args.input is None:
+        print("Loading data:", args.input_manifest)
+        manifest_items = load_manifest(args.input_manifest)
+        data = [item[args.text_key] for item in manifest_items]
+    else:
+        print("Loading data: " + args.input)
+        data = load_file(args.input)
 
     print("- Data: " + str(len(data)) + " sentences")
     normalizer_prediction = normalizer.normalize_list(data, verbose=args.verbose)
-    write_file(args.output, normalizer_prediction)
-    print(f"- Normalized. Writing out to {args.output}")
+    if args.output is None:
+        for item, processed_text in zip(manifest_items, normalizer_prediction):
+            item[args.text_key] = processed_text
+        write_manifest(manifest_items, args.output_manifest)
+        print(f"- Normalized. Writing out to {args.output_manifest}")
+    else:
+        write_file(args.output, normalizer_prediction)
+        print(f"- Normalized. Writing out to {args.output}")
