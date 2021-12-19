@@ -4,7 +4,7 @@ output_text="${ds_path}/preds/debug_inference/pred_text.txt"
 output_labels="${ds_path}/preds/debug_inference/pred_labels.txt"
 model_path="/home/apeganov/NWInf_results/autoregressive_punctuation_capitalization/nmt_wmt_large6x6_bs400000_steps300000_lr2e-4/checkpoints/AAYNLarge6x6.nemo"
 python punctuate_capitalize_nmt.py \
-    --input_text "debug/short_input.txt" \
+    --input_text "debug/input.txt" \
     --output_text "${output_text}" \
     --output_labels "${output_labels}" \
     --model_path "${model_path}" \
@@ -18,7 +18,7 @@ python punctuate_capitalize_nmt.py \
 
 python compute_metrics.py \
     --hyp ${output_labels} \
-    --ref "${ds_path}/for_upload/IWSLT_tst2019/autoregressive_labels.txt" \
+    --ref "debug/autoregressive_labels.txt" \
     --output "${ds_path}/preds/debug_inference/scores.json" \
     --normalize_punctuation_in_hyp
 set +e
