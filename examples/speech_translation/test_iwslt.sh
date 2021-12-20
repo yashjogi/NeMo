@@ -116,8 +116,6 @@ else
     batch_size=1
 fi
 
-
-printf "\n\nTransforming text to numbers.."
 if [ "${segmented}" -eq 1 ]; then
   transcript="${output_dir}/transcripts_segmented_input/${asr_model_name}.manifest"
 else
@@ -125,12 +123,14 @@ else
 fi
 mkdir -p "$(dirname "${transcript}")"
 if [ "${use_inverse_text_normalization}" -eq 1 ]; then
-  python -m nemo_text_processing.inverse_text_normalization.run_predict.py \
+  printf "\n\nInverse text normalization.."
+  python -m nemo_text_processing.inverse_text_normalization.run_predict \
     --input_manifest "${transcript_no_numbers}" \
     --output_manifest "${transcript}" \
     --manifest_text_key pred_text \
     --input_case lower_cased
 else
+  printf "\n\nTransforming text to numbers.."
   python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py \
     -i "${transcript_no_numbers}" \
     -o "${transcript}"
