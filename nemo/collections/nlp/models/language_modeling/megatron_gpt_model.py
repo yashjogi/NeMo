@@ -15,6 +15,7 @@
 import re
 from typing import Any, Dict, Optional
 from apex.transformer.pipeline_parallel.utils import get_num_microbatches
+from pytorch_lightning.utilities.distributed import rank_zero_only
 
 import torch
 from apex.transformer import parallel_state, tensor_parallel
@@ -124,6 +125,7 @@ class MegatronGPTModel(NLPModel):
             layernorm_epsilon=self.cfg.get('layernorm_epsilon', 1e-5),
             onnx_safe=self.cfg.get('onnx_safe', False),
         )
+
         return model
 
     def setup_optimizer_param_groups(self):
@@ -184,7 +186,6 @@ class MegatronGPTModel(NLPModel):
             if loss_scale is not None:
                 self.log('loss_scale', loss_scale)
 
-        # Reduced loss for logging.
         self.log('reduced_train_loss', loss_mean, prog_bar=True, rank_zero_only=True)
         lr = self._optimizer.param_groups[0]['lr']
         self.log('lr', lr, rank_zero_only=True)
@@ -476,13 +477,8 @@ class MegatronGPTModel(NLPModel):
         self.setup_test_data(self.cfg.data)
 
         # when using pipeline model parallel the final stage need to initialize word embeddings
-        # if not using pipeline parallel, then this call will do nothing
-        self.model.initialize_word_embeddings(
-            init_method=init_method_normal(self.cfg.get('init_method_std', 0.02)),
-            vocab_size=self.padded_vocab_size,
-            hidden_size=self.cfg.hidden_size,
-            pipeline_model_parallel_size=parallel_state.get_pipeline_model_parallel_world_size(),
-        )
+        if parallel_state.get_pipeline_model_parallel_world_size() > 1:
+            self.model.sync_initial_word_embeddings()
 
     def setup_training_data(self, cfg):
         if hasattr(self, '_train_ds'):
@@ -536,7 +532,8 @@ class MegatronGPTModel(NLPModel):
             return
 
         parameters = self.get_parameters()
-        clip_grad_norm_fp32(parameters=parameters, max_norm=clip_val)
+        grad_norm = clip_grad_norm_fp32(parameters=parameters, max_norm=clip_val)
+        self.log('grad_norm', grad_norm, rank_zero_only=True)
 
     def get_parameters(self):
         params = []
