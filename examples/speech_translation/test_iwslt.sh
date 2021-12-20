@@ -134,7 +134,7 @@ else
   python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py \
     -i "${transcript_no_numbers}" \
     -o "${transcript}"
-else
+fi
 
 
 printf "\n\nComputing WER..\n"
