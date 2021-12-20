@@ -27,6 +27,7 @@ def get_args():
     )
     parser.add_argument("--manifest-pred", "-p", required=True, type=Path)
     parser.add_argument("--output", "-o", required=True, type=Path)
+    parser.add_argument("--do_no_fix_decimals", action="store_true")
     args = parser.parse_args()
     args.manifest_to_align_with = args.manifest_to_align_with.expanduser()
     args.manifest_pred = args.manifest_pred.expanduser()
@@ -92,18 +93,21 @@ def main():
     texts_to_process = load_manifest_text(args.manifest_pred, "pred_text")
     texts = [texts_to_process[talk_id] for talk_id in order]
     max_seq_len = 108
-    processed = []
     processed_texts = model.add_punctuation_capitalization(
         texts, batch_size=MAX_NUM_SUBTOKENS_IN_INPUT // max_seq_len, max_seq_length=max_seq_len, step=8, margin=16
     )
-    for text in processed_texts:
-        processed.append(DECIMAL.sub(decimal_repl, SPACE_DEDUP.sub(' ', text)))
-        # processed.append(
-        #     LONG_NUMBER.sub(
-        #         insert_commas_in_long_numbers,
-        #         DECIMAL.sub(decimal_repl, SPACE_DEDUP.sub(' ', ' '.join(processed_segments))),
-        #     )
-        # )
+    if args.do_not_fix_decimals:
+        processed = []
+        for text in processed_texts:
+            processed.append(DECIMAL.sub(decimal_repl, SPACE_DEDUP.sub(' ', text)))
+            # processed.append(
+            #     LONG_NUMBER.sub(
+            #         insert_commas_in_long_numbers,
+            #         DECIMAL.sub(decimal_repl, SPACE_DEDUP.sub(' ', ' '.join(processed_segments))),
+            #     )
+            # )
+    else:
+        processed = processed_texts
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('w') as f:
         for t in processed:

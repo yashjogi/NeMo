@@ -23,6 +23,8 @@ Parameters of the script are
   no_all_upper_label: If 1, then only 2 capitalization labels U and O are used. If 0, then 'u' is for only first
     character capitalization, 'U' for all characters capitalization, and 'O' for no capitalization. This parameter
     is required only for NMT punctuation and capitalization.
+  use_inverse_text_normalization: If 1, then `nemo_text_processing/inverse_text_normalization/run_predict.py` is
+    used. If 0, then `test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py` is used.
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
@@ -32,7 +34,8 @@ bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   0 \
   1 \
   1 \
-  1
+  1 \
+  0
 MULTILINE-COMMENT
 
 set -e
@@ -47,6 +50,7 @@ segmented="$6"  # 1 or 0
 mwerSegmenter="$7"  # 1 or 0
 use_nmt_for_punctuation_and_capitalization="$8"  # 1 or 0
 no_all_upper_label="$9"  # 1 or 0
+use_inverse_text_normalization="${10}"
 
 
 audio_dir="${dataset_dir}/wavs"
@@ -120,7 +124,17 @@ else
   transcript="${output_dir}/transcripts_not_segmented_input/${asr_model_name}.manifest"
 fi
 mkdir -p "$(dirname "${transcript}")"
-python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py -i "${transcript_no_numbers}" -o "${transcript}"
+if [ "${use_inverse_text_normalization}" -eq 1 ]; then
+  python -m nemo_text_processing.inverse_text_normalization.run_predict.py \
+    --input_manifest "${transcript_no_numbers}" \
+    --output_manifest "${transcript}" \
+    --manifest_text_key pred_text \
+    --input_case lower_cased
+else
+  python test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py \
+    -i "${transcript_no_numbers}" \
+    -o "${transcript}"
+else
 
 
 printf "\n\nComputing WER..\n"
