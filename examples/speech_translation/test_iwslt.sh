@@ -112,6 +112,7 @@ if [ "${segmented}" -eq 1 ]; then
           --beam_beta 1.5 \
           --preds_output_folder kenlm_outputs \
           --decoding_mode beamsearch
+      fi
     fi
   done
   python test_iwslt_and_perform_all_ops_common_scripts/join_split_wav_manifests.py \
