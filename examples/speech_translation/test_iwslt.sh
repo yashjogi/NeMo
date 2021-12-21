@@ -144,7 +144,7 @@ else
       --preds_output_folder ${kenlm_outputs} \
       --decoding_mode beamsearch
     python test_iwslt_and_perform_all_ops_common_scripts/text_to_manifest.py \
-      --input "${kenlm_outputs}/*.tsv" \
+      --input "${kenlm_outputs}/"*.tsv \
       --output "${transcript_no_numbers}" \
       --reference_manifest "${en_ground_truth_manifest}"
   fi
