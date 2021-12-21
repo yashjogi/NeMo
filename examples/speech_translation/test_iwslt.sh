@@ -25,6 +25,8 @@ Parameters of the script are
     is required only for NMT punctuation and capitalization.
   use_inverse_text_normalization: If 1, then `nemo_text_processing/inverse_text_normalization/run_predict.py` is
     used. If 0, then `test_iwslt_and_perform_all_ops_common_scripts/text_to_numbers.py` is used.
+  kenlm_model: If provided it should be path to kenlm model used for CTC rescoring. If it is not provided, then no
+    rescoring is performed.
 Usage example:
 bash test_iwslt.sh ~/data/IWSLT.tst2019 \
   stt_en_citrinet_1024 \
@@ -51,6 +53,7 @@ mwerSegmenter="$7"  # 1 or 0
 use_nmt_for_punctuation_and_capitalization="$8"  # 1 or 0
 no_all_upper_label="$9"  # 1 or 0
 use_inverse_text_normalization="${10}"
+kenlm_model="${11}"
 
 
 audio_dir="${dataset_dir}/wavs"
@@ -92,11 +95,23 @@ if [ "${segmented}" -eq 1 ]; then
   for f in "${split_data_path}"/*; do
     talk_id=$(basename "${f}")
     if [[ "${talk_id}" =~ ^[1-9][0-9]*$ ]]; then
-      python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
-        audio_dir="${f}" \
-        output_filename="${split_transcripts}/${talk_id}.manifest" \
-        cuda=0 \
-        batch_size=4
+      if [ -z "${kenlm_model}" ]; then
+        python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
+          audio_dir="${f}" \
+          output_filename="${split_transcripts}/${talk_id}.manifest" \
+          cuda=0 \
+          batch_size=4
+      else
+        python ~/NeMo/scripts/asr_language_modeling/ngram_lm/eval_beamsearch_ngram.py \
+          --nemo_model_file "${asr_model}" \
+          --input_manifest "${en_ground_truth_manifest}" \
+          --kenlm_model_file "${kenlm_model}" \
+          --acoustic_batch_size 1 \
+          --beam_width 4 \
+          --beam_alpha 2 \
+          --beam_beta 1.5 \
+          --preds_output_folder kenlm_outputs \
+          --decoding_mode beamsearch
     fi
   done
   python test_iwslt_and_perform_all_ops_common_scripts/join_split_wav_manifests.py \
@@ -109,11 +124,29 @@ else
   fi
   transcript_no_numbers="${output_dir}/transcripts_not_segmented_input_no_numbers/${asr_model_name}.manifest"
   mkdir -p "$(dirname "${transcript_no_numbers}")"
-  python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
-    audio_dir="${audio_dir}" \
-    output_filename="${transcript_no_numbers}" \
-    cuda=0 \
-    batch_size=1
+  if [ -z "${kenlm_model}" ]; then
+    python ~/NeMo/examples/asr/transcribe_speech.py "${asr_model_argument_name}"="${asr_model}" \
+      audio_dir="${audio_dir}" \
+      output_filename="${transcript_no_numbers}" \
+      cuda=0 \
+      batch_size=1
+  else
+    kenlm_outputs="${output_dir}/transcripts_not_segmented_input_no_numbers/${asr_model_name}_kenlm"
+    python ~/NeMo/scripts/asr_language_modeling/ngram_lm/eval_beamsearch_ngram.py \
+      --nemo_model_file "${asr_model}" \
+      --input_manifest "${en_ground_truth_manifest}" \
+      --kenlm_model_file "${kenlm_model}" \
+      --acoustic_batch_size 1 \
+      --beam_width 4 \
+      --beam_alpha 2 \
+      --beam_beta 1.5 \
+      --preds_output_folder ${kenlm_outputs} \
+      --decoding_mode beamsearch
+    python text_to_manifest.py \
+      --input "${kenlm_outputs}/*.csv" \
+      --output "${transcript_no_numbers}" \
+      --reference_manifest "${en_ground_truth_manifest}"
+  fi
 fi
 
 if [ "${segmented}" -eq 1 ]; then
@@ -183,10 +216,18 @@ if [ "${use_nmt_for_punctuation_and_capitalization}" -eq 1 ]; then
       --manifest_to_align_with "${en_ground_truth_manifest}"
   fi
 else
-  python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
-    -m "${punctuation_model}" \
-    -p "${transcript}" \
-    -o "${punc_dir}/${asr_model_name}.txt"
+  if [ "${use_inverse_text_normalization}" -eq 1 ]; then
+    python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
+      -m "${punctuation_model}" \
+      -p "${transcript}" \
+      -o "${punc_dir}/${asr_model_name}.txt" \
+      --do_not_fix_decimals
+  else
+    python test_iwslt_and_perform_all_ops_common_scripts/punc_cap.py -a "${en_ground_truth_manifest}" \
+      -m "${punctuation_model}" \
+      -p "${transcript}" \
+      -o "${punc_dir}/${asr_model_name}.txt"
+  fi
 fi
 
 

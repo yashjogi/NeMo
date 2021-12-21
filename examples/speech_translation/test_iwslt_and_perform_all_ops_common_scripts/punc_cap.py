@@ -27,7 +27,7 @@ def get_args():
     )
     parser.add_argument("--manifest-pred", "-p", required=True, type=Path)
     parser.add_argument("--output", "-o", required=True, type=Path)
-    parser.add_argument("--do_no_fix_decimals", action="store_true")
+    parser.add_argument("--do_not_fix_decimals", action="store_true")
     args = parser.parse_args()
     args.manifest_to_align_with = args.manifest_to_align_with.expanduser()
     args.manifest_pred = args.manifest_pred.expanduser()
