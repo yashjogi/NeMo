@@ -25,7 +25,7 @@ LOG_EVERY_N_STEPS=100
 
 # Logging
 PROJECT="autoregressive_punctuation_capitalization"
-EXPNAME="evelina_wik_wmt_large_lr6e-5_steps300k_from_scratch_bs160k"
+EXPNAME="evelina_wiki_wmt_large_lr6e-5_steps300k_from_scratch_bs160k"
 
 # Mounts
 SLURM_ACCOUNT='ent_aiapps'
