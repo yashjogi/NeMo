@@ -37,7 +37,7 @@ def main() -> None:
     reference_manifest = load_manifest(args.reference_manifest)
     with args.output.open('w') as out_f, args.input.open() as in_f:
         for line, item in zip(in_f, reference_manifest):
-            item = {"audio_filepath": item['audio_filepath'], "pred_text": line.split('\t')[0]}
+            item = {"audio_filepath": item['audio_filepath'], "pred_text": line.split('\t')[0].strip()}
             out_f.write(json.dumps(item) + '\n')
 
 
