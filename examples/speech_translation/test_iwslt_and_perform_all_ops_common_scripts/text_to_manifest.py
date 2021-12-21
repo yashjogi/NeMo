@@ -17,6 +17,15 @@ def get_args() -> argparse.Namespace:
         "contain audio files used for creating `--input` transcript. The order of audio files in "
         "`--reference_manifest` has to be same as in `--input` file."
     )
+    parser.add_argument(
+        "--take_evey_n_line",
+        type=int,
+        help="If scripts/asr_language_modeling/ngram_lm/eval_beamsearch_ngram.py is used to generate transcriptions, "
+        "then all results from beam search are saved. For example, if `--beam_width` parameter of "
+        "eval_beamsearch_ngram.py script is 4, then first 4 lines `--input` in transcript will be different expansions "
+        "of 1 audio file. The first element in a beam has best score.",
+        default=1,
+    )
     args = parser.parse_args()
     for name in ['input', 'output', 'reference_manifest']:
         setattr(args, name, getattr(args, name).expanduser())

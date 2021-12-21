@@ -146,7 +146,8 @@ else
     python test_iwslt_and_perform_all_ops_common_scripts/text_to_manifest.py \
       --input "${kenlm_outputs}/"*.tsv \
       --output "${transcript_no_numbers}" \
-      --reference_manifest "${en_ground_truth_manifest}"
+      --reference_manifest "${en_ground_truth_manifest}" \
+      --take_every_n_line 4
   fi
 fi
 
