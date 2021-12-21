@@ -18,7 +18,7 @@ def get_args() -> argparse.Namespace:
         "`--reference_manifest` has to be same as in `--input` file."
     )
     parser.add_argument(
-        "--take_evey_n_line",
+        "--take_every_n_line",
         type=int,
         help="If scripts/asr_language_modeling/ngram_lm/eval_beamsearch_ngram.py is used to generate transcriptions, "
         "then all results from beam search are saved. For example, if `--beam_width` parameter of "
