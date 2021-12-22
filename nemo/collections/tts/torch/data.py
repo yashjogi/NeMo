@@ -128,18 +128,9 @@ class TTSDataset(Dataset):
 
         self.text_tokenizer = text_tokenizer
 
-        if isinstance(self.text_tokenizer, BaseTokenizer):
-            self.text_tokenizer_pad_id = text_tokenizer.pad
-            self.tokens = text_tokenizer.tokens
-        else:
-            if text_tokenizer_pad_id is None:
-                raise ValueError(f"text_tokenizer_pad_id must be specified if text_tokenizer is not BaseTokenizer")
-
-            if tokens is None:
-                raise ValueError(f"tokens must be specified if text_tokenizer is not BaseTokenizer")
-
-            self.text_tokenizer_pad_id = text_tokenizer_pad_id
-            self.tokens = tokens
+        self.text_tokenizer_pad_id = text_tokenizer.pad
+        self.tokens = text_tokenizer.tokens
+        
 
         if isinstance(manifest_filepath, str):
             manifest_filepath = [manifest_filepath]
