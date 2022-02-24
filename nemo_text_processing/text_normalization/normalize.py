@@ -19,6 +19,7 @@ from collections import OrderedDict
 from typing import List
 
 from nemo_text_processing.text_normalization.token_parser import PRESERVE_ORDER_KEY, TokenParser
+from nemo_text_processing.text_normalization.data_loader_utils import pre_process
 from tqdm import tqdm
 
 try:
@@ -32,7 +33,6 @@ except (ModuleNotFoundError, ImportError):
 try:
     from nemo.collections.common.tokenizers.moses_tokenizers import MosesProcessor
     from nemo.collections.nlp.data.text_normalization.utils import post_process_punct
-    from nemo_text_processing.text_normalization.data_loader_utils import pre_process
 
     NLP_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):

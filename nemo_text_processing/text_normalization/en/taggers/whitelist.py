@@ -66,7 +66,7 @@ class WhiteListFst(GraphFst):
             graph |= _get_whitelist_non_deterministic_graph()
 
         if input_file:
-            whitelist_provided = _get_whitelist_graph(input_case, input_file)
+            whitelist_provided = _get_whitelist_graph(input_case, get_abs_path(input_file))
             if not deterministic:
                 graph |= whitelist_provided
             else:
